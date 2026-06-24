@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prêt-à-Fit</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: sans-serif; color: #1a1a1a; background: #fff; }
+
+.app-header { padding: 2rem 1.5rem 1.5rem; border-bottom: 0.5px solid #e5e5e5; }
+.app-logo { font-size: 22px; font-weight: 500; letter-spacing: -0.5px; }
+.app-logo span { color: #7F77DD; }
+.app-tagline { font-size: 13px; color: #888; margin-top: 4px; }
+
+.section { padding: 1.25rem 1.5rem; border-bottom: 0.5px solid #e5e5e5; }
+.section-title { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.6px; color: #888; margin-bottom: 14px; }
+
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; font-weight: 500; color: #666; }
+.field select, .field input { padding: 9px 12px; border-radius: 8px; border: 0.5px solid #ccc; background: #fff; font-size: 14px; color: #1a1a1a; font-family: sans-serif; width: 100%; }
+
+.inline-row { display: flex; gap: 8px; align-items: center; }
+.sep { color: #888; font-size: 13px; flex-shrink: 0; }
+
+.gender-row { display: flex; gap: 8px; }
+.gender-pill { flex: 1; padding: 9px 12px; border-radius: 8px; border: 0.5px solid #ccc; background: #fff; font-size: 13px; color: #666; cursor: pointer; font-family: sans-serif; text-align: center; transition: all 0.15s; }
+.gender-pill:hover { border-color: #7F77DD; color: #7F77DD; }
+.gender-pill.selected { background: #EEEDFE; border-color: #7F77DD; color: #3C3489; font-weight: 500; }
+
+.chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { padding: 6px 12px; border-radius: 99px; border: 0.5px solid #ccc; background: #fff; font-size: 12px; color: #666; cursor: pointer; transition: all 0.15s; font-family: sans-serif; }
+.chip:hover { border-color: #7F77DD; color: #7F77DD; }
+.chip.selected { background: #EEEDFE; border-color: #7F77DD; color: #3C3489; font-weight: 500; }
+
+.vibe-chip { padding: 6px 12px; border-radius: 99px; border: 0.5px solid #ccc; background: #fff; font-size: 12px; color: #666; cursor: pointer; transition: all 0.15s; font-family: sans-serif; display: flex; align-items: center; gap: 5px; }
+.vibe-chip:hover { border-color: #7F77DD; color: #7F77DD; }
+.vibe-chip.selected { background: #EEEDFE; border-color: #7F77DD; color: #3C3489; font-weight: 500; }
+
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+.toggle-label { font-size: 14px; }
+.toggle-sub { font-size: 12px; color: #888; margin-top: 2px; }
+.toggle { width: 40px; height: 22px; background: #ccc; border-radius: 99px; position: relative; cursor: pointer; border: none; transition: background 0.2s; flex-shrink: 0; }
+.toggle.on { background: #534AB7; }
+.toggle::after { content: ''; position: absolute; width: 16px; height: 16px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; }
+.toggle.on::after { left: 21px; }
+
+.exclusion-tags, .muse-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.excl-tag { display: flex; align-items: center; gap: 6px; padding: 5px 10px; background: #FCEBEB; border: 0.5px solid #F09595; border-radius: 99px; font-size: 12px; color: #791F1F; }
+.excl-tag button { background: none; border: none; cursor: pointer; color: #A32D2D; font-size: 14px; line-height: 1; padding: 0; }
+.muse-tag { display: flex; align-items: center; gap: 6px; padding: 5px 10px; background: #EEEDFE; border: 0.5px solid #7F77DD; border-radius: 99px; font-size: 12px; color: #3C3489; }
+.muse-tag button { background: none; border: none; cursor: pointer; color: #534AB7; font-size: 14px; line-height: 1; padding: 0; }
+
+.excl-input-row, .muse-input-row { display: flex; gap: 8px; }
+.excl-input-row input, .muse-input-row input { flex: 1; padding: 9px 12px; border-radius: 8px; border: 0.5px solid #ccc; font-size: 14px; font-family: sans-serif; background: #fff; color: #1a1a1a; }
+.excl-input-row button { padding: 9px 14px; border-radius: 8px; border: 0.5px solid #ccc; background: #f5f5f5; font-size: 13px; cursor: pointer; font-family: sans-serif; color: #1a1a1a; white-space: nowrap; }
+.excl-input-row button:hover { border-color: #A32D2D; color: #791F1F; }
+.muse-input-row button { padding: 9px 14px; border-radius: 8px; border: 0.5px solid #7F77DD; background: #EEEDFE; font-size: 13px; cursor: pointer; font-family: sans-serif; color: #3C3489; white-space: nowrap; }
+.muse-input-row button:hover { background: #534AB7; color: white; }
+
+.quick-excl, .quick-muse { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.quick-chip { padding: 5px 10px; border-radius: 99px; border: 0.5px solid #ddd; background: #f5f5f5; font-size: 11px; color: #666; cursor: pointer; font-family: sans-serif; }
+.quick-chip:hover { border-color: #A32D2D; color: #791F1F; }
+.quick-muse-chip { padding: 5px 10px; border-radius: 99px; border: 0.5px solid #ddd; background: #f5f5f5; font-size: 11px; color: #666; cursor: pointer; font-family: sans-serif; }
+.quick-muse-chip:hover { border-color: #7F77DD; color: #534AB7; }
+.field-hint { font-size: 11px; color: #aaa; margin-top: 6px; }
+
+.search-btn { margin: 1.25rem 1.5rem; width: calc(100% - 3rem); padding: 12px; background: #534AB7; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; font-family: sans-serif; transition: background 0.15s; }
+.search-btn:hover { background: #3C3489; }
+.search-btn:disabled { background: #eee; color: #999; cursor: not-allowed; }
+
+.results-area { padding: 0 1.5rem 2.5rem; }
+.results-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 20px; padding-top: 1.5rem; padding-bottom: 12px; border-bottom: 0.5px solid #e5e5e5; }
+.product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 28px 20px; }
+
+.product-card { display: flex; flex-direction: column; }
+.product-card:hover .product-image-wrap img { opacity: 0.88; }
+.product-image-wrap { width: 100%; aspect-ratio: 3/4; background: #f5f5f5; border-radius: 4px; overflow: hidden; position: relative; margin-bottom: 10px; }
+.product-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity 0.2s; }
+.img-placeholder { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #bbb; font-size: 11px; text-align: center; padding: 1rem; }
+.img-placeholder svg { width: 28px; height: 28px; opacity: 0.25; }
+
+.product-retailer { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #999; margin-bottom: 4px; }
+.product-name { font-size: 13px; color: #1a1a1a; line-height: 1.4; margin-bottom: 4px; }
+.product-price { font-size: 13px; font-weight: 500; color: #1a1a1a; margin-bottom: 8px; }
+.product-details-toggle { font-size: 11px; color: #7F77DD; cursor: pointer; background: none; border: none; padding: 0; font-family: sans-serif; margin-bottom: 10px; text-align: left; }
+.product-details-toggle:hover { color: #3C3489; }
+.product-details { margin-bottom: 10px; padding-top: 8px; border-top: 0.5px solid #e5e5e5; display: none; }
+.product-details.open { display: block; }
+.product-detail-row { font-size: 11px; color: #666; line-height: 1.5; margin-bottom: 6px; }
+.product-detail-label { font-weight: 600; color: #1a1a1a; display: block; margin-bottom: 1px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+.feedback-row { display: flex; align-items: center; gap: 8px; padding-top: 10px; border-top: 0.5px solid #e5e5e5; margin-top: auto; }
+.feedback-label { font-size: 11px; color: #aaa; flex: 1; }
+.feedback-btn { width: 30px; height: 30px; border-radius: 99px; border: 0.5px solid #e5e5e5; background: #fff; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+.feedback-btn:hover { border-color: #ccc; background: #f5f5f5; }
+.feedback-btn.active-up { background: #E1F5EE; border-color: #5BAE8A; }
+.feedback-btn.active-down { background: #FCEBEB; border-color: #F09595; }
+.feedback-thanks { font-size: 11px; padding: 6px 10px; border-radius: 6px; margin-top: 6px; display: none; }
+.feedback-thanks.show { display: block; }
+.feedback-thanks.positive { background: #E1F5EE; color: #085041; }
+.feedback-thanks.negative { background: #FCEBEB; color: #791F1F; }
+
+.status-msg { display: flex; align-items: center; gap: 10px; padding: 1rem; background: #f5f5f5; border-radius: 8px; font-size: 14px; color: #666; margin: 1.5rem 0 1rem; }
+.spinner { width: 16px; height: 16px; border: 2px solid #ddd; border-top-color: #7F77DD; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-msg { padding: 1rem; background: #FCEBEB; border-radius: 8px; font-size: 14px; color: #791F1F; margin: 1.5rem 0; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="app-logo">prêt-à-<span>fit</span></div>
+  <div class="app-tagline">Clothing recommendations tailored to your body, budget & lifestyle</div>
+</div>
+
+<div class="section">
+  <div class="section-title">Shopping for</div>
+  <div class="gender-row">
+    <button class="gender-pill" data-value="women" onclick="selectGender(this)">Women</button>
+    <button class="gender-pill" data-value="men" onclick="selectGender(this)">Men</button>
+    <button class="gender-pill" data-value="non-binary" onclick="selectGender(this)">Non-binary</button>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Body type</div>
+  <div class="chip-grid" id="bodyGrid"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">Occasion</div>
+  <div class="chip-grid" id="eventGrid">
+    <button class="chip" data-value="work" onclick="selectChip(this,'event')">Work</button>
+    <button class="chip" data-value="beach vacation" onclick="selectChip(this,'event')">Beach vacation</button>
+    <button class="chip" data-value="wedding guest" onclick="selectChip(this,'event')">Wedding guest</button>
+    <button class="chip" data-value="weekend casual" onclick="selectChip(this,'event')">Weekend casual</button>
+    <button class="chip" data-value="date night" onclick="selectChip(this,'event')">Date night</button>
+    <button class="chip" data-value="formal / gala" onclick="selectChip(this,'event')">Formal / gala</button>
+    <button class="chip" data-value="outdoor adventure" onclick="selectChip(this,'event')">Outdoor adventure</button>
+    <button class="chip" data-value="cocktail party" onclick="selectChip(this,'event')">Cocktail party</button>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Style vibe <span style="font-size:10px;color:#bbb;text-transform:none;letter-spacing:0;font-weight:400;">— pick all that feel like you</span></div>
+  <div class="chip-grid" id="vibeGrid">
+    <button class="vibe-chip" data-value="Classic & timeless" onclick="toggleVibe(this)">🕊️ Classic</button>
+    <button class="vibe-chip" data-value="Preppy" onclick="toggleVibe(this)">🎀 Preppy</button>
+    <button class="vibe-chip" data-value="Minimalist" onclick="toggleVibe(this)">◻️ Minimalist</button>
+    <button class="vibe-chip" data-value="Sporty & athleisure" onclick="toggleVibe(this)">🏃 Sporty</button>
+    <button class="vibe-chip" data-value="Bohemian / free-spirited" onclick="toggleVibe(this)">🌿 Boho</button>
+    <button class="vibe-chip" data-value="Edgy & alternative" onclick="toggleVibe(this)">🖤 Edgy</button>
+    <button class="vibe-chip" data-value="Romantic & feminine" onclick="toggleVibe(this)">🌸 Romantic</button>
+    <button class="vibe-chip" data-value="Streetwear" onclick="toggleVibe(this)">🧢 Streetwear</button>
+    <button class="vibe-chip" data-value="Luxe & polished" onclick="toggleVibe(this)">✨ Luxe</button>
+    <button class="vibe-chip" data-value="Eclectic & maximalist" onclick="toggleVibe(this)">🎨 Maximalist</button>
+    <button class="vibe-chip" data-value="Coastal / resort" onclick="toggleVibe(this)">🐚 Coastal</button>
+    <button class="vibe-chip" data-value="Dark & moody" onclick="toggleVibe(this)">🌙 Dark & moody</button>
+    <button class="vibe-chip" data-value="Cottagecore" onclick="toggleVibe(this)">🍄 Cottagecore</button>
+    <button class="vibe-chip" data-value="Y2K / retro-inspired" onclick="toggleVibe(this)">💿 Y2K</button>
+    <button class="vibe-chip" data-value="Business sophisticated" onclick="toggleVibe(this)">💼 Power dressing</button>
+    <button class="vibe-chip" data-value="Experimental & avant-garde" onclick="toggleVibe(this)">🔭 Avant-garde</button>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Style muses <span style="font-size:10px;color:#bbb;text-transform:none;letter-spacing:0;font-weight:400;">— optional</span></div>
+  <div class="muse-tags" id="museTags"></div>
+  <div class="muse-input-row">
+    <input type="text" id="museInput" placeholder="e.g. Audrey Hepburn, Zendaya, David Beckham…" onkeydown="if(event.key==='Enter') addMuse()" />
+    <button onclick="addMuse()">+ Add</button>
+  </div>
+  <div class="field-hint">Celebrities, characters, influencers, historical figures — anyone whose style inspires you.</div>
+  <div class="quick-muse" id="museQuickRow"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">Size</div>
+  <div class="form-grid">
+    <div class="field">
+      <label>Sizing system</label>
+      <select id="sizeSystem" onchange="updateSizeOptions()">
+        <option value="US">US sizing</option>
+        <option value="UK">UK sizing</option>
+        <option value="EU">EU sizing</option>
+        <option value="AU">AU sizing</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Your size</label>
+      <select id="sizeValue"></select>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Location & budget</div>
+  <div class="form-grid">
+    <div class="field">
+      <label>Shipping location</label>
+      <input type="text" id="location" placeholder="e.g. Dubai, London, NYC" />
+    </div>
+    <div class="field">
+      <label>Price range</label>
+      <div class="inline-row">
+        <select id="currency" style="flex:0 0 90px;">
+          <option value="USD">USD $</option>
+          <option value="GBP">GBP £</option>
+          <option value="EUR">EUR €</option>
+          <option value="SGD">SGD S$</option>
+          <option value="AUD">AUD A$</option>
+          <option value="CAD">CAD C$</option>
+          <option value="JPY">JPY ¥</option>
+          <option value="HKD">HKD HK$</option>
+        </select>
+        <input type="number" id="priceMin" placeholder="Min" min="0" />
+        <span class="sep">—</span>
+        <input type="number" id="priceMax" placeholder="Max" min="0" />
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Exclusions & preferences</div>
+  <div class="toggle-row">
+    <div>
+      <div class="toggle-label">Local / domestic retailers only</div>
+      <div class="toggle-sub">Exclude international or overseas shops</div>
+    </div>
+    <button class="toggle" id="localToggle" onclick="toggleLocal()"></button>
+  </div>
+  <div style="margin-top:12px;">
+    <div class="exclusion-tags" id="exclusionTags"></div>
+    <div class="excl-input-row">
+      <input type="text" id="exclusionInput" placeholder="e.g. florals, red, sequins, crop tops…" onkeydown="if(event.key==='Enter') addExclusion()" />
+      <button onclick="addExclusion()">+ Add</button>
+    </div>
+    <div class="quick-excl">
+      <span style="font-size:11px;color:#888;align-self:center;">Quick add:</span>
+      <button class="quick-chip" onclick="quickAdd('Patterns')">Patterns</button>
+      <button class="quick-chip" onclick="quickAdd('Floral prints')">Floral prints</button>
+      <button class="quick-chip" onclick="quickAdd('Stripes')">Stripes</button>
+      <button class="quick-chip" onclick="quickAdd('Black')">Black</button>
+      <button class="quick-chip" onclick="quickAdd('White')">White</button>
+      <button class="quick-chip" onclick="quickAdd('Bright colours')">Bright colours</button>
+      <button class="quick-chip" onclick="quickAdd('Sequins')">Sequins</button>
+      <button class="quick-chip" onclick="quickAdd('Sheer fabrics')">Sheer fabrics</button>
+    </div>
+  </div>
+</div>
+
+<button class="search-btn" id="searchBtn" onclick="findOutfits()">✦ Find my outfits</button>
+<div class="results-area" id="resultsArea"></div>
+
+<script>
+let selectedGender='', selectedBody='', selectedEvent='', selectedVibes=[], muses=[], exclusions=[], localOnly=false;
+let sessionFeedback=[];
+
+const bodyTypes={
+  women:['Apple','Pear','Hourglass','Rectangle','Inverted triangle','Petite'],
+  men:['Athletic / V-shape','Rectangle','Oval / round','Triangle / pear','Tall & lean'],
+  'non-binary':['Apple','Pear','Hourglass','Rectangle','Inverted triangle','Athletic','Petite / slight']
+};
+const museQuickSets={
+  women:['Audrey Hepburn','Zendaya','Margot Robbie','Hailey Bieber','Olivia Rodrigo','Cate Blanchett','Emily in Paris','Blair Waldorf','Carrie Bradshaw','Princess Diana'],
+  men:['David Beckham','Ryan Gosling','Timothée Chalamet','Paul Mescal','Luca Sabbat','Harry Styles','Pharrell Williams','Idris Elba'],
+  'non-binary':['Billy Porter','Janelle Monáe','Troye Sivan','Lil Nas X','Sam Smith','Indya Moore','Ezra Miller']
+};
+const sizeSystems={
+  US_women:['0','2','4','6','8','10','12','14','16','18','20','1X','2X','3X'],
+  UK_women:['4','6','8','10','12','14','16','18','20','22','24'],
+  EU_women:['32','34','36','38','40','42','44','46','48','50'],
+  AU_women:['6','8','10','12','14','16','18','20','22','24'],
+  US_men:['XS','S','M','L','XL','XXL','28','30','32','34','36','38','40'],
+  UK_men:['XS','S','M','L','XL','XXL','28','30','32','34','36','38'],
+  EU_men:['44','46','48','50','52','54','56','58'],
+  AU_men:['XS','S','M','L','XL','XXL']
+};
+
+function selectGender(el){document.querySelectorAll('.gender-pill').forEach(p=>p.classList.remove('selected'));el.classList.add('selected');selectedGender=el.dataset.value;selectedBody='';updateBodyTypes();updateMuseQuick();updateSizeOptions();}
+function updateBodyTypes(){const g=document.getElementById('bodyGrid');const t=bodyTypes[selectedGender]||bodyTypes.women;g.innerHTML=t.map(x=>`<button class="chip" data-value="${x.toLowerCase()}" onclick="selectChip(this,'body')">${x}</button>`).join('');}
+function updateMuseQuick(){const r=document.getElementById('museQuickRow');const s=museQuickSets[selectedGender]||museQuickSets.women;r.innerHTML=`<span style="font-size:11px;color:#888;align-self:center;">Inspiration:</span>`+s.map(m=>`<button class="quick-muse-chip" onclick="quickMuse('${m}')">${m}</button>`).join('');}
+function updateSizeOptions(){const sys=document.getElementById('sizeSystem').value;const g=selectedGender==='men'?'men':'women';const k=`${sys}_${g}`;const opts=sizeSystems[k]||sizeSystems[`${sys}_women`];const sel=document.getElementById('sizeValue');sel.innerHTML='<option value="">Select size</option>'+opts.map(s=>`<option>${s}</option>`).join('');}
+document.getElementById('sizeSystem').addEventListener('change',updateSizeOptions);
+
+function selectChip(el,group){const grid=group==='body'?'bodyGrid':'eventGrid';document.querySelectorAll(`#${grid} .chip`).forEach(c=>c.classList.remove('selected'));el.classList.add('selected');if(group==='body')selectedBody=el.dataset.value;else selectedEvent=el.dataset.value;}
+function toggleVibe(el){const v=el.dataset.value;el.classList.contains('selected')?(el.classList.remove('selected'),selectedVibes=selectedVibes.filter(x=>x!==v)):(el.classList.add('selected'),selectedVibes.push(v));}
+function toggleLocal(){localOnly=!localOnly;document.getElementById('localToggle').classList.toggle('on',localOnly);}
+function addMuse(){const i=document.getElementById('museInput'),t=i.value.trim();if(!t||muses.includes(t)){i.value='';return;}muses.push(t);renderMuses();i.value='';}
+function quickMuse(v){if(!muses.includes(v)){muses.push(v);renderMuses();}}
+function removeMuse(i){muses.splice(i,1);renderMuses();}
+function renderMuses(){document.getElementById('museTags').innerHTML=muses.map((m,i)=>`<div class="muse-tag">✦ ${m}<button onclick="removeMuse(${i})">×</button></div>`).join('');}
+function addExclusion(){const i=document.getElementById('exclusionInput'),t=i.value.trim();if(!t||exclusions.includes(t)){i.value='';return;}exclusions.push(t);renderExclusions();i.value='';}
+function quickAdd(v){if(!exclusions.includes(v)){exclusions.push(v);renderExclusions();}}
+function removeExclusion(i){exclusions.splice(i,1);renderExclusions();}
+function renderExclusions(){document.getElementById('exclusionTags').innerHTML=exclusions.map((e,i)=>`<div class="excl-tag">${e}<button onclick="removeExclusion(${i})">×</button></div>`).join('');}
+
+function giveFeedback(idx,type,itemName){
+  const upBtn=document.getElementById(`up${idx}`);
+  const downBtn=document.getElementById(`down${idx}`);
+  const thanks=document.getElementById(`thanks${idx}`);
+  upBtn.classList.remove('active-up');downBtn.classList.remove('active-down');
+  if(type==='up'){upBtn.classList.add('active-up');thanks.className='feedback-thanks positive show';thanks.textContent='Great — we\'ll show more like this.';}
+  else{downBtn.classList.add('active-down');thanks.className='feedback-thanks negative show';thanks.textContent='Got it — we\'ll avoid similar picks next time.';}
+  sessionFeedback=sessionFeedback.filter(f=>f.idx!==idx);
+  sessionFeedback.push({idx,type,itemName});
+}
+
+function toggleDetails(id,btn){
+  const el=document.getElementById(id);
+  el.classList.toggle('open');
+  btn.textContent=el.classList.contains('open')?'− Why this works for you':'+ Why this works for you';
+}
+
+function renderProducts(items){
+  return `<div class="product-grid">${items.map((item,i)=>{
+    const imgHtml=item.imageUrl
+      ?`<img src="${item.imageUrl}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="img-placeholder" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 16l4-4 4 4 4-6 4 6"/><rect x="2" y="3" width="20" height="18" rx="2"/></svg>${item.retailer}</div>`
+      :`<div class="img-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 16l4-4 4 4 4-6 4 6"/><rect x="2" y="3" width="20" height="18" rx="2"/></svg>${item.retailer}</div>`;
+    const nameEscaped=item.name.replace(/'/g,"\\'");
+    return `<div class="product-card">
+      <a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+        <div class="product-image-wrap">${imgHtml}</div>
+        <div class="product-retailer">${item.retailer}</div>
+        <div class="product-name">${item.name}</div>
+        <div class="product-price">${item.price}</div>
+      </a>
+      <button class="product-details-toggle" onclick="toggleDetails('detail-${i}',this)">+ Why this works for you</button>
+      <div class="product-details" id="detail-${i}">
+        ${item.whyItWorks?`<div class="product-detail-row"><span class="product-detail-label">Why it works</span>${item.whyItWorks}</div>`:''}
+        ${item.sizeNote?`<div class="product-detail-row"><span class="product-detail-label">Size note</span>${item.sizeNote}</div>`:''}
+        ${item.stylingTip?`<div class="product-detail-row"><span class="product-detail-label">Styling tip</span>${item.stylingTip}</div>`:''}
+      </div>
+      <div class="feedback-row">
+        <span class="feedback-label">Was this helpful?</span>
+        <button class="feedback-btn" id="up${i}" onclick="giveFeedback(${i},'up','${nameEscaped}')" title="Good pick">👍</button>
+        <button class="feedback-btn" id="down${i}" onclick="giveFeedback(${i},'down','${nameEscaped}')" title="Not for me">👎</button>
+      </div>
+      <div class="feedback-thanks" id="thanks${i}"></div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+async function findOutfits(){
+  const sizeSystem=document.getElementById('sizeSystem').value;
+  const sizeValue=document.getElementById('sizeValue').value;
+  const location=document.getElementById('location').value.trim();
+  const currency=document.getElementById('currency').value;
+  const priceMin=document.getElementById('priceMin').value;
+  const priceMax=document.getElementById('priceMax').value;
+  const syms={USD:'$',GBP:'£',EUR:'€',SGD:'S$',AUD:'A$',CAD:'C$',JPY:'¥',HKD:'HK$'};
+  const sym=syms[currency]||currency;
+
+  if(!selectedGender){alert("Please select who you're shopping for.");return;}
+  if(!selectedBody){alert('Please select a body type.');return;}
+  if(!selectedEvent){alert('Please select an occasion.');return;}
+  if(!sizeValue){alert('Please select your size.');return;}
+  if(!location){alert('Please enter your shipping location.');return;}
+  if(!priceMin||!priceMax){alert('Please enter a price range.');return;}
+
+  const vibeNote=selectedVibes.length?`Style vibes: ${selectedVibes.join(', ')}.`:'';
+  const museNote=muses.length?`Style muses: ${muses.join(', ')}.`:'';
+  const exclNote=exclusions.length?`Exclude: ${exclusions.join(', ')}.`:'';
+  const localNote=localOnly?'Local/domestic retailers only.':'';
+  const liked=sessionFeedback.filter(f=>f.type==='up').map(f=>f.itemName);
+  const disliked=sessionFeedback.filter(f=>f.type==='down').map(f=>f.itemName);
+  const feedbackNote=[
+    liked.length?`Previously liked: ${liked.join(', ')}. Show more like this.`:'',
+    disliked.length?`Previously disliked: ${disliked.join(', ')}. Avoid similar styles.`:''
+  ].filter(Boolean).join(' ');
+
+  const prompt=`Prêt-à-Fit product search. Return ONLY a JSON array of exactly 4 objects. No markdown, no explanation, just the raw JSON array.
+
+Search criteria:
+- Shopping for: ${selectedGender}
+- Body type: ${selectedBody}
+- Occasion: ${selectedEvent}
+- Size: ${sizeValue} (${sizeSystem} sizing)
+- Location: ${location}
+- Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
+${vibeNote}
+${museNote}
+${exclNote}
+${localNote}
+${feedbackNote}
+
+Use web search to find 4 real, currently available clothing items. For each return:
+{
+  "retailer": "Retailer name",
+  "name": "Exact product name",
+  "price": "${sym}XX",
+  "url": "https://exact-product-page-url.com/specific-item",
+  "imageUrl": "https://direct-image-url.jpg",
+  "whyItWorks": "1-2 sentences on why this flatters a ${selectedBody} ${selectedGender} figure",
+  "sizeNote": "Size conversion note for ${sizeSystem} ${sizeValue}",
+  "stylingTip": "One concrete styling suggestion"
+}
+
+Requirements:
+- url must be the specific product page, not a category or homepage
+- imageUrl must be a direct .jpg/.png/.webp product image URL from the retailer CDN if possible
+- price must be in ${currency}
+- items must ship to ${location}`;
+
+  const btn=document.getElementById('searchBtn');
+  btn.disabled=true;
+  document.getElementById('resultsArea').innerHTML=`<div class="status-msg"><div class="spinner"></div>Searching live listings…</div>`;
+
+  try {
+    const response=await fetch('/api/search',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt})
+    });
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.error||'Search failed');
+    const clean=data.result.replace(/```json|```/g,'').trim();
+    const items=JSON.parse(clean);
+    document.getElementById('resultsArea').innerHTML=`<div class="results-label">${items.length} picks for you</div>${renderProducts(items)}`;
+  } catch(err) {
+    document.getElementById('resultsArea').innerHTML=`<div class="error-msg">Something went wrong — please try again. (${err.message})</div>`;
+  } finally {
+    btn.disabled=false;
+  }
+}
+
+document.querySelector('.gender-pill[data-value="women"]').click();
+updateSizeOptions();
+</script>
+</body>
+</html>
