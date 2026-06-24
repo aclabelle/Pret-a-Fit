@@ -30,7 +30,6 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: data.error?.message || 'API error' });
     }
 
-    // Extract text from response content blocks
     const text = (data.content || [])
       .filter(block => block.type === 'text')
       .map(block => block.text)

@@ -1,326 +1,1355 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prêt-à-Fit</title>
 <style>
+/* ── Tokens ── */
+:root {
+  --ink:       #1C1712;
+  --parchment: #F5F0E8;
+  --linen:     #EDE6D6;
+  --bark:      #8B6F47;
+  --dust:      #C4A882;
+  --charcoal:  #3D3530;
+  --mist:      #F9F6F0;
+  --error:     #7A3B2E;
+  --success:   #3B5C45;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: sans-serif; color: #1a1a1a; background: #fff; }
 
-.app-header { padding: 2rem 1.5rem 1.5rem; border-bottom: 0.5px solid #e5e5e5; }
-.app-logo { font-size: 22px; font-weight: 500; letter-spacing: -0.5px; }
-.app-logo span { color: #7F77DD; }
-.app-tagline { font-size: 13px; color: #888; margin-top: 4px; }
+html, body {
+  height: 100%;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--parchment);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
 
-.section { padding: 1.25rem 1.5rem; border-bottom: 0.5px solid #e5e5e5; }
-.section-title { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.6px; color: #888; margin-bottom: 14px; }
+/* ── Screen system ── */
+.screen {
+  display: none;
+  min-height: 100vh;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.screen.active {
+  display: flex;
+  flex-direction: column;
+}
+.screen.visible { opacity: 1; }
 
-.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
-.field { display: flex; flex-direction: column; gap: 6px; }
-.field label { font-size: 12px; font-weight: 500; color: #666; }
-.field select, .field input { padding: 9px 12px; border-radius: 8px; border: 0.5px solid #ccc; background: #fff; font-size: 14px; color: #1a1a1a; font-family: sans-serif; width: 100%; }
+/* ── Hero ── */
+#screen-hero {
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--ink);
+}
 
-.inline-row { display: flex; gap: 8px; align-items: center; }
-.sep { color: #888; font-size: 13px; flex-shrink: 0; }
+.hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
 
-.gender-row { display: flex; gap: 8px; }
-.gender-pill { flex: 1; padding: 9px 12px; border-radius: 8px; border: 0.5px solid #ccc; background: #fff; font-size: 13px; color: #666; cursor: pointer; font-family: sans-serif; text-align: center; transition: all 0.15s; }
-.gender-pill:hover { border-color: #7F77DD; color: #7F77DD; }
-.gender-pill.selected { background: #EEEDFE; border-color: #7F77DD; color: #3C3489; font-weight: 500; }
+.hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 2rem;
+}
 
-.chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { padding: 6px 12px; border-radius: 99px; border: 0.5px solid #ccc; background: #fff; font-size: 12px; color: #666; cursor: pointer; transition: all 0.15s; font-family: sans-serif; }
-.chip:hover { border-color: #7F77DD; color: #7F77DD; }
-.chip.selected { background: #EEEDFE; border-color: #7F77DD; color: #3C3489; font-weight: 500; }
+.hero-logo {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 400;
+  color: var(--parchment);
+  letter-spacing: 0.04em;
+  margin-bottom: 1rem;
+}
 
-.vibe-chip { padding: 6px 12px; border-radius: 99px; border: 0.5px solid #ccc; background: #fff; font-size: 12px; color: #666; cursor: pointer; transition: all 0.15s; font-family: sans-serif; display: flex; align-items: center; gap: 5px; }
-.vibe-chip:hover { border-color: #7F77DD; color: #7F77DD; }
-.vibe-chip.selected { background: #EEEDFE; border-color: #7F77DD; color: #3C3489; font-weight: 500; }
+.hero-logo em {
+  font-style: italic;
+  color: var(--dust);
+}
 
-.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
-.toggle-label { font-size: 14px; }
-.toggle-sub { font-size: 12px; color: #888; margin-top: 2px; }
-.toggle { width: 40px; height: 22px; background: #ccc; border-radius: 99px; position: relative; cursor: pointer; border: none; transition: background 0.2s; flex-shrink: 0; }
-.toggle.on { background: #534AB7; }
-.toggle::after { content: ''; position: absolute; width: 16px; height: 16px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; }
+.hero-tagline {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 3.5rem;
+  font-weight: 400;
+}
+
+.btn-primary {
+  display: inline-block;
+  padding: 14px 48px;
+  border: 0.5px solid var(--dust);
+  background: transparent;
+  color: var(--parchment);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: background 0.2s, color 0.2s;
+}
+.btn-primary:hover {
+  background: var(--dust);
+  color: var(--ink);
+}
+
+/* ── Onboarding screens ── */
+.onboarding-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.screen-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 1.5rem;
+}
+
+.screen-heading {
+  font-family: Georgia, serif;
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.3;
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.screen-sub {
+  font-size: 14px;
+  color: var(--charcoal);
+  line-height: 1.6;
+  text-align: center;
+  margin-bottom: 2.5rem;
+  max-width: 460px;
+}
+
+/* ── Choice cards (onboarding) ── */
+.choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 2rem;
+}
+
+.choice-card {
+  border: 0.5px solid var(--dust);
+  background: var(--mist);
+  padding: 2rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+.choice-card:hover { background: var(--linen); border-color: var(--bark); }
+.choice-card.selected { background: var(--linen); border-color: var(--ink); }
+
+.choice-card-label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 8px;
+}
+.choice-card-title {
+  font-family: Georgia, serif;
+  font-size: 1.1rem;
+  color: var(--ink);
+  margin-bottom: 8px;
+  font-weight: 400;
+}
+.choice-card-desc {
+  font-size: 12px;
+  color: var(--charcoal);
+  line-height: 1.5;
+}
+.choice-card-badge {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--bark);
+  border: 0.5px solid var(--dust);
+  padding: 3px 8px;
+}
+
+/* ── Chip selectors ── */
+.chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 2rem;
+  width: 100%;
+}
+
+.chip {
+  padding: 8px 18px;
+  border: 0.5px solid var(--dust);
+  background: var(--mist);
+  font-size: 12px;
+  color: var(--charcoal);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: system-ui, sans-serif;
+  letter-spacing: 0.04em;
+}
+.chip:hover { border-color: var(--bark); color: var(--bark); }
+.chip.selected { background: var(--linen); border-color: var(--ink); color: var(--ink); font-weight: 500; }
+
+/* ── Navigation ── */
+.screen-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.btn-back {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--dust);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  padding: 0;
+}
+.btn-back:hover { color: var(--charcoal); }
+
+.btn-next {
+  padding: 12px 36px;
+  border: 0.5px solid var(--ink);
+  background: var(--ink);
+  color: var(--parchment);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: all 0.2s;
+}
+.btn-next:hover { background: var(--bark); border-color: var(--bark); }
+.btn-next:disabled { background: var(--dust); border-color: var(--dust); cursor: not-allowed; }
+
+.btn-skip {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--dust);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+}
+.btn-skip:hover { color: var(--charcoal); }
+
+/* ── Progress dots ── */
+.progress-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  padding: 2rem 0 1rem;
+}
+.dot {
+  width: 5px;
+  height: 5px;
+  background: var(--dust);
+  border-radius: 50%;
+  transition: background 0.2s, transform 0.2s;
+}
+.dot.active { background: var(--ink); transform: scale(1.3); }
+
+/* ── Body type illustration grid ── */
+.body-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 2rem;
+}
+.body-card {
+  border: 0.5px solid var(--dust);
+  background: var(--mist);
+  padding: 1.5rem 1rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.body-card:hover { border-color: var(--bark); background: var(--linen); }
+.body-card.selected { border-color: var(--ink); background: var(--linen); }
+.body-card-name {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  margin-top: 8px;
+}
+.body-card-desc {
+  font-size: 10px;
+  color: var(--charcoal);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* ── Text inputs ── */
+.text-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 0.5px solid var(--dust);
+  background: var(--mist);
+  font-size: 14px;
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 8px;
+}
+.text-input:focus { border-color: var(--bark); }
+.text-input::placeholder { color: var(--dust); }
+
+.inline-row { display: flex; gap: 8px; align-items: center; width: 100%; }
+.inline-row select { flex: 1; }
+.sep { color: var(--dust); font-size: 13px; flex-shrink: 0; }
+
+select.text-input { cursor: pointer; }
+
+/* ── Tags (muses, exclusions) ── */
+.tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; width: 100%; }
+.muse-tag {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  background: var(--linen);
+  border: 0.5px solid var(--dust);
+  font-size: 11px;
+  color: var(--charcoal);
+  letter-spacing: 0.04em;
+}
+.muse-tag button { background: none; border: none; cursor: pointer; color: var(--dust); font-size: 14px; line-height: 1; padding: 0; }
+.muse-tag button:hover { color: var(--ink); }
+
+.excl-tag {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  background: #F5EDE8;
+  border: 0.5px solid #C4A099;
+  font-size: 11px;
+  color: var(--error);
+}
+.excl-tag button { background: none; border: none; cursor: pointer; color: #C4A099; font-size: 14px; line-height: 1; padding: 0; }
+
+.add-row { display: flex; gap: 8px; width: 100%; margin-bottom: 8px; }
+.add-row input { flex: 1; }
+.btn-add {
+  padding: 12px 20px;
+  border: 0.5px solid var(--dust);
+  background: var(--linen);
+  color: var(--charcoal);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.btn-add:hover { border-color: var(--bark); color: var(--bark); }
+
+.quick-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; width: 100%; }
+.quick-chip {
+  padding: 4px 12px;
+  border: 0.5px solid var(--dust);
+  background: transparent;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--charcoal);
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: all 0.15s;
+}
+.quick-chip:hover { border-color: var(--bark); color: var(--bark); }
+
+.field-hint { font-size: 11px; color: var(--dust); margin-bottom: 1rem; letter-spacing: 0.04em; }
+
+/* ── Toggle ── */
+.toggle-row {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 0;
+  border-bottom: 0.5px solid var(--linen);
+  margin-bottom: 1rem;
+}
+.toggle-label { font-size: 13px; color: var(--ink); }
+.toggle-sub { font-size: 11px; color: var(--dust); margin-top: 2px; }
+.toggle {
+  width: 40px; height: 22px;
+  background: var(--dust);
+  border-radius: 99px;
+  position: relative;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.toggle.on { background: var(--bark); }
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  background: white;
+  border-radius: 50%;
+  top: 3px; left: 3px;
+  transition: left 0.2s;
+}
 .toggle.on::after { left: 21px; }
 
-.exclusion-tags, .muse-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-.excl-tag { display: flex; align-items: center; gap: 6px; padding: 5px 10px; background: #FCEBEB; border: 0.5px solid #F09595; border-radius: 99px; font-size: 12px; color: #791F1F; }
-.excl-tag button { background: none; border: none; cursor: pointer; color: #A32D2D; font-size: 14px; line-height: 1; padding: 0; }
-.muse-tag { display: flex; align-items: center; gap: 6px; padding: 5px 10px; background: #EEEDFE; border: 0.5px solid #7F77DD; border-radius: 99px; font-size: 12px; color: #3C3489; }
-.muse-tag button { background: none; border: none; cursor: pointer; color: #534AB7; font-size: 14px; line-height: 1; padding: 0; }
+/* ── Main app screen ── */
+#screen-app {
+  background: var(--parchment);
+  min-height: 100vh;
+}
 
-.excl-input-row, .muse-input-row { display: flex; gap: 8px; }
-.excl-input-row input, .muse-input-row input { flex: 1; padding: 9px 12px; border-radius: 8px; border: 0.5px solid #ccc; font-size: 14px; font-family: sans-serif; background: #fff; color: #1a1a1a; }
-.excl-input-row button { padding: 9px 14px; border-radius: 8px; border: 0.5px solid #ccc; background: #f5f5f5; font-size: 13px; cursor: pointer; font-family: sans-serif; color: #1a1a1a; white-space: nowrap; }
-.excl-input-row button:hover { border-color: #A32D2D; color: #791F1F; }
-.muse-input-row button { padding: 9px 14px; border-radius: 8px; border: 0.5px solid #7F77DD; background: #EEEDFE; font-size: 13px; cursor: pointer; font-family: sans-serif; color: #3C3489; white-space: nowrap; }
-.muse-input-row button:hover { background: #534AB7; color: white; }
+.app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  border-bottom: 0.5px solid var(--dust);
+  background: var(--parchment);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
 
-.quick-excl, .quick-muse { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.quick-chip { padding: 5px 10px; border-radius: 99px; border: 0.5px solid #ddd; background: #f5f5f5; font-size: 11px; color: #666; cursor: pointer; font-family: sans-serif; }
-.quick-chip:hover { border-color: #A32D2D; color: #791F1F; }
-.quick-muse-chip { padding: 5px 10px; border-radius: 99px; border: 0.5px solid #ddd; background: #f5f5f5; font-size: 11px; color: #666; cursor: pointer; font-family: sans-serif; }
-.quick-muse-chip:hover { border-color: #7F77DD; color: #534AB7; }
-.field-hint { font-size: 11px; color: #aaa; margin-top: 6px; }
+.app-logo-small {
+  font-family: Georgia, serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+.app-logo-small em { font-style: italic; color: var(--bark); }
 
-.search-btn { margin: 1.25rem 1.5rem; width: calc(100% - 3rem); padding: 12px; background: #534AB7; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; font-family: sans-serif; transition: background 0.15s; }
-.search-btn:hover { background: #3C3489; }
-.search-btn:disabled { background: #eee; color: #999; cursor: not-allowed; }
+.app-topbar-right {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dust);
+  cursor: pointer;
+}
+.app-topbar-right:hover { color: var(--bark); }
 
-.results-area { padding: 0 1.5rem 2.5rem; }
-.results-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 20px; padding-top: 1.5rem; padding-bottom: 12px; border-bottom: 0.5px solid #e5e5e5; }
-.product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 28px 20px; }
+.app-body {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.app-section {
+  padding: 1.5rem 0;
+  border-bottom: 0.5px solid var(--linen);
+}
+
+.app-section-title {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 16px;
+}
+
+/* Occasion tier */
+.occasion-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.occasion-parent {
+  border: 0.5px solid var(--dust);
+  background: var(--mist);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.occasion-parent:hover { border-color: var(--bark); }
+.occasion-parent.selected { border-color: var(--ink); background: var(--linen); }
+.occasion-parent-name {
+  font-size: 12px;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+.occasion-parent-hint {
+  font-size: 10px;
+  color: var(--dust);
+  margin-top: 3px;
+}
+
+.occasion-children {
+  display: none;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--linen);
+  border: 0.5px solid var(--dust);
+}
+.occasion-children.open { display: flex; }
+
+/* Climate toggle */
+.climate-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+.climate-chip {
+  flex: 1;
+  padding: 10px;
+  border: 0.5px solid var(--dust);
+  background: var(--mist);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--charcoal);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  font-family: system-ui, sans-serif;
+}
+.climate-chip:hover { border-color: var(--bark); }
+.climate-chip.selected { background: var(--linen); border-color: var(--ink); color: var(--ink); font-weight: 500; }
+
+/* Form grid */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dust);
+}
+
+/* Search button */
+.search-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--ink);
+  color: var(--parchment);
+  border: none;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: background 0.2s;
+  margin-top: 2rem;
+}
+.search-btn:hover { background: var(--bark); }
+.search-btn:disabled { background: var(--dust); cursor: not-allowed; }
+
+/* Results */
+.results-area { margin-top: 2rem; }
+.results-label {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 0.5px solid var(--linen);
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 32px 20px;
+}
 
 .product-card { display: flex; flex-direction: column; }
-.product-card:hover .product-image-wrap img { opacity: 0.88; }
-.product-image-wrap { width: 100%; aspect-ratio: 3/4; background: #f5f5f5; border-radius: 4px; overflow: hidden; position: relative; margin-bottom: 10px; }
-.product-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity 0.2s; }
-.img-placeholder { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #bbb; font-size: 11px; text-align: center; padding: 1rem; }
-.img-placeholder svg { width: 28px; height: 28px; opacity: 0.25; }
+.product-image-wrap {
+  width: 100%;
+  aspect-ratio: 3/4;
+  background: var(--linen);
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 12px;
+}
+.product-image-wrap img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.2s;
+}
+.product-card:hover .product-image-wrap img { opacity: 0.9; }
+.img-placeholder {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px; color: var(--dust);
+  font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.img-placeholder svg { width: 24px; height: 24px; opacity: 0.3; }
 
-.product-retailer { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #999; margin-bottom: 4px; }
-.product-name { font-size: 13px; color: #1a1a1a; line-height: 1.4; margin-bottom: 4px; }
-.product-price { font-size: 13px; font-weight: 500; color: #1a1a1a; margin-bottom: 8px; }
-.product-details-toggle { font-size: 11px; color: #7F77DD; cursor: pointer; background: none; border: none; padding: 0; font-family: sans-serif; margin-bottom: 10px; text-align: left; }
-.product-details-toggle:hover { color: #3C3489; }
-.product-details { margin-bottom: 10px; padding-top: 8px; border-top: 0.5px solid #e5e5e5; display: none; }
+.product-retailer {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 4px;
+}
+.product-name {
+  font-family: Georgia, serif;
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.4;
+  margin-bottom: 4px;
+  font-weight: 400;
+}
+.product-price {
+  font-size: 13px;
+  color: var(--charcoal);
+  margin-bottom: 10px;
+  letter-spacing: 0.04em;
+}
+
+.product-details-toggle {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dust);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: system-ui, sans-serif;
+  margin-bottom: 8px;
+  text-align: left;
+  transition: color 0.15s;
+}
+.product-details-toggle:hover { color: var(--bark); }
+
+.product-details {
+  padding-top: 10px;
+  border-top: 0.5px solid var(--linen);
+  display: none;
+  margin-bottom: 10px;
+}
 .product-details.open { display: block; }
-.product-detail-row { font-size: 11px; color: #666; line-height: 1.5; margin-bottom: 6px; }
-.product-detail-label { font-weight: 600; color: #1a1a1a; display: block; margin-bottom: 1px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+.product-detail-row { font-size: 11px; color: var(--charcoal); line-height: 1.6; margin-bottom: 8px; }
+.product-detail-label {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dust);
+  display: block;
+  margin-bottom: 2px;
+}
 
-.feedback-row { display: flex; align-items: center; gap: 8px; padding-top: 10px; border-top: 0.5px solid #e5e5e5; margin-top: auto; }
-.feedback-label { font-size: 11px; color: #aaa; flex: 1; }
-.feedback-btn { width: 30px; height: 30px; border-radius: 99px; border: 0.5px solid #e5e5e5; background: #fff; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
-.feedback-btn:hover { border-color: #ccc; background: #f5f5f5; }
-.feedback-btn.active-up { background: #E1F5EE; border-color: #5BAE8A; }
-.feedback-btn.active-down { background: #FCEBEB; border-color: #F09595; }
-.feedback-thanks { font-size: 11px; padding: 6px 10px; border-radius: 6px; margin-top: 6px; display: none; }
+.feedback-row {
+  display: flex; align-items: center; gap: 8px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--linen);
+  margin-top: auto;
+}
+.feedback-label { font-size: 10px; color: var(--dust); flex: 1; letter-spacing: 0.08em; }
+.feedback-btn {
+  width: 28px; height: 28px;
+  border: 0.5px solid var(--dust);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.feedback-btn:hover { border-color: var(--bark); }
+.feedback-btn.active-up { background: #EBF2EC; border-color: #5B8C65; }
+.feedback-btn.active-down { background: #F5EDE8; border-color: #C4A099; }
+
+.feedback-thanks {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  margin-top: 6px;
+  display: none;
+}
 .feedback-thanks.show { display: block; }
-.feedback-thanks.positive { background: #E1F5EE; color: #085041; }
-.feedback-thanks.negative { background: #FCEBEB; color: #791F1F; }
+.feedback-thanks.positive { background: #EBF2EC; color: var(--success); }
+.feedback-thanks.negative { background: #F5EDE8; color: var(--error); }
 
-.status-msg { display: flex; align-items: center; gap: 10px; padding: 1rem; background: #f5f5f5; border-radius: 8px; font-size: 14px; color: #666; margin: 1.5rem 0 1rem; }
-.spinner { width: 16px; height: 16px; border: 2px solid #ddd; border-top-color: #7F77DD; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+/* Status/error */
+.status-msg {
+  display: flex; align-items: center; gap: 12px;
+  padding: 1rem 1.25rem;
+  background: var(--linen);
+  font-size: 13px;
+  color: var(--charcoal);
+  margin: 1.5rem 0;
+  letter-spacing: 0.04em;
+}
+.spinner {
+  width: 14px; height: 14px;
+  border: 1.5px solid var(--dust);
+  border-top-color: var(--bark);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
-.error-msg { padding: 1rem; background: #FCEBEB; border-radius: 8px; font-size: 14px; color: #791F1F; margin: 1.5rem 0; }
+.error-msg {
+  padding: 1rem 1.25rem;
+  background: #F5EDE8;
+  font-size: 13px;
+  color: var(--error);
+  margin: 1.5rem 0;
+}
+
+/* Responsive */
+@media (max-width: 540px) {
+  .choice-grid { grid-template-columns: 1fr; }
+  .body-grid { grid-template-columns: repeat(2, 1fr); }
+  .occasion-tier-grid { grid-template-columns: repeat(2, 1fr); }
+}
 </style>
 </head>
 <body>
 
-<div class="app-header">
-  <div class="app-logo">prêt-à-<span>fit</span></div>
-  <div class="app-tagline">Clothing recommendations tailored to your body, budget & lifestyle</div>
-</div>
-
-<div class="section">
-  <div class="section-title">Shopping for</div>
-  <div class="gender-row">
-    <button class="gender-pill" data-value="women" onclick="selectGender(this)">Women</button>
-    <button class="gender-pill" data-value="men" onclick="selectGender(this)">Men</button>
-    <button class="gender-pill" data-value="non-binary" onclick="selectGender(this)">Non-binary</button>
+<!-- ══ SCREEN 1: HERO ══ -->
+<div class="screen active" id="screen-hero">
+  <svg class="hero-canvas" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#1C1712"/>
+    <!-- Woven textile abstraction -->
+    <defs>
+      <pattern id="weave-h" x="0" y="0" width="40" height="8" patternUnits="userSpaceOnUse">
+        <rect width="40" height="4" fill="#2A2218" opacity="0.9"/>
+        <rect y="4" width="40" height="4" fill="#241E14" opacity="0.9"/>
+      </pattern>
+      <pattern id="weave-v" x="0" y="0" width="8" height="40" patternUnits="userSpaceOnUse">
+        <rect width="4" height="40" fill="#C4A882" opacity="0.06"/>
+        <rect x="4" width="4" height="40" fill="#8B6F47" opacity="0.04"/>
+      </pattern>
+      <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+        <stop offset="0%" stop-color="#1C1712" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#1C1712" stop-opacity="0.85"/>
+      </radialGradient>
+      <radialGradient id="glow" cx="50%" cy="45%" r="40%">
+        <stop offset="0%" stop-color="#8B6F47" stop-opacity="0.12"/>
+        <stop offset="100%" stop-color="#8B6F47" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <rect width="1200" height="800" fill="url(#weave-h)"/>
+    <rect width="1200" height="800" fill="url(#weave-v)"/>
+    <!-- Thread lines horizontal -->
+    <g opacity="0.18">
+      <line x1="0" y1="80" x2="1200" y2="80" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="0" y1="160" x2="1200" y2="160" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="0" y1="240" x2="1200" y2="240" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="0" y1="320" x2="1200" y2="320" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="0" y1="400" x2="1200" y2="400" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="0" y1="480" x2="1200" y2="480" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="0" y1="560" x2="1200" y2="560" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="0" y1="640" x2="1200" y2="640" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="0" y1="720" x2="1200" y2="720" stroke="#C4A882" stroke-width="0.5"/>
+    </g>
+    <!-- Thread lines vertical -->
+    <g opacity="0.1">
+      <line x1="120" y1="0" x2="120" y2="800" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="240" y1="0" x2="240" y2="800" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="360" y1="0" x2="360" y2="800" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="480" y1="0" x2="480" y2="800" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="600" y1="0" x2="600" y2="800" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="720" y1="0" x2="720" y2="800" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="840" y1="0" x2="840" y2="800" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="960" y1="0" x2="960" y2="800" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="1080" y1="0" x2="1080" y2="800" stroke="#C4A882" stroke-width="0.5"/>
+    </g>
+    <!-- Diagonal accent threads -->
+    <g opacity="0.07">
+      <line x1="0" y1="200" x2="400" y2="0" stroke="#C4A882" stroke-width="1"/>
+      <line x1="200" y1="800" x2="1200" y2="100" stroke="#C4A882" stroke-width="0.8"/>
+      <line x1="0" y1="600" x2="600" y2="0" stroke="#8B6F47" stroke-width="0.6"/>
+      <line x1="600" y1="800" x2="1200" y2="400" stroke="#8B6F47" stroke-width="0.6"/>
+    </g>
+    <rect width="1200" height="800" fill="url(#glow)"/>
+    <rect width="1200" height="800" fill="url(#vignette)"/>
+  </svg>
+  <div class="hero-content">
+    <div class="hero-logo">prêt-à-<em>fit</em></div>
+    <div class="hero-tagline">Style that fits. In every sense.</div>
+    <button class="btn-primary" onclick="startOnboarding()">Begin</button>
   </div>
 </div>
 
-<div class="section">
-  <div class="section-title">Body type</div>
-  <div class="chip-grid" id="bodyGrid"></div>
-</div>
-
-<div class="section">
-  <div class="section-title">Occasion</div>
-  <div class="chip-grid" id="eventGrid">
-    <button class="chip" data-value="work" onclick="selectChip(this,'event')">Work</button>
-    <button class="chip" data-value="beach vacation" onclick="selectChip(this,'event')">Beach vacation</button>
-    <button class="chip" data-value="wedding guest" onclick="selectChip(this,'event')">Wedding guest</button>
-    <button class="chip" data-value="weekend casual" onclick="selectChip(this,'event')">Weekend casual</button>
-    <button class="chip" data-value="date night" onclick="selectChip(this,'event')">Date night</button>
-    <button class="chip" data-value="formal / gala" onclick="selectChip(this,'event')">Formal / gala</button>
-    <button class="chip" data-value="outdoor adventure" onclick="selectChip(this,'event')">Outdoor adventure</button>
-    <button class="chip" data-value="cocktail party" onclick="selectChip(this,'event')">Cocktail party</button>
-  </div>
-</div>
-
-<div class="section">
-  <div class="section-title">Style vibe <span style="font-size:10px;color:#bbb;text-transform:none;letter-spacing:0;font-weight:400;">— pick all that feel like you</span></div>
-  <div class="chip-grid" id="vibeGrid">
-    <button class="vibe-chip" data-value="Classic & timeless" onclick="toggleVibe(this)">🕊️ Classic</button>
-    <button class="vibe-chip" data-value="Preppy" onclick="toggleVibe(this)">🎀 Preppy</button>
-    <button class="vibe-chip" data-value="Minimalist" onclick="toggleVibe(this)">◻️ Minimalist</button>
-    <button class="vibe-chip" data-value="Sporty & athleisure" onclick="toggleVibe(this)">🏃 Sporty</button>
-    <button class="vibe-chip" data-value="Bohemian / free-spirited" onclick="toggleVibe(this)">🌿 Boho</button>
-    <button class="vibe-chip" data-value="Edgy & alternative" onclick="toggleVibe(this)">🖤 Edgy</button>
-    <button class="vibe-chip" data-value="Romantic & feminine" onclick="toggleVibe(this)">🌸 Romantic</button>
-    <button class="vibe-chip" data-value="Streetwear" onclick="toggleVibe(this)">🧢 Streetwear</button>
-    <button class="vibe-chip" data-value="Luxe & polished" onclick="toggleVibe(this)">✨ Luxe</button>
-    <button class="vibe-chip" data-value="Eclectic & maximalist" onclick="toggleVibe(this)">🎨 Maximalist</button>
-    <button class="vibe-chip" data-value="Coastal / resort" onclick="toggleVibe(this)">🐚 Coastal</button>
-    <button class="vibe-chip" data-value="Dark & moody" onclick="toggleVibe(this)">🌙 Dark & moody</button>
-    <button class="vibe-chip" data-value="Cottagecore" onclick="toggleVibe(this)">🍄 Cottagecore</button>
-    <button class="vibe-chip" data-value="Y2K / retro-inspired" onclick="toggleVibe(this)">💿 Y2K</button>
-    <button class="vibe-chip" data-value="Business sophisticated" onclick="toggleVibe(this)">💼 Power dressing</button>
-    <button class="vibe-chip" data-value="Experimental & avant-garde" onclick="toggleVibe(this)">🔭 Avant-garde</button>
-  </div>
-</div>
-
-<div class="section">
-  <div class="section-title">Style muses <span style="font-size:10px;color:#bbb;text-transform:none;letter-spacing:0;font-weight:400;">— optional</span></div>
-  <div class="muse-tags" id="museTags"></div>
-  <div class="muse-input-row">
-    <input type="text" id="museInput" placeholder="e.g. Audrey Hepburn, Zendaya, David Beckham…" onkeydown="if(event.key==='Enter') addMuse()" />
-    <button onclick="addMuse()">+ Add</button>
-  </div>
-  <div class="field-hint">Celebrities, characters, influencers, historical figures — anyone whose style inspires you.</div>
-  <div class="quick-muse" id="museQuickRow"></div>
-</div>
-
-<div class="section">
-  <div class="section-title">Size</div>
-  <div class="form-grid">
-    <div class="field">
-      <label>Sizing system</label>
-      <select id="sizeSystem" onchange="updateSizeOptions()">
-        <option value="US">US sizing</option>
-        <option value="UK">UK sizing</option>
-        <option value="EU">EU sizing</option>
-        <option value="AU">AU sizing</option>
-      </select>
+<!-- ══ SCREEN 2: GENDER ══ -->
+<div class="screen" id="screen-gender">
+  <div class="onboarding-wrap">
+    <div class="screen-eyebrow">Welcome</div>
+    <h1 class="screen-heading">Who are we dressing today?</h1>
+    <p class="screen-sub">Your recommendations are tailored from the ground up — this shapes everything.</p>
+    <div class="chip-grid" id="genderChips">
+      <button class="chip" data-value="women" onclick="selectSingle(this,'gender')">Women</button>
+      <button class="chip" data-value="men" onclick="selectSingle(this,'gender')">Men</button>
+      <button class="chip" data-value="non-binary" onclick="selectSingle(this,'gender')">Non-binary</button>
     </div>
-    <div class="field">
-      <label>Your size</label>
-      <select id="sizeValue"></select>
+    <div class="screen-nav">
+      <span></span>
+      <button class="btn-next" id="genderNext" onclick="goTo('screen-body')" disabled>Continue</button>
     </div>
   </div>
+  <div class="progress-dots" id="dots-gender"></div>
 </div>
 
-<div class="section">
-  <div class="section-title">Location & budget</div>
-  <div class="form-grid">
-    <div class="field">
-      <label>Shipping location</label>
-      <input type="text" id="location" placeholder="e.g. Dubai, London, NYC" />
-    </div>
-    <div class="field">
-      <label>Price range</label>
-      <div class="inline-row">
-        <select id="currency" style="flex:0 0 90px;">
-          <option value="USD">USD $</option>
-          <option value="GBP">GBP £</option>
-          <option value="EUR">EUR €</option>
-          <option value="SGD">SGD S$</option>
-          <option value="AUD">AUD A$</option>
-          <option value="CAD">CAD C$</option>
-          <option value="JPY">JPY ¥</option>
-          <option value="HKD">HKD HK$</option>
-        </select>
-        <input type="number" id="priceMin" placeholder="Min" min="0" />
-        <span class="sep">—</span>
-        <input type="number" id="priceMax" placeholder="Max" min="0" />
+<!-- ══ SCREEN 3: BODY TYPE ══ -->
+<div class="screen" id="screen-body">
+  <div class="onboarding-wrap">
+    <div class="screen-eyebrow">About you</div>
+    <h1 class="screen-heading">Your body type</h1>
+    <p class="screen-sub">Every recommendation is shaped around your silhouette. Select the one that feels closest — or take the quiz.</p>
+    <div class="body-grid" id="bodyGrid"></div>
+    <div class="screen-nav">
+      <button class="btn-back" onclick="goTo('screen-gender')">← Back</button>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <button class="btn-skip" onclick="goTo('screen-colour')">Not sure — skip for now</button>
+        <button class="btn-next" id="bodyNext" onclick="goTo('screen-colour')" disabled>Continue</button>
       </div>
     </div>
   </div>
+  <div class="progress-dots" id="dots-body"></div>
 </div>
 
-<div class="section">
-  <div class="section-title">Exclusions & preferences</div>
-  <div class="toggle-row">
-    <div>
-      <div class="toggle-label">Local / domestic retailers only</div>
-      <div class="toggle-sub">Exclude international or overseas shops</div>
+<!-- ══ SCREEN 4: COLOUR ANALYSIS ══ -->
+<div class="screen" id="screen-colour">
+  <div class="onboarding-wrap">
+    <div class="screen-eyebrow">Colour</div>
+    <h1 class="screen-heading">Understanding your palette</h1>
+    <p class="screen-sub">The right colours don't just complement your wardrobe — they illuminate you. How would you like to approach this?</p>
+    <div class="choice-grid">
+      <div class="choice-card" onclick="selectChoice(this,'colourMethod','self')">
+        <div class="choice-card-label">I know my tones</div>
+        <div class="choice-card-title">I'll choose my own</div>
+        <div class="choice-card-desc">Select from warm, cool, or neutral — and we'll filter accordingly.</div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(this,'colourMethod','quiz')">
+        <div class="choice-card-label">Discover yours</div>
+        <div class="choice-card-title">Take the colour quiz</div>
+        <div class="choice-card-desc">A few simple questions reveal which tones flatter you most.</div>
+        <div class="choice-card-badge">Subscribers</div>
+      </div>
     </div>
-    <button class="toggle" id="localToggle" onclick="toggleLocal()"></button>
+    <!-- Self-select colour tones (shown if 'self' selected) -->
+    <div id="colourSelfSelect" style="display:none;width:100%;margin-bottom:1.5rem;">
+      <div class="chip-grid">
+        <button class="chip" data-value="warm" onclick="selectSingle(this,'colourTone')">Warm tones</button>
+        <button class="chip" data-value="cool" onclick="selectSingle(this,'colourTone')">Cool tones</button>
+        <button class="chip" data-value="neutral" onclick="selectSingle(this,'colourTone')">Neutral — balanced</button>
+        <button class="chip" data-value="unsure" onclick="selectSingle(this,'colourTone')">Not sure</button>
+      </div>
+    </div>
+    <div class="screen-nav">
+      <button class="btn-back" onclick="goTo('screen-body')">← Back</button>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <button class="btn-skip" onclick="goTo('screen-style')">Skip for now</button>
+        <button class="btn-next" id="colourNext" onclick="goTo('screen-style')">Continue</button>
+      </div>
+    </div>
   </div>
-  <div style="margin-top:12px;">
-    <div class="exclusion-tags" id="exclusionTags"></div>
-    <div class="excl-input-row">
-      <input type="text" id="exclusionInput" placeholder="e.g. florals, red, sequins, crop tops…" onkeydown="if(event.key==='Enter') addExclusion()" />
-      <button onclick="addExclusion()">+ Add</button>
-    </div>
-    <div class="quick-excl">
-      <span style="font-size:11px;color:#888;align-self:center;">Quick add:</span>
-      <button class="quick-chip" onclick="quickAdd('Patterns')">Patterns</button>
-      <button class="quick-chip" onclick="quickAdd('Floral prints')">Floral prints</button>
-      <button class="quick-chip" onclick="quickAdd('Stripes')">Stripes</button>
-      <button class="quick-chip" onclick="quickAdd('Black')">Black</button>
-      <button class="quick-chip" onclick="quickAdd('White')">White</button>
-      <button class="quick-chip" onclick="quickAdd('Bright colours')">Bright colours</button>
-      <button class="quick-chip" onclick="quickAdd('Sequins')">Sequins</button>
-      <button class="quick-chip" onclick="quickAdd('Sheer fabrics')">Sheer fabrics</button>
-    </div>
-  </div>
+  <div class="progress-dots" id="dots-colour"></div>
 </div>
 
-<button class="search-btn" id="searchBtn" onclick="findOutfits()">✦ Find my outfits</button>
-<div class="results-area" id="resultsArea"></div>
+<!-- ══ SCREEN 5: STYLE VIBE ══ -->
+<div class="screen" id="screen-style">
+  <div class="onboarding-wrap">
+    <div class="screen-eyebrow">Your aesthetic</div>
+    <h1 class="screen-heading">How would you describe your style?</h1>
+    <p class="screen-sub">Select as many as feel true. These inform every recommendation we make.</p>
+    <div class="chip-grid" id="vibeChips">
+      <button class="chip" data-value="Classic & timeless" onclick="toggleMulti(this,'vibes')">Classic</button>
+      <button class="chip" data-value="Preppy" onclick="toggleMulti(this,'vibes')">Preppy</button>
+      <button class="chip" data-value="Minimalist" onclick="toggleMulti(this,'vibes')">Minimalist</button>
+      <button class="chip" data-value="Sporty & athleisure" onclick="toggleMulti(this,'vibes')">Sporty</button>
+      <button class="chip" data-value="Bohemian" onclick="toggleMulti(this,'vibes')">Boho</button>
+      <button class="chip" data-value="Edgy & alternative" onclick="toggleMulti(this,'vibes')">Edgy</button>
+      <button class="chip" data-value="Romantic & feminine" onclick="toggleMulti(this,'vibes')">Romantic</button>
+      <button class="chip" data-value="Streetwear" onclick="toggleMulti(this,'vibes')">Streetwear</button>
+      <button class="chip" data-value="Luxe & polished" onclick="toggleMulti(this,'vibes')">Luxe</button>
+      <button class="chip" data-value="Maximalist" onclick="toggleMulti(this,'vibes')">Maximalist</button>
+      <button class="chip" data-value="Coastal & resort" onclick="toggleMulti(this,'vibes')">Coastal</button>
+      <button class="chip" data-value="Dark & moody" onclick="toggleMulti(this,'vibes')">Dark & moody</button>
+      <button class="chip" data-value="Cottagecore" onclick="toggleMulti(this,'vibes')">Cottagecore</button>
+      <button class="chip" data-value="Y2K & retro" onclick="toggleMulti(this,'vibes')">Y2K</button>
+      <button class="chip" data-value="Power dressing" onclick="toggleMulti(this,'vibes')">Power dressing</button>
+      <button class="chip" data-value="Avant-garde" onclick="toggleMulti(this,'vibes')">Avant-garde</button>
+    </div>
+    <div class="screen-nav">
+      <button class="btn-back" onclick="goTo('screen-colour')">← Back</button>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <button class="btn-skip" onclick="goTo('screen-muses')">Skip</button>
+        <button class="btn-next" onclick="goTo('screen-muses')">Continue</button>
+      </div>
+    </div>
+  </div>
+  <div class="progress-dots" id="dots-style"></div>
+</div>
+
+<!-- ══ SCREEN 6: STYLE MUSES ══ -->
+<div class="screen" id="screen-muses">
+  <div class="onboarding-wrap">
+    <div class="screen-eyebrow">Inspiration</div>
+    <h1 class="screen-heading">Who inspires your style?</h1>
+    <p class="screen-sub">Celebrities, characters, historical figures, anyone — they give us a richer sense of what you're drawn to.</p>
+    <div class="tag-row" id="museTags"></div>
+    <div class="add-row">
+      <input class="text-input" type="text" id="museInput" placeholder="e.g. Audrey Hepburn, Zendaya, The Row…" onkeydown="if(event.key==='Enter') addMuse()" />
+      <button class="btn-add" onclick="addMuse()">Add</button>
+    </div>
+    <div class="field-hint">This is optional but makes a real difference.</div>
+    <div class="quick-row" id="museQuickRow"></div>
+    <div class="screen-nav">
+      <button class="btn-back" onclick="goTo('screen-style')">← Back</button>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <button class="btn-skip" onclick="goTo('screen-sizing')">Skip</button>
+        <button class="btn-next" onclick="goTo('screen-sizing')">Continue</button>
+      </div>
+    </div>
+  </div>
+  <div class="progress-dots" id="dots-muses"></div>
+</div>
+
+<!-- ══ SCREEN 7: SIZING ══ -->
+<div class="screen" id="screen-sizing">
+  <div class="onboarding-wrap">
+    <div class="screen-eyebrow">Your details</div>
+    <h1 class="screen-heading">Size & location</h1>
+    <p class="screen-sub">We use these to ensure every recommendation is actually available to you, in the right size.</p>
+    <div class="form-grid" style="width:100%;margin-bottom:1.5rem;">
+      <div class="field">
+        <label>Sizing system</label>
+        <select class="text-input" id="sizeSystem" onchange="updateSizeOptions()">
+          <option value="US">US sizing</option>
+          <option value="UK">UK sizing</option>
+          <option value="EU">EU sizing</option>
+          <option value="AU">AU sizing</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Your size</label>
+        <select class="text-input" id="sizeValue"></select>
+      </div>
+      <div class="field" style="grid-column:1/-1;">
+        <label>Shipping location</label>
+        <input class="text-input" type="text" id="locationInput" placeholder="e.g. Singapore, London, Dubai" />
+      </div>
+    </div>
+    <div class="screen-nav">
+      <button class="btn-back" onclick="goTo('screen-muses')">← Back</button>
+      <button class="btn-next" id="sizingNext" onclick="completeOnboarding()">Enter Prêt-à-Fit →</button>
+    </div>
+  </div>
+  <div class="progress-dots" id="dots-sizing"></div>
+</div>
+
+<!-- ══ SCREEN 8: MAIN APP ══ -->
+<div class="screen" id="screen-app">
+  <div class="app-topbar">
+    <div class="app-logo-small">prêt-à-<em>fit</em></div>
+    <div class="app-topbar-right" onclick="goTo('screen-gender')">Edit profile</div>
+  </div>
+
+  <div class="app-body">
+
+    <!-- Occasion -->
+    <div class="app-section">
+      <div class="app-section-title">What are you shopping for?</div>
+      <div class="occasion-tier-grid" id="occasionParents"></div>
+      <div id="occasionChildren" style="margin-top:8px;"></div>
+    </div>
+
+    <!-- Climate -->
+    <div class="app-section">
+      <div class="app-section-title">Climate</div>
+      <div class="climate-row">
+        <button class="climate-chip" data-value="warm climate" onclick="selectClimate(this)">☀ Warm</button>
+        <button class="climate-chip" data-value="cool climate" onclick="selectClimate(this)">❄ Cool</button>
+        <button class="climate-chip" data-value="any climate" onclick="selectClimate(this)" >Any</button>
+      </div>
+    </div>
+
+    <!-- Budget -->
+    <div class="app-section">
+      <div class="app-section-title">Budget</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Currency</label>
+          <select class="text-input" id="currency">
+            <option value="USD">USD $</option>
+            <option value="GBP">GBP £</option>
+            <option value="EUR">EUR €</option>
+            <option value="SGD">SGD S$</option>
+            <option value="AUD">AUD A$</option>
+            <option value="CAD">CAD C$</option>
+            <option value="JPY">JPY ¥</option>
+            <option value="HKD">HKD HK$</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Price range</label>
+          <div class="inline-row">
+            <input class="text-input" type="number" id="priceMin" placeholder="Min" min="0" style="margin:0;" />
+            <span class="sep">—</span>
+            <input class="text-input" type="number" id="priceMax" placeholder="Max" min="0" style="margin:0;" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exclusions -->
+    <div class="app-section">
+      <div class="app-section-title">Exclusions</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Local retailers only</div>
+          <div class="toggle-sub">Restrict to domestic shops</div>
+        </div>
+        <button class="toggle" id="localToggle" onclick="toggleLocal()"></button>
+      </div>
+      <div class="tag-row" id="exclusionTags"></div>
+      <div class="add-row">
+        <input class="text-input" type="text" id="exclusionInput" placeholder="e.g. florals, sequins, crop tops…" onkeydown="if(event.key==='Enter') addExclusion()" style="margin:0;" />
+        <button class="btn-add" onclick="addExclusion()">Add</button>
+      </div>
+      <div class="quick-row" style="margin-top:8px;">
+        <button class="quick-chip" onclick="quickExcl('Floral prints')">Floral prints</button>
+        <button class="quick-chip" onclick="quickExcl('Stripes')">Stripes</button>
+        <button class="quick-chip" onclick="quickExcl('Black')">Black</button>
+        <button class="quick-chip" onclick="quickExcl('White')">White</button>
+        <button class="quick-chip" onclick="quickExcl('Sequins')">Sequins</button>
+        <button class="quick-chip" onclick="quickExcl('Sheer fabrics')">Sheer</button>
+        <button class="quick-chip" onclick="quickExcl('Bright colours')">Bright colours</button>
+        <button class="quick-chip" onclick="quickExcl('Crop tops')">Crop tops</button>
+        <button class="quick-chip" onclick="quickExcl('Miniskirts')">Miniskirts</button>
+      </div>
+    </div>
+
+    <button class="search-btn" id="searchBtn" onclick="findOutfits()">Find my outfits</button>
+    <div class="results-area" id="resultsArea"></div>
+
+  </div>
+</div>
 
 <script>
-let selectedGender='', selectedBody='', selectedEvent='', selectedVibes=[], muses=[], exclusions=[], localOnly=false;
-let sessionFeedback=[];
-
-const bodyTypes={
-  women:['Apple','Pear','Hourglass','Rectangle','Inverted triangle','Petite'],
-  men:['Athletic / V-shape','Rectangle','Oval / round','Triangle / pear','Tall & lean'],
-  'non-binary':['Apple','Pear','Hourglass','Rectangle','Inverted triangle','Athletic','Petite / slight']
+/* ── State ── */
+const profile = {
+  gender: '', body: '', colourMethod: '', colourTone: '',
+  vibes: [], muses: [], sizeSystem: 'US', size: '', location: ''
 };
-const museQuickSets={
-  women:['Audrey Hepburn','Zendaya','Margot Robbie','Hailey Bieber','Olivia Rodrigo','Cate Blanchett','Emily in Paris','Blair Waldorf','Carrie Bradshaw','Princess Diana'],
-  men:['David Beckham','Ryan Gosling','Timothée Chalamet','Paul Mescal','Luca Sabbat','Harry Styles','Pharrell Williams','Idris Elba'],
-  'non-binary':['Billy Porter','Janelle Monáe','Troye Sivan','Lil Nas X','Sam Smith','Indya Moore','Ezra Miller']
-};
-const sizeSystems={
-  US_women:['0','2','4','6','8','10','12','14','16','18','20','1X','2X','3X'],
-  UK_women:['4','6','8','10','12','14','16','18','20','22','24'],
-  EU_women:['32','34','36','38','40','42','44','46','48','50'],
-  AU_women:['6','8','10','12','14','16','18','20','22','24'],
-  US_men:['XS','S','M','L','XL','XXL','28','30','32','34','36','38','40'],
-  UK_men:['XS','S','M','L','XL','XXL','28','30','32','34','36','38'],
-  EU_men:['44','46','48','50','52','54','56','58'],
-  AU_men:['XS','S','M','L','XL','XXL']
+const session = {
+  occasionParent: '', occasionChild: '', climate: '',
+  currency: 'USD', priceMin: '', priceMax: '',
+  localOnly: false, exclusions: [], feedback: []
 };
 
-function selectGender(el){document.querySelectorAll('.gender-pill').forEach(p=>p.classList.remove('selected'));el.classList.add('selected');selectedGender=el.dataset.value;selectedBody='';updateBodyTypes();updateMuseQuick();updateSizeOptions();}
-function updateBodyTypes(){const g=document.getElementById('bodyGrid');const t=bodyTypes[selectedGender]||bodyTypes.women;g.innerHTML=t.map(x=>`<button class="chip" data-value="${x.toLowerCase()}" onclick="selectChip(this,'body')">${x}</button>`).join('');}
-function updateMuseQuick(){const r=document.getElementById('museQuickRow');const s=museQuickSets[selectedGender]||museQuickSets.women;r.innerHTML=`<span style="font-size:11px;color:#888;align-self:center;">Inspiration:</span>`+s.map(m=>`<button class="quick-muse-chip" onclick="quickMuse('${m}')">${m}</button>`).join('');}
-function updateSizeOptions(){const sys=document.getElementById('sizeSystem').value;const g=selectedGender==='men'?'men':'women';const k=`${sys}_${g}`;const opts=sizeSystems[k]||sizeSystems[`${sys}_women`];const sel=document.getElementById('sizeValue');sel.innerHTML='<option value="">Select size</option>'+opts.map(s=>`<option>${s}</option>`).join('');}
-document.getElementById('sizeSystem').addEventListener('change',updateSizeOptions);
+/* ── Screen navigation ── */
+const SCREENS = ['screen-hero','screen-gender','screen-body','screen-colour','screen-style','screen-muses','screen-sizing','screen-app'];
+const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-colour','screen-style','screen-muses','screen-sizing'];
+const TOTAL_DOTS = ONBOARDING_SCREENS.length;
 
-function selectChip(el,group){const grid=group==='body'?'bodyGrid':'eventGrid';document.querySelectorAll(`#${grid} .chip`).forEach(c=>c.classList.remove('selected'));el.classList.add('selected');if(group==='body')selectedBody=el.dataset.value;else selectedEvent=el.dataset.value;}
-function toggleVibe(el){const v=el.dataset.value;el.classList.contains('selected')?(el.classList.remove('selected'),selectedVibes=selectedVibes.filter(x=>x!==v)):(el.classList.add('selected'),selectedVibes.push(v));}
-function toggleLocal(){localOnly=!localOnly;document.getElementById('localToggle').classList.toggle('on',localOnly);}
-function addMuse(){const i=document.getElementById('museInput'),t=i.value.trim();if(!t||muses.includes(t)){i.value='';return;}muses.push(t);renderMuses();i.value='';}
-function quickMuse(v){if(!muses.includes(v)){muses.push(v);renderMuses();}}
-function removeMuse(i){muses.splice(i,1);renderMuses();}
-function renderMuses(){document.getElementById('museTags').innerHTML=muses.map((m,i)=>`<div class="muse-tag">✦ ${m}<button onclick="removeMuse(${i})">×</button></div>`).join('');}
-function addExclusion(){const i=document.getElementById('exclusionInput'),t=i.value.trim();if(!t||exclusions.includes(t)){i.value='';return;}exclusions.push(t);renderExclusions();i.value='';}
-function quickAdd(v){if(!exclusions.includes(v)){exclusions.push(v);renderExclusions();}}
-function removeExclusion(i){exclusions.splice(i,1);renderExclusions();}
-function renderExclusions(){document.getElementById('exclusionTags').innerHTML=exclusions.map((e,i)=>`<div class="excl-tag">${e}<button onclick="removeExclusion(${i})">×</button></div>`).join('');}
-
-function giveFeedback(idx,type,itemName){
-  const upBtn=document.getElementById(`up${idx}`);
-  const downBtn=document.getElementById(`down${idx}`);
-  const thanks=document.getElementById(`thanks${idx}`);
-  upBtn.classList.remove('active-up');downBtn.classList.remove('active-down');
-  if(type==='up'){upBtn.classList.add('active-up');thanks.className='feedback-thanks positive show';thanks.textContent='Great — we\'ll show more like this.';}
-  else{downBtn.classList.add('active-down');thanks.className='feedback-thanks negative show';thanks.textContent='Got it — we\'ll avoid similar picks next time.';}
-  sessionFeedback=sessionFeedback.filter(f=>f.idx!==idx);
-  sessionFeedback.push({idx,type,itemName});
+function goTo(id) {
+  const current = document.querySelector('.screen.active');
+  if (current) {
+    current.classList.remove('visible');
+    setTimeout(() => { current.classList.remove('active'); showScreen(id); }, 300);
+  } else {
+    showScreen(id);
+  }
 }
 
-function toggleDetails(id,btn){
-  const el=document.getElementById(id);
+function showScreen(id) {
+  const el = document.getElementById(id);
+  el.classList.add('active');
+  setTimeout(() => el.classList.add('visible'), 20);
+  updateDots(id);
+  window.scrollTo(0, 0);
+}
+
+function updateDots(screenId) {
+  const idx = ONBOARDING_SCREENS.indexOf(screenId);
+  ONBOARDING_SCREENS.forEach((sid, i) => {
+    const container = document.getElementById('dots-' + sid.replace('screen-',''));
+    if (!container) return;
+    container.innerHTML = ONBOARDING_SCREENS.map((_, j) =>
+      `<div class="dot ${j === idx ? 'active' : ''}"></div>`
+    ).join('');
+  });
+}
+
+function startOnboarding() { goTo('screen-gender'); }
+
+/* ── Selection helpers ── */
+function selectSingle(el, key) {
+  const parent = el.closest('.chip-grid, .body-grid, .choice-grid');
+  if (parent) parent.querySelectorAll('.chip, .body-card, .choice-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  profile[key] = el.dataset.value || el.getAttribute('data-value');
+
+  if (key === 'gender') {
+    document.getElementById('genderNext').disabled = false;
+    updateBodyTypes();
+    updateMuseQuick();
+    updateSizeOptions();
+  }
+  if (key === 'body') document.getElementById('bodyNext').disabled = false;
+  if (key === 'colourMethod') {
+    document.getElementById('colourSelfSelect').style.display = el.getAttribute('data-value') === 'self' ? 'block' : 'none';
+    if (el.getAttribute('data-value') === 'quiz') goTo('screen-style');
+  }
+}
+
+function toggleMulti(el, key) {
+  const val = el.dataset.value;
+  if (el.classList.contains('selected')) {
+    el.classList.remove('selected');
+    profile[key] = profile[key].filter(v => v !== val);
+  } else {
+    el.classList.add('selected');
+    profile[key].push(val);
+  }
+}
+
+function selectChoice(el, key, val) {
+  document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  profile[key] = val;
+  if (key === 'colourMethod') {
+    document.getElementById('colourSelfSelect').style.display = val === 'self' ? 'block' : 'none';
+  }
+}
+
+/* ── Body types ── */
+const bodyTypes = {
+  women: [
+    { value: 'hourglass', name: 'Hourglass', desc: 'Balanced bust & hip, defined waist' },
+    { value: 'pear', name: 'Pear', desc: 'Hips wider than shoulders' },
+    { value: 'apple', name: 'Apple', desc: 'Fuller midsection, slimmer legs' },
+    { value: 'rectangle', name: 'Rectangle', desc: 'Shoulders, waist & hips aligned' },
+    { value: 'inverted triangle', name: 'Inverted Triangle', desc: 'Broader shoulders, narrower hips' },
+    { value: 'petite', name: 'Petite', desc: 'Under 5\'4\" with a smaller frame' }
+  ],
+  men: [
+    { value: 'athletic', name: 'Athletic', desc: 'Broad shoulders, tapered waist' },
+    { value: 'rectangle', name: 'Rectangle', desc: 'Consistent width shoulder to hip' },
+    { value: 'oval', name: 'Oval', desc: 'Fuller midsection' },
+    { value: 'triangle', name: 'Triangle', desc: 'Narrower shoulders, wider hips' },
+    { value: 'tall & lean', name: 'Tall & Lean', desc: 'Long, slim proportions' }
+  ],
+  'non-binary': [
+    { value: 'hourglass', name: 'Hourglass', desc: 'Balanced, defined waist' },
+    { value: 'pear', name: 'Pear', desc: 'Fuller through the hips' },
+    { value: 'rectangle', name: 'Rectangle', desc: 'Straight, even proportions' },
+    { value: 'athletic', name: 'Athletic', desc: 'Broad shoulders, tapered waist' },
+    { value: 'inverted triangle', name: 'Inv. Triangle', desc: 'Broader shoulders' },
+    { value: 'petite', name: 'Petite / Slight', desc: 'Smaller, finer frame' }
+  ]
+};
+
+function updateBodyTypes() {
+  const types = bodyTypes[profile.gender] || bodyTypes.women;
+  document.getElementById('bodyGrid').innerHTML = types.map(t =>
+    `<div class="body-card" data-value="${t.value}" onclick="selectSingle(this,'body')">
+      <div class="body-card-name">${t.name}</div>
+      <div class="body-card-desc">${t.desc}</div>
+    </div>`
+  ).join('');
+}
+
+/* ── Muses ── */
+const museQuickSets = {
+  women: ['Audrey Hepburn','Zendaya','Margot Robbie','Hailey Bieber','Cate Blanchett','Emily in Paris','Blair Waldorf','Princess Diana','Carolyn Bessette-Kennedy'],
+  men: ['David Beckham','Ryan Gosling','Timothée Chalamet','Paul Mescal','Harry Styles','Idris Elba'],
+  'non-binary': ['Billy Porter','Janelle Monáe','Troye Sivan','Sam Smith','Indya Moore']
+};
+
+function updateMuseQuick() {
+  const set = museQuickSets[profile.gender] || museQuickSets.women;
+  document.getElementById('museQuickRow').innerHTML =
+    set.map(m => `<button class="quick-chip" onclick="quickMuse('${m}')">${m}</button>`).join('');
+}
+
+function addMuse() {
+  const i = document.getElementById('museInput'), t = i.value.trim();
+  if (!t || profile.muses.includes(t)) { i.value = ''; return; }
+  profile.muses.push(t); renderMuses(); i.value = '';
+}
+function quickMuse(v) { if (!profile.muses.includes(v)) { profile.muses.push(v); renderMuses(); } }
+function removeMuse(i) { profile.muses.splice(i, 1); renderMuses(); }
+function renderMuses() {
+  document.getElementById('museTags').innerHTML = profile.muses.map((m, i) =>
+    `<div class="muse-tag">${m}<button onclick="removeMuse(${i})">×</button></div>`
+  ).join('');
+}
+
+/* ── Sizing ── */
+const sizeSystems = {
+  US_women: ['0','2','4','6','8','10','12','14','16','18','20','1X','2X','3X'],
+  UK_women: ['4','6','8','10','12','14','16','18','20','22','24'],
+  EU_women: ['32','34','36','38','40','42','44','46','48','50'],
+  AU_women: ['6','8','10','12','14','16','18','20','22','24'],
+  US_men: ['XS','S','M','L','XL','XXL','28','30','32','34','36','38','40'],
+  UK_men: ['XS','S','M','L','XL','XXL','28','30','32','34','36','38'],
+  EU_men: ['44','46','48','50','52','54','56','58'],
+  AU_men: ['XS','S','M','L','XL','XXL']
+};
+
+function updateSizeOptions() {
+  const sys = document.getElementById('sizeSystem').value;
+  const g = profile.gender === 'men' ? 'men' : 'women';
+  const opts = sizeSystems[`${sys}_${g}`] || sizeSystems[`${sys}_women`];
+  document.getElementById('sizeValue').innerHTML =
+    '<option value="">Select size</option>' + opts.map(s => `<option>${s}</option>`).join('');
+}
+document.getElementById('sizeSystem').addEventListener('change', updateSizeOptions);
+updateSizeOptions();
+
+/* ── Occasions ── */
+const occasions = [
+  { id: 'work', name: 'Work', hint: 'Office & professional', children: ['Business formal','Business casual','Creative field','Client-facing','Working from home'] },
+  { id: 'active', name: 'Active', hint: 'Sport & movement', children: ['Yoga / Pilates','Running','HIIT / gym','Swimming','Hiking'] },
+  { id: 'social', name: 'Social', hint: 'Evenings & events', children: ['Casual daytime','Brunch / lunch','Date night','Cocktail party','Wedding guest','Black tie / gala'] },
+  { id: 'vacation', name: 'Vacation', hint: 'Travel & getaways', children: ['Beach / resort','City break','Safari / adventure','Ski / cold weather'] },
+  { id: 'life', name: 'Life moments', hint: 'Special occasions', children: ['Job interview','First date','Meeting the parents','Graduation','Baby shower'] },
+  { id: 'browse', name: 'Just browsing', hint: 'Surprise me', children: [] }
+];
+
+function buildOccasions() {
+  document.getElementById('occasionParents').innerHTML = occasions.map(o =>
+    `<div class="occasion-parent" data-id="${o.id}" onclick="selectOccasionParent('${o.id}')">
+      <div class="occasion-parent-name">${o.name}</div>
+      <div class="occasion-parent-hint">${o.hint}</div>
+    </div>`
+  ).join('');
+}
+buildOccasions();
+
+function selectOccasionParent(id) {
+  document.querySelectorAll('.occasion-parent').forEach(p => p.classList.remove('selected'));
+  document.querySelector(`.occasion-parent[data-id="${id}"]`).classList.add('selected');
+  session.occasionParent = id;
+  session.occasionChild = '';
+  const occ = occasions.find(o => o.id === id);
+  const childContainer = document.getElementById('occasionChildren');
+  if (occ.children.length === 0) {
+    session.occasionChild = 'surprise me — show a curated selection of beautiful things across any category';
+    childContainer.innerHTML = '';
+    return;
+  }
+  childContainer.innerHTML = `<div class="occasion-children open">${
+    occ.children.map(c =>
+      `<button class="chip" data-value="${c}" onclick="selectOccasionChild(this)">${c}</button>`
+    ).join('')
+  }</div>`;
+}
+
+function selectOccasionChild(el) {
+  document.querySelectorAll('#occasionChildren .chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  session.occasionChild = el.dataset.value;
+}
+
+function selectClimate(el) {
+  document.querySelectorAll('.climate-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  session.climate = el.dataset.value;
+}
+
+/* ── Complete onboarding ── */
+function completeOnboarding() {
+  profile.sizeSystem = document.getElementById('sizeSystem').value;
+  profile.size = document.getElementById('sizeValue').value;
+  profile.location = document.getElementById('locationInput').value.trim();
+  if (!profile.size) { alert('Please select your size.'); return; }
+  if (!profile.location) { alert('Please enter your shipping location.'); return; }
+  goTo('screen-app');
+}
+
+/* ── Exclusions ── */
+function toggleLocal() {
+  session.localOnly = !session.localOnly;
+  document.getElementById('localToggle').classList.toggle('on', session.localOnly);
+}
+function addExclusion() {
+  const i = document.getElementById('exclusionInput'), t = i.value.trim();
+  if (!t || session.exclusions.includes(t)) { i.value = ''; return; }
+  session.exclusions.push(t); renderExclusions(); i.value = '';
+}
+function quickExcl(v) { if (!session.exclusions.includes(v)) { session.exclusions.push(v); renderExclusions(); } }
+function removeExclusion(i) { session.exclusions.splice(i, 1); renderExclusions(); }
+function renderExclusions() {
+  document.getElementById('exclusionTags').innerHTML = session.exclusions.map((e, i) =>
+    `<div class="excl-tag">${e}<button onclick="removeExclusion(${i})">×</button></div>`
+  ).join('');
+}
+
+/* ── Feedback ── */
+function giveFeedback(idx, type, itemName) {
+  const up = document.getElementById(`up${idx}`), down = document.getElementById(`down${idx}`);
+  const thanks = document.getElementById(`thanks${idx}`);
+  up.classList.remove('active-up'); down.classList.remove('active-down');
+  if (type === 'up') {
+    up.classList.add('active-up');
+    thanks.className = 'feedback-thanks positive show';
+    thanks.textContent = 'Noted — more like this.';
+  } else {
+    down.classList.add('active-down');
+    thanks.className = 'feedback-thanks negative show';
+    thanks.textContent = 'Understood — we\'ll adjust.';
+  }
+  session.feedback = session.feedback.filter(f => f.idx !== idx);
+  session.feedback.push({ idx, type, itemName });
+}
+
+function toggleDetails(id, btn) {
+  const el = document.getElementById(id);
   el.classList.toggle('open');
-  btn.textContent=el.classList.contains('open')?'− Why this works for you':'+ Why this works for you';
+  btn.textContent = el.classList.contains('open') ? '− Less' : '+ Why this works for you';
 }
 
-function renderProducts(items){
-  return `<div class="product-grid">${items.map((item,i)=>{
-    const imgHtml=item.imageUrl
-      ?`<img src="${item.imageUrl}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="img-placeholder" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 16l4-4 4 4 4-6 4 6"/><rect x="2" y="3" width="20" height="18" rx="2"/></svg>${item.retailer}</div>`
-      :`<div class="img-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 16l4-4 4 4 4-6 4 6"/><rect x="2" y="3" width="20" height="18" rx="2"/></svg>${item.retailer}</div>`;
-    const nameEscaped=item.name.replace(/'/g,"\\'");
+/* ── Render products ── */
+function renderProducts(items) {
+  return `<div class="product-grid">${items.map((item, i) => {
+    const imgHtml = item.imageUrl
+      ? `<img src="${item.imageUrl}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+         <div class="img-placeholder" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 16l4-4 4 4 4-6 4 6"/><rect x="2" y="3" width="20" height="18" rx="2"/></svg><span>${item.retailer}</span></div>`
+      : `<div class="img-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 16l4-4 4 4 4-6 4 6"/><rect x="2" y="3" width="20" height="18" rx="2"/></svg><span>${item.retailer}</span></div>`;
+    const n = item.name.replace(/'/g,"\\'");
     return `<div class="product-card">
       <a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
         <div class="product-image-wrap">${imgHtml}</div>
@@ -328,61 +1357,60 @@ function renderProducts(items){
         <div class="product-name">${item.name}</div>
         <div class="product-price">${item.price}</div>
       </a>
-      <button class="product-details-toggle" onclick="toggleDetails('detail-${i}',this)">+ Why this works for you</button>
-      <div class="product-details" id="detail-${i}">
+      <button class="product-details-toggle" onclick="toggleDetails('d${i}',this)">+ Why this works for you</button>
+      <div class="product-details" id="d${i}">
         ${item.whyItWorks?`<div class="product-detail-row"><span class="product-detail-label">Why it works</span>${item.whyItWorks}</div>`:''}
         ${item.sizeNote?`<div class="product-detail-row"><span class="product-detail-label">Size note</span>${item.sizeNote}</div>`:''}
         ${item.stylingTip?`<div class="product-detail-row"><span class="product-detail-label">Styling tip</span>${item.stylingTip}</div>`:''}
       </div>
       <div class="feedback-row">
-        <span class="feedback-label">Was this helpful?</span>
-        <button class="feedback-btn" id="up${i}" onclick="giveFeedback(${i},'up','${nameEscaped}')" title="Good pick">👍</button>
-        <button class="feedback-btn" id="down${i}" onclick="giveFeedback(${i},'down','${nameEscaped}')" title="Not for me">👎</button>
+        <span class="feedback-label">Was this right for you?</span>
+        <button class="feedback-btn" id="up${i}" onclick="giveFeedback(${i},'up','${n}')" title="Yes">👍</button>
+        <button class="feedback-btn" id="down${i}" onclick="giveFeedback(${i},'down','${n}')" title="No">👎</button>
       </div>
       <div class="feedback-thanks" id="thanks${i}"></div>
     </div>`;
   }).join('')}</div>`;
 }
 
-async function findOutfits(){
-  const sizeSystem=document.getElementById('sizeSystem').value;
-  const sizeValue=document.getElementById('sizeValue').value;
-  const location=document.getElementById('location').value.trim();
-  const currency=document.getElementById('currency').value;
-  const priceMin=document.getElementById('priceMin').value;
-  const priceMax=document.getElementById('priceMax').value;
-  const syms={USD:'$',GBP:'£',EUR:'€',SGD:'S$',AUD:'A$',CAD:'C$',JPY:'¥',HKD:'HK$'};
-  const sym=syms[currency]||currency;
+/* ── Search ── */
+async function findOutfits() {
+  const currency = document.getElementById('currency').value;
+  const priceMin = document.getElementById('priceMin').value;
+  const priceMax = document.getElementById('priceMax').value;
+  const syms = {USD:'$',GBP:'£',EUR:'€',SGD:'S$',AUD:'A$',CAD:'C$',JPY:'¥',HKD:'HK$'};
+  const sym = syms[currency] || currency;
 
-  if(!selectedGender){alert("Please select who you're shopping for.");return;}
-  if(!selectedBody){alert('Please select a body type.');return;}
-  if(!selectedEvent){alert('Please select an occasion.');return;}
-  if(!sizeValue){alert('Please select your size.');return;}
-  if(!location){alert('Please enter your shipping location.');return;}
-  if(!priceMin||!priceMax){alert('Please enter a price range.');return;}
+  if (!session.occasionParent) { alert('Please select an occasion.'); return; }
+  if (!priceMin || !priceMax) { alert('Please enter a price range.'); return; }
 
-  const vibeNote=selectedVibes.length?`Style vibes: ${selectedVibes.join(', ')}.`:'';
-  const museNote=muses.length?`Style muses: ${muses.join(', ')}.`:'';
-  const exclNote=exclusions.length?`Exclude: ${exclusions.join(', ')}.`:'';
-  const localNote=localOnly?'Local/domestic retailers only.':'';
-  const liked=sessionFeedback.filter(f=>f.type==='up').map(f=>f.itemName);
-  const disliked=sessionFeedback.filter(f=>f.type==='down').map(f=>f.itemName);
-  const feedbackNote=[
-    liked.length?`Previously liked: ${liked.join(', ')}. Show more like this.`:'',
-    disliked.length?`Previously disliked: ${disliked.join(', ')}. Avoid similar styles.`:''
+  const occasion = session.occasionChild || session.occasionParent;
+  const vibeNote = profile.vibes.length ? `Style vibes: ${profile.vibes.join(', ')}.` : '';
+  const museNote = profile.muses.length ? `Style muses: ${profile.muses.join(', ')}.` : '';
+  const colourNote = profile.colourTone ? `Colour preference: ${profile.colourTone} tones.` : '';
+  const climateNote = session.climate ? `Climate: ${session.climate}.` : '';
+  const exclNote = session.exclusions.length ? `Exclude: ${session.exclusions.join(', ')}.` : '';
+  const localNote = session.localOnly ? 'Local/domestic retailers only.' : '';
+  const liked = session.feedback.filter(f=>f.type==='up').map(f=>f.itemName);
+  const disliked = session.feedback.filter(f=>f.type==='down').map(f=>f.itemName);
+  const feedbackNote = [
+    liked.length ? `Previously liked: ${liked.join(', ')}. Show more like these.` : '',
+    disliked.length ? `Previously disliked: ${disliked.join(', ')}. Avoid similar styles.` : ''
   ].filter(Boolean).join(' ');
 
-  const prompt=`Prêt-à-Fit product search. Return ONLY a JSON array of exactly 4 objects. No markdown, no explanation, just the raw JSON array.
+  const prompt = `Prêt-à-Fit product search. Return ONLY a JSON array of exactly 4 objects. No markdown, no explanation, just the raw JSON array.
 
 Search criteria:
-- Shopping for: ${selectedGender}
-- Body type: ${selectedBody}
-- Occasion: ${selectedEvent}
-- Size: ${sizeValue} (${sizeSystem} sizing)
-- Location: ${location}
+- Shopping for: ${profile.gender}
+- Body type: ${profile.body}
+- Occasion: ${occasion}
+- Size: ${profile.size} (${profile.sizeSystem} sizing)
+- Location: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
 ${vibeNote}
 ${museNote}
+${colourNote}
+${climateNote}
 ${exclNote}
 ${localNote}
 ${feedbackNote}
@@ -394,8 +1422,8 @@ Use web search to find 4 real, currently available clothing items. For each retu
   "price": "${sym}XX",
   "url": "https://exact-product-page-url.com/specific-item",
   "imageUrl": "https://direct-image-url.jpg",
-  "whyItWorks": "1-2 sentences on why this flatters a ${selectedBody} ${selectedGender} figure",
-  "sizeNote": "Size conversion note for ${sizeSystem} ${sizeValue}",
+  "whyItWorks": "1-2 sentences on why this flatters a ${profile.body} ${profile.gender} figure",
+  "sizeNote": "Size conversion note for ${profile.sizeSystem} ${profile.size}",
   "stylingTip": "One concrete styling suggestion"
 }
 
@@ -403,32 +1431,34 @@ Requirements:
 - url must be the specific product page, not a category or homepage
 - imageUrl must be a direct .jpg/.png/.webp product image URL from the retailer CDN if possible
 - price must be in ${currency}
-- items must ship to ${location}`;
+- items must ship to ${profile.location}`;
 
-  const btn=document.getElementById('searchBtn');
-  btn.disabled=true;
-  document.getElementById('resultsArea').innerHTML=`<div class="status-msg"><div class="spinner"></div>Searching live listings…</div>`;
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  document.getElementById('resultsArea').innerHTML = `<div class="status-msg"><div class="spinner"></div>Searching live listings…</div>`;
 
   try {
-    const response=await fetch('/api/search',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({prompt})
+    const response = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
     });
-    const data=await response.json();
-    if(!response.ok)throw new Error(data.error||'Search failed');
-    const clean=data.result.replace(/```json|```/g,'').trim();
-    const items=JSON.parse(clean);
-    document.getElementById('resultsArea').innerHTML=`<div class="results-label">${items.length} picks for you</div>${renderProducts(items)}`;
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Search failed');
+    const clean = data.result.replace(/```json|```/g, '').trim();
+    const items = JSON.parse(clean);
+    document.getElementById('resultsArea').innerHTML =
+      `<div class="results-label">${items.length} picks for you</div>${renderProducts(items)}`;
   } catch(err) {
-    document.getElementById('resultsArea').innerHTML=`<div class="error-msg">Something went wrong — please try again. (${err.message})</div>`;
+    document.getElementById('resultsArea').innerHTML =
+      `<div class="error-msg">Something went wrong — please try again. (${err.message})</div>`;
   } finally {
-    btn.disabled=false;
+    btn.disabled = false;
   }
 }
 
-document.querySelector('.gender-pill[data-value="women"]').click();
-updateSizeOptions();
+/* ── Init ── */
+setTimeout(() => document.getElementById('screen-hero').classList.add('visible'), 50);
 </script>
 </body>
 </html>
