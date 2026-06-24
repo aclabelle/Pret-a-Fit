@@ -894,6 +894,8 @@ select.text-input { cursor: pointer; }
     <p class="screen-sub">Select as many as feel true. These inform every recommendation we make.</p>
     <div class="chip-grid" id="vibeChips">
       <button class="chip" data-value="Classic & timeless" onclick="toggleMulti(this,'vibes')">Classic</button>
+      <button class="chip" data-value="Elegant & refined" onclick="toggleMulti(this,'vibes')">Elegant</button>
+      <button class="chip" data-value="Timeless & understated" onclick="toggleMulti(this,'vibes')">Timeless</button>
       <button class="chip" data-value="Preppy" onclick="toggleMulti(this,'vibes')">Preppy</button>
       <button class="chip" data-value="Minimalist" onclick="toggleMulti(this,'vibes')">Minimalist</button>
       <button class="chip" data-value="Sporty & athleisure" onclick="toggleMulti(this,'vibes')">Sporty</button>
@@ -1033,8 +1035,10 @@ select.text-input { cursor: pointer; }
     </div>
 
     <!-- Exclusions -->
+    <!-- Exclusions -->
     <div class="app-section">
-      <div class="app-section-title">Exclusions</div>
+      <div class="app-section-title">Things to avoid</div>
+      <p style="font-size:12px;color:var(--charcoal);line-height:1.6;margin-bottom:1rem;">Tell us what you'd rather not see in your results — colours, patterns, silhouettes, anything. Click below to add common exclusions, or type your own.</p>
       <div class="toggle-row">
         <div>
           <div class="toggle-label">Local retailers only</div>
@@ -1047,7 +1051,8 @@ select.text-input { cursor: pointer; }
         <input class="text-input" type="text" id="exclusionInput" placeholder="e.g. florals, sequins, crop tops…" onkeydown="if(event.key==='Enter') addExclusion()" style="margin:0;" />
         <button class="btn-add" onclick="addExclusion()">Add</button>
       </div>
-      <div class="quick-row" style="margin-top:8px;">
+      <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--dust);margin:10px 0 6px;">Quick add — tap anything you want excluded:</div>
+      <div class="quick-row">
         <button class="quick-chip" onclick="quickExcl('Floral prints')">Floral prints</button>
         <button class="quick-chip" onclick="quickExcl('Stripes')">Stripes</button>
         <button class="quick-chip" onclick="quickExcl('Black')">Black</button>
@@ -1193,8 +1198,8 @@ function updateBodyTypes() {
 
 /* ── Muses ── */
 const museQuickSets = {
-  women: ['Audrey Hepburn','Zendaya','Margot Robbie','Hailey Bieber','Cate Blanchett','Emily in Paris','Blair Waldorf','Princess Diana','Carolyn Bessette-Kennedy'],
-  men: ['David Beckham','Ryan Gosling','Timothée Chalamet','Paul Mescal','Harry Styles','Idris Elba'],
+  women: ['Audrey Hepburn','Zendaya','Margot Robbie','Hailey Bieber','Cate Blanchett','Emily in Paris','Blair Waldorf','Princess Diana','Carolyn Bessette-Kennedy','Morgan Stewart','Chiara Ferragni','Rosie Huntington-Whiteley'],
+  men: ['David Beckham','Ryan Gosling','Timothée Chalamet','Paul Mescal','Harry Styles','Idris Elba','Roger Federer','A$AP Rocky','Luca Sabbat','Eddie Redmayne'],
   'non-binary': ['Billy Porter','Janelle Monáe','Troye Sivan','Sam Smith','Indya Moore']
 };
 
@@ -1398,9 +1403,9 @@ async function findOutfits() {
     disliked.length ? `Previously disliked: ${disliked.join(', ')}. Avoid similar styles.` : ''
   ].filter(Boolean).join(' ');
 
-  const prompt = `Prêt-à-Fit product search. Return ONLY a JSON array of exactly 4 objects. No markdown, no explanation, just the raw JSON array.
+  const prompt = `You are a fashion search engine. Your ONLY job is to return a JSON array. Do NOT write any explanation, preamble, or text before or after the JSON. Do NOT use markdown code blocks. The very first character of your response must be [ and the very last must be ].
 
-Search criteria:
+Search and find exactly 4 real clothing items matching these criteria:
 - Shopping for: ${profile.gender}
 - Body type: ${profile.body}
 - Occasion: ${occasion}
@@ -1415,23 +1420,26 @@ ${exclNote}
 ${localNote}
 ${feedbackNote}
 
-Use web search to find 4 real, currently available clothing items. For each return:
-{
-  "retailer": "Retailer name",
-  "name": "Exact product name",
-  "price": "${sym}XX",
-  "url": "https://exact-product-page-url.com/specific-item",
-  "imageUrl": "https://direct-image-url.jpg",
-  "whyItWorks": "1-2 sentences on why this flatters a ${profile.body} ${profile.gender} figure",
-  "sizeNote": "Size conversion note for ${profile.sizeSystem} ${profile.size}",
-  "stylingTip": "One concrete styling suggestion"
-}
+Return this exact structure, nothing else:
+[
+  {
+    "retailer": "Retailer name",
+    "name": "Exact product name",
+    "price": "${sym}XX",
+    "url": "https://exact-product-page-url.com/specific-item",
+    "imageUrl": "https://direct-image-url.jpg",
+    "whyItWorks": "Why this flatters a ${profile.body} ${profile.gender} figure",
+    "sizeNote": "Size note for ${profile.sizeSystem} ${profile.size}",
+    "stylingTip": "One styling suggestion"
+  }
+]
 
-Requirements:
-- url must be the specific product page, not a category or homepage
-- imageUrl must be a direct .jpg/.png/.webp product image URL from the retailer CDN if possible
-- price must be in ${currency}
-- items must ship to ${profile.location}`;
+STRICT RULES:
+- Start your response with [ immediately
+- url = specific product page only, never a homepage or category
+- imageUrl = direct CDN image URL ending in .jpg .png or .webp
+- price = in ${currency}
+- all 4 items must ship to ${profile.location}`;
 
   const btn = document.getElementById('searchBtn');
   btn.disabled = true;
@@ -1445,8 +1453,19 @@ Requirements:
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Search failed');
-    const clean = data.result.replace(/```json|```/g, '').trim();
-    const items = JSON.parse(clean);
+
+    // Try to extract JSON array even if Claude adds surrounding text
+    let raw = data.result || '';
+    raw = raw.replace(/```json|```/g, '').trim();
+
+    // If response doesn't start with [, try to find a JSON array within it
+    if (!raw.startsWith('[')) {
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (match) raw = match[0];
+      else throw new Error('No results found — please try again');
+    }
+
+    const items = JSON.parse(raw);
     document.getElementById('resultsArea').innerHTML =
       `<div class="results-label">${items.length} picks for you</div>${renderProducts(items)}`;
   } catch(err) {
