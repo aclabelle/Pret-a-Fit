@@ -740,6 +740,54 @@ select.text-input { cursor: pointer; }
   .body-grid { grid-template-columns: repeat(2, 1fr); }
   .occasion-tier-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+.image-disclaimer {
+  font-size: 11px;
+  color: var(--dust);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  letter-spacing: 0.02em;
+  font-style: italic;
+}
+
+/* Elegant placeholder */
+.elegant-placeholder {
+  background: var(--linen);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ph-inner { text-align: center; padding: 1rem; }
+.ph-retailer {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 6px;
+}
+.ph-name {
+  font-family: Georgia, serif;
+  font-size: 12px;
+  color: var(--charcoal);
+  line-height: 1.4;
+  opacity: 0.7;
+}
+
+/* Load more */
+.btn-load-more {
+  padding: 14px 48px;
+  border: 0.5px solid var(--dust);
+  background: transparent;
+  color: var(--charcoal);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: all 0.2s;
+}
+.btn-load-more:hover { border-color: var(--ink); color: var(--ink); }
+.btn-load-more:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -1035,17 +1083,9 @@ select.text-input { cursor: pointer; }
     </div>
 
     <!-- Exclusions -->
-    <!-- Exclusions -->
     <div class="app-section">
       <div class="app-section-title">Things to avoid</div>
       <p style="font-size:12px;color:var(--charcoal);line-height:1.6;margin-bottom:1rem;">Tell us what you'd rather not see in your results — colours, patterns, silhouettes, anything. Click below to add common exclusions, or type your own.</p>
-      <div class="toggle-row">
-        <div>
-          <div class="toggle-label">Local retailers only</div>
-          <div class="toggle-sub">Restrict to domestic shops</div>
-        </div>
-        <button class="toggle" id="localToggle" onclick="toggleLocal()"></button>
-      </div>
       <div class="tag-row" id="exclusionTags"></div>
       <div class="add-row">
         <input class="text-input" type="text" id="exclusionInput" placeholder="e.g. florals, sequins, crop tops…" onkeydown="if(event.key==='Enter') addExclusion()" style="margin:0;" />
@@ -1062,6 +1102,13 @@ select.text-input { cursor: pointer; }
         <button class="quick-chip" onclick="quickExcl('Bright colours')">Bright colours</button>
         <button class="quick-chip" onclick="quickExcl('Crop tops')">Crop tops</button>
         <button class="quick-chip" onclick="quickExcl('Miniskirts')">Miniskirts</button>
+      </div>
+      <div class="toggle-row" style="margin-top:1rem;">
+        <div>
+          <div class="toggle-label">Local retailers only</div>
+          <div class="toggle-sub">Restrict to domestic shops</div>
+        </div>
+        <button class="toggle" id="localToggle" onclick="toggleLocal()"></button>
       </div>
     </div>
 
@@ -1347,105 +1394,125 @@ function toggleDetails(id, btn) {
   btn.textContent = el.classList.contains('open') ? '− Less' : '+ Why this works for you';
 }
 
+/* ── Image proxy: attempt to load via allorigins to bypass CORS/hotlink blocks ── */
+function makeImgHtml(item, i) {
+  if (!item.imageUrl) {
+    return elegantPlaceholder(item.retailer);
+  }
+  // Try direct URL; on error try allorigins proxy; on second error show placeholder
+  const proxy = `https://images.weserv.nl/?url=${encodeURIComponent(item.imageUrl)}&w=600&output=jpg`;
+  return `<img src="${item.imageUrl}"
+    alt="${item.name}"
+    onerror="this.src='${proxy}'"
+    onload="this.style.opacity=1"
+    style="opacity:0;transition:opacity 0.3s;"
+    onload="this.style.opacity=1">
+  <div class="img-placeholder elegant-placeholder" id="ph${i}" style="display:none">
+    <div class="ph-inner">
+      <div class="ph-retailer">${item.retailer}</div>
+      <div class="ph-name">${item.name}</div>
+    </div>
+  </div>`;
+}
+
+function elegantPlaceholder(retailer) {
+  return `<div class="img-placeholder elegant-placeholder">
+    <div class="ph-inner"><div class="ph-retailer">${retailer}</div></div>
+  </div>`;
+}
+
 /* ── Render products ── */
-function renderProducts(items) {
-  return `<div class="product-grid">${items.map((item, i) => {
-    const imgHtml = item.imageUrl
-      ? `<img src="${item.imageUrl}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-         <div class="img-placeholder" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 16l4-4 4 4 4-6 4 6"/><rect x="2" y="3" width="20" height="18" rx="2"/></svg><span>${item.retailer}</span></div>`
-      : `<div class="img-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 16l4-4 4 4 4-6 4 6"/><rect x="2" y="3" width="20" height="18" rx="2"/></svg><span>${item.retailer}</span></div>`;
+function renderProducts(items, offset=0) {
+  return items.map((item, i) => {
+    const idx = offset + i;
     const n = item.name.replace(/'/g,"\\'");
     return `<div class="product-card">
       <a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
-        <div class="product-image-wrap">${imgHtml}</div>
+        <div class="product-image-wrap">${makeImgHtml(item, idx)}</div>
         <div class="product-retailer">${item.retailer}</div>
         <div class="product-name">${item.name}</div>
         <div class="product-price">${item.price}</div>
       </a>
-      <button class="product-details-toggle" onclick="toggleDetails('d${i}',this)">+ Why this works for you</button>
-      <div class="product-details" id="d${i}">
+      <button class="product-details-toggle" onclick="toggleDetails('d${idx}',this)">+ Why this works for you</button>
+      <div class="product-details" id="d${idx}">
         ${item.whyItWorks?`<div class="product-detail-row"><span class="product-detail-label">Why it works</span>${item.whyItWorks}</div>`:''}
         ${item.sizeNote?`<div class="product-detail-row"><span class="product-detail-label">Size note</span>${item.sizeNote}</div>`:''}
         ${item.stylingTip?`<div class="product-detail-row"><span class="product-detail-label">Styling tip</span>${item.stylingTip}</div>`:''}
       </div>
       <div class="feedback-row">
         <span class="feedback-label">Was this right for you?</span>
-        <button class="feedback-btn" id="up${i}" onclick="giveFeedback(${i},'up','${n}')" title="Yes">👍</button>
-        <button class="feedback-btn" id="down${i}" onclick="giveFeedback(${i},'down','${n}')" title="No">👎</button>
+        <button class="feedback-btn" id="up${idx}" onclick="giveFeedback(${idx},'up','${n}')" title="Yes">👍</button>
+        <button class="feedback-btn" id="down${idx}" onclick="giveFeedback(${idx},'down','${n}')" title="No">👎</button>
       </div>
-      <div class="feedback-thanks" id="thanks${i}"></div>
+      <div class="feedback-thanks" id="thanks${idx}"></div>
     </div>`;
-  }).join('')}</div>`;
+  }).join('');
 }
 
-/* ── Search ── */
-async function findOutfits() {
+/* ── Build prompt (shared by initial search and load more) ── */
+function buildPrompt(count, exclude=[]) {
   const currency = document.getElementById('currency').value;
   const priceMin = document.getElementById('priceMin').value;
   const priceMax = document.getElementById('priceMax').value;
   const syms = {USD:'$',GBP:'£',EUR:'€',SGD:'S$',AUD:'A$',CAD:'C$',JPY:'¥',HKD:'HK$'};
   const sym = syms[currency] || currency;
-
-  if (!session.occasionParent) { alert('Please select an occasion.'); return; }
-  if (!priceMin || !priceMax) { alert('Please enter a price range.'); return; }
-
   const occasion = session.occasionChild || session.occasionParent;
   const vibeNote = profile.vibes.length ? `Style vibes: ${profile.vibes.join(', ')}.` : '';
   const museNote = profile.muses.length ? `Style muses: ${profile.muses.join(', ')}.` : '';
-  const colourNote = profile.colourTone ? `Colour preference: ${profile.colourTone} tones.` : '';
+  const colourNote = profile.colourTone ? `Colour: ${profile.colourTone} tones.` : '';
   const climateNote = session.climate ? `Climate: ${session.climate}.` : '';
   const exclNote = session.exclusions.length ? `Exclude: ${session.exclusions.join(', ')}.` : '';
-  const localNote = session.localOnly ? 'Local/domestic retailers only.' : '';
+  const localNote = session.localOnly ? 'Local retailers only.' : '';
+  const excludeItems = exclude.length ? `Do NOT repeat these items already shown: ${exclude.join(', ')}.` : '';
   const liked = session.feedback.filter(f=>f.type==='up').map(f=>f.itemName);
   const disliked = session.feedback.filter(f=>f.type==='down').map(f=>f.itemName);
   const feedbackNote = [
-    liked.length ? `Previously liked: ${liked.join(', ')}. Show more like these.` : '',
-    disliked.length ? `Previously disliked: ${disliked.join(', ')}. Avoid similar styles.` : ''
+    liked.length ? `User liked: ${liked.join(', ')}.` : '',
+    disliked.length ? `User disliked: ${disliked.join(', ')}. Avoid similar.` : ''
   ].filter(Boolean).join(' ');
 
-  const prompt = `You are a fashion search engine. Your ONLY job is to return a JSON array. Do NOT write any explanation, preamble, or text before or after the JSON. Do NOT use markdown code blocks. The very first character of your response must be [ and the very last must be ].
+  return { sym, currency, prompt: `Fashion search engine. Return ONLY a JSON array of exactly ${count} items. First character must be [. No text before or after.
 
-Search and find exactly 4 real clothing items matching these criteria:
-- Shopping for: ${profile.gender}
-- Body type: ${profile.body}
+Find ${count} real clothing items:
+- Gender: ${profile.gender}
+- Body: ${profile.body}
 - Occasion: ${occasion}
-- Size: ${profile.size} (${profile.sizeSystem} sizing)
-- Location: ${profile.location}
+- Size: ${profile.size} ${profile.sizeSystem}
+- Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
-${vibeNote}
-${museNote}
-${colourNote}
-${climateNote}
-${exclNote}
-${localNote}
-${feedbackNote}
+${vibeNote}${museNote}${colourNote}${climateNote}${exclNote}${localNote}${feedbackNote}${excludeItems}
 
-Return this exact structure, nothing else:
-[
-  {
-    "retailer": "Retailer name",
-    "name": "Exact product name",
-    "price": "${sym}XX",
-    "url": "https://exact-product-page-url.com/specific-item",
-    "imageUrl": "https://direct-image-url.jpg",
-    "whyItWorks": "Why this flatters a ${profile.body} ${profile.gender} figure",
-    "sizeNote": "Size note for ${profile.sizeSystem} ${profile.size}",
-    "stylingTip": "One styling suggestion"
+Use at most 3 web searches total. Prioritise well-known retailers with international shipping.
+
+[{"retailer":"Name","name":"Product name","price":"${sym}XX","url":"https://specific-product-page","imageUrl":"https://cdn-image.jpg","whyItWorks":"Why flatters ${profile.body}","sizeNote":"Size note","stylingTip":"Tip"}]` };
+}
+
+function parseItems(raw) {
+  raw = (raw || '').replace(/```json|```/g,'').trim();
+  if (!raw.startsWith('[')) {
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (match) raw = match[0]; else throw new Error('No results found — please try again');
   }
-]
+  return JSON.parse(raw);
+}
 
-STRICT RULES:
-- Start your response with [ immediately
-- url = specific product page only, never a homepage or category
-- imageUrl = direct CDN image URL ending in .jpg .png or .webp
-- price = in ${currency}
-- all 4 items must ship to ${profile.location}`;
+/* ── Search ── */
+let allItems = [];
 
+async function findOutfits() {
+  if (!session.occasionParent) { alert('Please select an occasion.'); return; }
+  const priceMin = document.getElementById('priceMin').value;
+  const priceMax = document.getElementById('priceMax').value;
+  if (!priceMin || !priceMax) { alert('Please enter a price range.'); return; }
+
+  allItems = [];
   const btn = document.getElementById('searchBtn');
   btn.disabled = true;
-  document.getElementById('resultsArea').innerHTML = `<div class="status-msg"><div class="spinner"></div>Searching live listings…</div>`;
+    const area = document.getElementById('resultsArea');
+  area.innerHTML = `<div class="status-msg"><div class="spinner"></div>Finding your edit…</div>`;
 
   try {
+    const { prompt } = buildPrompt(9);
     const response = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1453,26 +1520,43 @@ STRICT RULES:
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Search failed');
-
-    // Try to extract JSON array even if Claude adds surrounding text
-    let raw = data.result || '';
-    raw = raw.replace(/```json|```/g, '').trim();
-
-    // If response doesn't start with [, try to find a JSON array within it
-    if (!raw.startsWith('[')) {
-      const match = raw.match(/\[[\s\S]*\]/);
-      if (match) raw = match[0];
-      else throw new Error('No results found — please try again');
-    }
-
-    const items = JSON.parse(raw);
-    document.getElementById('resultsArea').innerHTML =
-      `<div class="results-label">${items.length} picks for you</div>${renderProducts(items)}`;
+    const items = parseItems(data.result);
+    allItems = items;
+    area.innerHTML = `
+      <div class="results-label">${items.length} picks for you</div>
+      <p class="image-disclaimer">Some images may not display due to individual retailer settings — click any card to view the item and its photo directly on the retailer's site.</p>
+      <div class="product-grid" id="productGrid">${renderProducts(items)}</div>
+      <div id="loadMoreWrap" style="text-align:center;margin-top:2.5rem;">
+        <button class="btn-load-more" onclick="loadMore()">Discover more</button>
+      </div>`;
   } catch(err) {
-    document.getElementById('resultsArea').innerHTML =
-      `<div class="error-msg">Something went wrong — please try again. (${err.message})</div>`;
+    area.innerHTML = `<div class="error-msg">Something went wrong — please try again. (${err.message})</div>`;
   } finally {
     btn.disabled = false;
+  }
+}
+
+async function loadMore() {
+  const btn = document.querySelector('.btn-load-more');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  try {
+    const exclude = allItems.map(i => i.name);
+    const { prompt } = buildPrompt(5, exclude);
+    const response = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Search failed');
+    const newItems = parseItems(data.result);
+    const offset = allItems.length;
+    allItems = allItems.concat(newItems);
+    const grid = document.getElementById('productGrid');
+    if (grid) grid.insertAdjacentHTML('beforeend', renderProducts(newItems, offset));
+    if (btn) { btn.disabled = false; btn.textContent = 'Discover more'; }
+  } catch(err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Discover more'; }
   }
 }
 
