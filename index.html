@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prêt-à-Fit</title>
+<script>
+  // Clerk publishable key — safe to be in frontend code
+  window.__clerk_publishable_key = 'pk_test_cHJvcGVyLXRhZHBvbGUtNTQuY2xlcmsuYWNjb3VudHMuZGV2JA';
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" crossorigin="anonymous"></script>
 <style>
 /* ── Tokens ── */
 :root {
@@ -886,6 +891,200 @@ select.text-input { cursor: pointer; }
 }
 .btn-load-more:hover { border-color: var(--ink); color: var(--ink); }
 .btn-load-more:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Auth screen ── */
+#screen-auth {
+  background: var(--ink);
+  position: relative;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+}
+#screen-auth .hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.auth-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.auth-logo {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  font-weight: 400;
+  color: var(--parchment);
+  letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
+}
+.auth-logo em { font-style: italic; color: var(--dust); }
+.auth-tagline {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 2.5rem;
+}
+.auth-card {
+  background: var(--parchment);
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 400px;
+  text-align: left;
+}
+.auth-card-heading {
+  font-family: Georgia, serif;
+  font-size: 1.3rem;
+  color: var(--ink);
+  font-weight: 400;
+  margin-bottom: 0.4rem;
+}
+.auth-card-sub {
+  font-size: 12px;
+  color: var(--charcoal);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+.auth-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 0.5px solid var(--dust);
+}
+.auth-tab {
+  padding: 8px 0;
+  margin-right: 24px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dust);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  border-bottom: 1.5px solid transparent;
+  margin-bottom: -0.5px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.auth-tab.active { color: var(--ink); border-bottom-color: var(--ink); }
+.auth-field { margin-bottom: 12px; }
+.auth-field label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 6px;
+}
+.auth-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 0.5px solid var(--dust);
+  background: var(--mist);
+  font-size: 14px;
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.auth-input:focus { border-color: var(--bark); }
+.auth-input::placeholder { color: var(--dust); }
+.auth-submit {
+  width: 100%;
+  padding: 13px;
+  background: var(--ink);
+  color: var(--parchment);
+  border: none;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  margin-top: 8px;
+  transition: background 0.2s;
+}
+.auth-submit:hover { background: var(--bark); }
+.auth-submit:disabled { background: var(--dust); cursor: not-allowed; }
+.auth-error {
+  font-size: 11px;
+  color: var(--error);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+.auth-divider-line { flex: 1; height: 0.5px; background: var(--dust); }
+.auth-divider-text { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dust); }
+.auth-google {
+  width: 100%;
+  padding: 11px;
+  border: 0.5px solid var(--dust);
+  background: transparent;
+  color: var(--charcoal);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.auth-google:hover { border-color: var(--bark); color: var(--bark); }
+.auth-skip {
+  margin-top: 1.25rem;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dust);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: color 0.15s;
+}
+.auth-skip:hover { color: var(--parchment); }
+
+/* ── User button in nav ── */
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--linen);
+  border: 0.5px solid var(--dust);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--charcoal);
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  letter-spacing: 0;
+  transition: border-color 0.15s;
+  overflow: hidden;
+}
+.user-avatar:hover { border-color: var(--bark); }
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Verification code step */
+.auth-code-hint {
+  font-size: 12px;
+  color: var(--charcoal);
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
 </style>
 </head>
 <body>
@@ -1126,7 +1325,88 @@ select.text-input { cursor: pointer; }
   <div class="progress-dots" id="dots-sizing"></div>
 </div>
 
-<!-- ══ SCREEN 8: MAIN APP ══ -->
+<!-- ══ SCREEN 8: AUTH ══ -->
+<div class="screen" id="screen-auth">
+  <!-- Reuse the same textile SVG background -->
+  <svg class="hero-canvas" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#1C1712"/>
+    <defs>
+      <pattern id="weave-h2" x="0" y="0" width="40" height="8" patternUnits="userSpaceOnUse">
+        <rect width="40" height="4" fill="#2A2218" opacity="0.9"/>
+        <rect y="4" width="40" height="4" fill="#241E14" opacity="0.9"/>
+      </pattern>
+      <pattern id="weave-v2" x="0" y="0" width="8" height="40" patternUnits="userSpaceOnUse">
+        <rect width="4" height="40" fill="#C4A882" opacity="0.06"/>
+        <rect x="4" width="4" height="40" fill="#8B6F47" opacity="0.04"/>
+      </pattern>
+      <radialGradient id="vignette2" cx="50%" cy="50%" r="70%">
+        <stop offset="0%" stop-color="#1C1712" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#1C1712" stop-opacity="0.85"/>
+      </radialGradient>
+      <radialGradient id="glow2" cx="50%" cy="45%" r="40%">
+        <stop offset="0%" stop-color="#8B6F47" stop-opacity="0.12"/>
+        <stop offset="100%" stop-color="#8B6F47" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <rect width="1200" height="800" fill="url(#weave-h2)"/>
+    <rect width="1200" height="800" fill="url(#weave-v2)"/>
+    <g opacity="0.12">
+      <line x1="0" y1="80" x2="1200" y2="80" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="0" y1="200" x2="1200" y2="200" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="0" y1="400" x2="1200" y2="400" stroke="#C4A882" stroke-width="0.5"/>
+      <line x1="0" y1="600" x2="1200" y2="600" stroke="#C4A882" stroke-width="0.5"/>
+    </g>
+    <rect width="1200" height="800" fill="url(#glow2)"/>
+    <rect width="1200" height="800" fill="url(#vignette2)"/>
+  </svg>
+  <div class="auth-content">
+    <div class="auth-logo">prêt-à-<em>fit</em></div>
+    <div class="auth-tagline">Save your profile — never start over</div>
+    <div class="auth-card">
+      <div id="authEmailStep">
+        <div class="auth-card-heading" id="authHeading">Create your account</div>
+        <p class="auth-card-sub" id="authSub">Save your style profile and access your personalised wardrobe edit anytime, on any device.</p>
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tabSignUp" onclick="switchAuthTab('signup')">Create account</button>
+          <button class="auth-tab" id="tabSignIn" onclick="switchAuthTab('signin')">Sign in</button>
+        </div>
+        <div class="auth-field">
+          <label>Email address</label>
+          <input class="auth-input" type="email" id="authEmail" placeholder="your@email.com" />
+        </div>
+        <div class="auth-field" id="authPasswordField">
+          <label>Password</label>
+          <input class="auth-input" type="password" id="authPassword" placeholder="At least 8 characters" />
+        </div>
+        <div id="authErrorMsg" class="auth-error" style="display:none;"></div>
+        <button class="auth-submit" id="authSubmitBtn" onclick="handleAuthSubmit()">Continue with email</button>
+        <div class="auth-divider">
+          <div class="auth-divider-line"></div>
+          <div class="auth-divider-text">or</div>
+          <div class="auth-divider-line"></div>
+        </div>
+        <button class="auth-google" onclick="handleGoogleAuth()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Continue with Google
+        </button>
+      </div>
+      <!-- Verification code step (shown after sign-up email sent) -->
+      <div id="authVerifyStep" style="display:none;">
+        <div class="auth-card-heading">Check your inbox</div>
+        <p class="auth-code-hint">We've sent a verification code to <strong id="authEmailDisplay"></strong>. Enter it below to confirm your account.</p>
+        <div class="auth-field">
+          <label>Verification code</label>
+          <input class="auth-input" type="text" id="authCode" placeholder="6-digit code" maxlength="6" inputmode="numeric" />
+        </div>
+        <div id="authVerifyError" class="auth-error" style="display:none;"></div>
+        <button class="auth-submit" onclick="handleVerifyCode()">Verify & enter</button>
+      </div>
+    </div>
+    <button class="auth-skip" onclick="skipAuth()">Skip for now — continue as guest</button>
+  </div>
+</div>
+
+<!-- ══ SCREEN 9: MAIN APP ══ -->
 <div class="screen" id="screen-app">
   <div class="app-topbar">
     <div class="app-logo-small">prêt-à-<em>fit</em></div>
@@ -1134,6 +1414,9 @@ select.text-input { cursor: pointer; }
       <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
       <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
       <button class="app-nav-link" onclick="goTo('screen-gender')">Edit profile</button>
+      <div id="userAvatarWrap" style="display:none;">
+        <button class="user-avatar" id="userAvatarBtn" onclick="handleUserMenu()" title="Account"></button>
+      </div>
     </nav>
   </div>
 
@@ -1221,6 +1504,22 @@ select.text-input { cursor: pointer; }
 </div>
 
 <script>
+/* ── Clerk instance ── */
+let clerkInstance = null;
+let clerkSignUp = null;   // holds in-progress sign-up object
+
+async function initClerk() {
+  try {
+    const clerk = new window.Clerk(window.__clerk_publishable_key);
+    await clerk.load();
+    clerkInstance = clerk;
+    return clerk;
+  } catch(e) {
+    console.warn('Clerk failed to load:', e);
+    return null;
+  }
+}
+
 /* ── State ── */
 const profile = {
   gender: '', body: '', colourMethod: '', colourTone: '',
@@ -1233,7 +1532,7 @@ const session = {
 };
 
 /* ── Screen navigation ── */
-const SCREENS = ['screen-hero','screen-gender','screen-body','screen-colour','screen-style','screen-muses','screen-sizing','screen-app'];
+const SCREENS = ['screen-hero','screen-gender','screen-body','screen-colour','screen-style','screen-muses','screen-sizing','screen-auth','screen-app'];
 const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-colour','screen-style','screen-muses','screen-sizing'];
 const TOTAL_DOTS = ONBOARDING_SCREENS.length;
 
@@ -1444,14 +1743,204 @@ function selectClimate(el) {
   session.climate = el.dataset.value;
 }
 
-/* ── Complete onboarding ── */
+/* ── Complete onboarding → show auth screen ── */
 function completeOnboarding() {
   profile.sizeSystem = document.getElementById('sizeSystem').value;
   profile.size = document.getElementById('sizeValue').value;
   profile.location = document.getElementById('locationInput').value.trim();
   if (!profile.size) { alert('Please select your size.'); return; }
   if (!profile.location) { alert('Please enter your shipping location.'); return; }
+  // Go to auth screen; if already logged in, skip straight to app
+  if (clerkInstance && clerkInstance.user) {
+    saveProfileToClerk();
+    enterApp();
+  } else {
+    goTo('screen-auth');
+  }
+}
+
+/* ── Clerk: save & load profile ── */
+async function saveProfileToClerk() {
+  if (!clerkInstance || !clerkInstance.user) return;
+  try {
+    await clerkInstance.user.update({
+      unsafeMetadata: {
+        pretafit_profile: {
+          gender: profile.gender,
+          body: profile.body,
+          colourMethod: profile.colourMethod,
+          colourTone: profile.colourTone,
+          vibes: profile.vibes,
+          muses: profile.muses,
+          sizeSystem: profile.sizeSystem,
+          size: profile.size,
+          location: profile.location
+        }
+      }
+    });
+  } catch(e) {
+    console.warn('Could not save profile to Clerk:', e);
+  }
+}
+
+async function loadProfileFromClerk() {
+  if (!clerkInstance || !clerkInstance.user) return false;
+  try {
+    const saved = clerkInstance.user.unsafeMetadata?.pretafit_profile;
+    if (!saved || !saved.gender) return false;
+    // Restore all profile fields
+    Object.assign(profile, saved);
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+/* ── Auth: tab switching ── */
+function switchAuthTab(mode) {
+  const isSignUp = mode === 'signup';
+  document.getElementById('tabSignUp').classList.toggle('active', isSignUp);
+  document.getElementById('tabSignIn').classList.toggle('active', !isSignUp);
+  document.getElementById('authHeading').textContent = isSignUp ? 'Create your account' : 'Welcome back';
+  document.getElementById('authSub').textContent = isSignUp
+    ? 'Save your style profile and access your personalised wardrobe edit anytime.'
+    : 'Sign in to restore your saved style profile.';
+  document.getElementById('authPasswordField').style.display = isSignUp ? 'block' : 'block';
+  document.getElementById('authErrorMsg').style.display = 'none';
+  document.getElementById('authSubmitBtn').textContent = isSignUp ? 'Continue with email' : 'Sign in';
+}
+
+/* ── Auth: email/password submit ── */
+async function handleAuthSubmit() {
+  if (!clerkInstance) { enterApp(); return; }
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errEl = document.getElementById('authErrorMsg');
+  const btn = document.getElementById('authSubmitBtn');
+  const isSignUp = document.getElementById('tabSignUp').classList.contains('active');
+
+  if (!email) { showAuthError('Please enter your email address.'); return; }
+  if (!password) { showAuthError('Please enter a password.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Please wait…';
+  errEl.style.display = 'none';
+
+  try {
+    if (isSignUp) {
+      // Create account
+      clerkSignUp = await clerkInstance.client.signUp.create({
+        emailAddress: email,
+        password: password
+      });
+      // Send verification email
+      await clerkSignUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      // Show verification step
+      document.getElementById('authEmailDisplay').textContent = email;
+      document.getElementById('authEmailStep').style.display = 'none';
+      document.getElementById('authVerifyStep').style.display = 'block';
+    } else {
+      // Sign in
+      const result = await clerkInstance.client.signIn.create({
+        identifier: email,
+        password: password
+      });
+      await clerkInstance.setActive({ session: result.createdSessionId });
+      const loaded = await loadProfileFromClerk();
+      if (loaded) {
+        enterApp();
+      } else {
+        // Signed in but no saved profile — they need to complete onboarding
+        await saveProfileToClerk();
+        enterApp();
+      }
+    }
+  } catch(err) {
+    const msg = err.errors?.[0]?.longMessage || err.errors?.[0]?.message || 'Something went wrong. Please try again.';
+    showAuthError(msg);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = isSignUp ? 'Continue with email' : 'Sign in';
+  }
+}
+
+/* ── Auth: verify email code ── */
+async function handleVerifyCode() {
+  const code = document.getElementById('authCode').value.trim();
+  const errEl = document.getElementById('authVerifyError');
+  if (!code) { errEl.textContent = 'Please enter the code from your email.'; errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+  try {
+    const result = await clerkSignUp.attemptEmailAddressVerification({ code });
+    if (result.status === 'complete') {
+      await clerkInstance.setActive({ session: result.createdSessionId });
+      await saveProfileToClerk();
+      enterApp();
+    } else {
+      errEl.textContent = 'Verification incomplete. Please try again.';
+      errEl.style.display = 'block';
+    }
+  } catch(err) {
+    const msg = err.errors?.[0]?.longMessage || err.errors?.[0]?.message || 'Invalid code. Please try again.';
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
+  }
+}
+
+/* ── Auth: Google ── */
+async function handleGoogleAuth() {
+  if (!clerkInstance) { enterApp(); return; }
+  try {
+    await clerkInstance.client.signIn.authenticateWithRedirect({
+      strategy: 'oauth_google',
+      redirectUrl: window.location.href,
+      redirectUrlComplete: window.location.href
+    });
+  } catch(e) {
+    showAuthError('Google sign-in is not available right now.');
+  }
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('authErrorMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+/* ── Auth: skip ── */
+function skipAuth() {
+  enterApp();
+}
+
+/* ── Enter the main app ── */
+function enterApp() {
+  updateUserAvatar();
   goTo('screen-app');
+}
+
+/* ── User avatar in nav ── */
+function updateUserAvatar() {
+  if (!clerkInstance || !clerkInstance.user) return;
+  const wrap = document.getElementById('userAvatarWrap');
+  const btn = document.getElementById('userAvatarBtn');
+  const user = clerkInstance.user;
+  wrap.style.display = 'block';
+  const imgUrl = user.imageUrl;
+  const initials = ((user.firstName?.[0] || '') + (user.lastName?.[0] || '')) || (user.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() || '?');
+  btn.innerHTML = imgUrl
+    ? `<img src="${imgUrl}" alt="Account">`
+    : initials;
+}
+
+function handleUserMenu() {
+  if (!clerkInstance || !clerkInstance.user) return;
+  const confirmed = confirm('Sign out of Prêt-à-Fit?');
+  if (confirmed) {
+    clerkInstance.signOut().then(() => {
+      document.getElementById('userAvatarWrap').style.display = 'none';
+      goTo('screen-hero');
+    });
+  }
 }
 
 /* ── Exclusions ── */
@@ -1496,19 +1985,17 @@ function toggleDetails(id, btn) {
   btn.textContent = el.classList.contains('open') ? '− Less' : '+ Why this works for you';
 }
 
-/* ── Image proxy: attempt to load via allorigins to bypass CORS/hotlink blocks ── */
+/* ── Image proxy ── */
 function makeImgHtml(item, i) {
   if (!item.imageUrl) {
     return elegantPlaceholder(item.retailer);
   }
-  // Try direct URL; on error try allorigins proxy; on second error show placeholder
   const proxy = `https://images.weserv.nl/?url=${encodeURIComponent(item.imageUrl)}&w=600&output=jpg`;
   return `<img src="${item.imageUrl}"
     alt="${item.name}"
     onerror="this.src='${proxy}'"
     onload="this.style.opacity=1"
-    style="opacity:0;transition:opacity 0.3s;"
-    onload="this.style.opacity=1">
+    style="opacity:0;transition:opacity 0.3s;">
   <div class="img-placeholder elegant-placeholder" id="ph${i}" style="display:none">
     <div class="ph-inner">
       <div class="ph-retailer">${item.retailer}</div>
@@ -1551,7 +2038,7 @@ function renderProducts(items, offset=0) {
   }).join('');
 }
 
-/* ── Build prompt (shared by initial search and load more) ── */
+/* ── Build prompt ── */
 function buildPrompt(count, exclude=[]) {
   const currency = document.getElementById('currency').value;
   const priceMin = document.getElementById('priceMin').value;
@@ -1610,7 +2097,7 @@ async function findOutfits() {
   allItems = [];
   const btn = document.getElementById('searchBtn');
   btn.disabled = true;
-    const area = document.getElementById('resultsArea');
+  const area = document.getElementById('resultsArea');
   area.innerHTML = `<div class="status-msg"><div class="spinner"></div>Finding your edit…</div>`;
 
   try {
@@ -1676,7 +2163,43 @@ async function submitContact() {
 }
 
 /* ── Init ── */
-setTimeout(() => document.getElementById('screen-hero').classList.add('visible'), 50);
+async function init() {
+  // Show hero
+  setTimeout(() => document.getElementById('screen-hero').classList.add('visible'), 50);
+
+  // Initialise Clerk in the background
+  const clerk = await initClerk();
+  if (!clerk) return;
+
+  // If user is already signed in, load their profile on next visit
+  if (clerk.user) {
+    const hasProfile = await loadProfileFromClerk();
+    if (hasProfile) {
+      // Pre-populate the hero with a sign-in aware CTA
+      const heroBtn = document.querySelector('#screen-hero .btn-primary');
+      if (heroBtn) {
+        const firstName = clerk.user.firstName || 'back';
+        heroBtn.textContent = `Welcome back, ${firstName} — continue`;
+        heroBtn.onclick = () => {
+          updateUserAvatar();
+          goTo('screen-app');
+        };
+      }
+    }
+  }
+
+  // Handle Google OAuth redirect back to the page
+  if (clerk.client?.signIn?.status === 'complete' || clerk.client?.signUp?.status === 'complete') {
+    if (clerk.user) {
+      const loaded = await loadProfileFromClerk();
+      if (!loaded) await saveProfileToClerk();
+      updateUserAvatar();
+      goTo('screen-app');
+    }
+  }
+}
+
+init();
 </script>
 
 <div class="screen" id="screen-about">
