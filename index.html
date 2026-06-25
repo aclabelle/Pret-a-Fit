@@ -741,6 +741,104 @@ select.text-input { cursor: pointer; }
   .occasion-tier-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* ── Top nav ── */
+.app-nav { display: flex; align-items: center; gap: 1.5rem; }
+.app-nav-link {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dust);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  padding: 0;
+  transition: color 0.15s;
+}
+.app-nav-link:hover { color: var(--bark); }
+
+/* ── Editorial pages ── */
+.editorial-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 3rem 1.5rem 5rem;
+}
+.editorial-wrap {
+  max-width: 680px;
+  margin: 0 auto;
+}
+.editorial-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 1.25rem;
+}
+.editorial-heading {
+  font-family: Georgia, serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.2;
+  margin-bottom: 2rem;
+}
+.editorial-rule {
+  width: 40px;
+  height: 0.5px;
+  background: var(--dust);
+  margin: 2.5rem 0;
+}
+.editorial-p {
+  font-size: 15px;
+  color: var(--charcoal);
+  line-height: 1.85;
+  margin-bottom: 1.5rem;
+  font-weight: 400;
+}
+.editorial-p em { font-style: italic; color: var(--ink); }
+.editorial-manifesto {
+  padding: 2rem 0;
+}
+.editorial-manifesto-line {
+  font-family: Georgia, serif;
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  color: var(--ink);
+  line-height: 1.6;
+  font-style: italic;
+}
+.editorial-tagline {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-top: 2.5rem;
+}
+
+/* ── Contact ── */
+.contact-label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dust);
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* ── Privacy ── */
+.privacy-section {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 0.5px solid var(--linen);
+}
+.privacy-section:last-child { border-bottom: none; }
+.privacy-heading {
+  font-family: Georgia, serif;
+  font-size: 1.1rem;
+  color: var(--ink);
+  margin-bottom: 0.75rem;
+  font-weight: 400;
+}
+
 .image-disclaimer {
   font-size: 11px;
   color: var(--dust);
@@ -1032,7 +1130,11 @@ select.text-input { cursor: pointer; }
 <div class="screen" id="screen-app">
   <div class="app-topbar">
     <div class="app-logo-small">prêt-à-<em>fit</em></div>
-    <div class="app-topbar-right" onclick="goTo('screen-gender')">Edit profile</div>
+    <nav class="app-nav">
+      <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
+      <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
+      <button class="app-nav-link" onclick="goTo('screen-gender')">Edit profile</button>
+    </nav>
   </div>
 
   <div class="app-body">
@@ -1560,8 +1662,179 @@ async function loadMore() {
   }
 }
 
+/* ── Contact form ── */
+async function submitContact() {
+  const name = document.getElementById('contactName').value.trim();
+  const email = document.getElementById('contactEmail').value.trim();
+  const subject = document.getElementById('contactSubject').value;
+  const message = document.getElementById('contactMessage').value.trim();
+  if (!name || !email || !message) { alert('Please fill in your name, email and message.'); return; }
+  const body = `Name: ${name}\nEmail: ${email}\nSubject: ${subject}\n\n${message}`;
+  window.location.href = `mailto:support@pret-a-fit.com?subject=Prêt-à-Fit: ${encodeURIComponent(subject || 'Message')}&body=${encodeURIComponent(body)}`;
+  document.getElementById('contactForm').style.display = 'none';
+  document.getElementById('contactThanks').style.display = 'block';
+}
+
 /* ── Init ── */
 setTimeout(() => document.getElementById('screen-hero').classList.add('visible'), 50);
 </script>
+
+<div class="screen" id="screen-about">
+  <div class="app-topbar">
+    <div class="app-logo-small">prêt-à-<em>fit</em></div>
+    <nav class="app-nav">
+      <button class="app-nav-link" onclick="goTo('screen-app')">← Back</button>
+      <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
+      <button class="app-nav-link" onclick="goTo('screen-privacy')">Privacy</button>
+    </nav>
+  </div>
+  <div class="editorial-body">
+    <div class="editorial-wrap">
+
+      <div class="editorial-eyebrow">Our story</div>
+      <h1 class="editorial-heading">Dressed for you.<br>Every time.</h1>
+
+      <div class="editorial-rule"></div>
+
+      <p class="editorial-p">Prêt-à-Fit was born from a feeling most of us know well — standing in front of a wardrobe full of clothes and feeling like you have nothing to wear. Not because you don't own beautiful things, but because finding the right thing, for the right moment, that actually works for <em>your</em> body, can feel like searching for something that was never quite meant for you.</p>
+
+      <p class="editorial-p">The person behind this app works in finance. She is someone who cares deeply about being properly and elegantly dressed — not for vanity, but because the right outfit changes how you carry yourself. It changes how you walk into a room. It changes what you're able to do when you get there.</p>
+
+      <p class="editorial-p">She built Prêt-à-Fit because she loved fashion, loved the ritual of discovering something new, but found the process exhausting. Scrolling through hundreds of items that weren't made for her body. Guessing at what would actually flatter her silhouette. Never quite finding that perfect piece — chic, elegant, considered — without spending hours looking for it.</p>
+
+      <div class="editorial-rule"></div>
+
+      <div class="editorial-manifesto">
+        <div class="editorial-manifesto-line">Style is not one size fits all.</div>
+        <div class="editorial-manifesto-line">It never was.</div>
+        <div class="editorial-manifesto-line">Prêt-à-Fit exists to change that.</div>
+      </div>
+
+      <div class="editorial-rule"></div>
+
+      <p class="editorial-p">We use artificial intelligence not to follow trends, but to understand you — your shape, your proportions, your aesthetic, your life. Every recommendation begins with your body, not a bestseller list. We search live, real-time listings so that what you see is actually available, in your size, at your price, delivered to your door.</p>
+
+      <p class="editorial-p">The result is a wardrobe edit that feels like it was curated by someone who knows you. Because, in a way, it was.</p>
+
+      <div class="editorial-tagline">Style that fits. In every sense.</div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCREEN: CONTACT ══ -->
+<div class="screen" id="screen-contact">
+  <div class="app-topbar">
+    <div class="app-logo-small">prêt-à-<em>fit</em></div>
+    <nav class="app-nav">
+      <button class="app-nav-link" onclick="goTo('screen-app')">← Back</button>
+      <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
+      <button class="app-nav-link" onclick="goTo('screen-privacy')">Privacy</button>
+    </nav>
+  </div>
+  <div class="editorial-body">
+    <div class="editorial-wrap" style="max-width:560px;">
+
+      <div class="editorial-eyebrow">Get in touch</div>
+      <h1 class="editorial-heading">We'd love to<br>hear from you.</h1>
+      <p class="editorial-p" style="margin-bottom:2.5rem;">Whether you have a question, a suggestion, or simply want to share a thought — this is a human-run project and every message is read personally.</p>
+
+      <div class="contact-form" id="contactForm">
+        <div class="field" style="margin-bottom:14px;">
+          <label class="contact-label">Your name</label>
+          <input class="text-input" type="text" id="contactName" placeholder="How should we address you?" />
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label class="contact-label">Email address</label>
+          <input class="text-input" type="email" id="contactEmail" placeholder="So we can write back" />
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label class="contact-label">Subject</label>
+          <select class="text-input" id="contactSubject">
+            <option value="">Select a topic</option>
+            <option>General question</option>
+            <option>Feedback on a recommendation</option>
+            <option>Technical issue</option>
+            <option>Partnership or press enquiry</option>
+            <option>Something else</option>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:24px;">
+          <label class="contact-label">Message</label>
+          <textarea class="text-input" id="contactMessage" rows="5" placeholder="Tell us what's on your mind…" style="resize:vertical;"></textarea>
+        </div>
+        <button class="btn-next" style="width:100%;" onclick="submitContact()">Send message</button>
+      </div>
+
+      <div id="contactThanks" style="display:none;text-align:center;padding:3rem 0;">
+        <div style="font-family:Georgia,serif;font-size:1.4rem;color:var(--ink);margin-bottom:1rem;">Thank you.</div>
+        <p class="editorial-p">Your message has been received. We'll be in touch shortly at the email you provided.</p>
+        <button class="btn-back" style="margin-top:2rem;" onclick="goTo('screen-app')">Return to Prêt-à-Fit</button>
+      </div>
+
+      <div style="margin-top:2rem;padding-top:1.5rem;border-top:0.5px solid var(--linen);">
+        <p style="font-size:11px;color:var(--dust);line-height:1.7;">You can also reach us directly at <a href="mailto:support@pret-a-fit.com" style="color:var(--bark);text-decoration:none;">support@pret-a-fit.com</a></p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCREEN: PRIVACY ══ -->
+<div class="screen" id="screen-privacy">
+  <div class="app-topbar">
+    <div class="app-logo-small">prêt-à-<em>fit</em></div>
+    <nav class="app-nav">
+      <button class="app-nav-link" onclick="goTo('screen-app')">← Back</button>
+      <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
+      <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
+    </nav>
+  </div>
+  <div class="editorial-body">
+    <div class="editorial-wrap">
+
+      <div class="editorial-eyebrow">Privacy policy</div>
+      <h1 class="editorial-heading">Your privacy,<br>plainly stated.</h1>
+      <p class="editorial-p">We believe privacy policies should be readable. Here is ours, written in plain language.</p>
+      <p style="font-size:11px;color:var(--dust);margin-bottom:2rem;">Last updated: June 2026</p>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">What we collect</div>
+        <p class="editorial-p">When you use Prêt-à-Fit, you provide us with style preferences — your body type, sizing, location, occasion, colour preferences and style inspirations. This information is used solely to generate clothing recommendations for you. We also collect your email address if you create an account or contact us.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">How we use it</div>
+        <p class="editorial-p">Your preferences are passed to our AI provider (Anthropic) to generate personalised recommendations. They are not sold, shared with advertisers, or used for any purpose other than producing your results. If you create an account, your profile preferences are saved so you don't need to re-enter them each visit.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">What we don't do</div>
+        <p class="editorial-p">We do not sell your data. We do not share your information with retailers or third-party advertisers. We do not use your information to build advertising profiles. We do not store payment information — this is handled entirely by Stripe, our payment provider.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">Photo analysis (coming soon)</div>
+        <p class="editorial-p">When we introduce optional photo-based body assessment, any image you upload will be sent directly to our AI provider for analysis and immediately discarded. Photos are never stored, never shared, and never used for any purpose beyond the single analysis you request.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">Cookies</div>
+        <p class="editorial-p">We use minimal, functional cookies only — to keep you logged in and remember your preferences between sessions. We do not use advertising or tracking cookies.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">Your rights</div>
+        <p class="editorial-p">You have the right to access, correct, or delete any personal data we hold about you. To exercise these rights, or if you have any questions about how your data is handled, please contact us at <a href="mailto:support@pret-a-fit.com" style="color:var(--bark);text-decoration:none;">support@pret-a-fit.com</a></p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">Changes to this policy</div>
+        <p class="editorial-p">If we make material changes to this policy, we will notify registered users by email. The date at the top of this page always reflects when it was last updated.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
 </body>
 </html>
