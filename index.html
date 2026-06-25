@@ -1085,6 +1085,69 @@ select.text-input { cursor: pointer; }
   line-height: 1.6;
   margin-bottom: 1rem;
 }
+
+/* ── Paywall prompt ── */
+.paywall-wrap {
+  margin: 2.5rem 0;
+  padding: 2.5rem 2rem;
+  background: var(--linen);
+  border: 0.5px solid var(--dust);
+  text-align: center;
+}
+.paywall-eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 1rem;
+}
+.paywall-heading {
+  font-family: Georgia, serif;
+  font-size: 1.3rem;
+  color: var(--ink);
+  font-weight: 400;
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+}
+.paywall-sub {
+  font-size: 13px;
+  color: var(--charcoal);
+  line-height: 1.7;
+  margin-bottom: 1.75rem;
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.paywall-btn {
+  display: inline-block;
+  padding: 13px 40px;
+  background: var(--ink);
+  color: var(--parchment);
+  border: none;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: background 0.2s;
+  margin-bottom: 1rem;
+}
+.paywall-btn:hover { background: var(--bark); }
+.paywall-signin {
+  font-size: 11px;
+  color: var(--dust);
+  letter-spacing: 0.06em;
+}
+.paywall-signin button {
+  background: none;
+  border: none;
+  color: var(--bark);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: system-ui, sans-serif;
+  text-decoration: underline;
+  padding: 0;
+}
 </style>
 </head>
 <body>
@@ -2085,6 +2148,66 @@ function parseItems(raw) {
   return JSON.parse(raw);
 }
 
+/* ── Search limit ── */
+const FREE_SEARCH_LIMIT = 1;
+
+function getSearchCount() {
+  // For logged-in users, use their Clerk metadata
+  if (clerkInstance && clerkInstance.user) {
+    return clerkInstance.user.unsafeMetadata?.searchCount || 0;
+  }
+  // For guests, use sessionStorage (resets when browser tab closes)
+  return parseInt(sessionStorage.getItem('paf_searches') || '0');
+}
+
+async function incrementSearchCount() {
+  if (clerkInstance && clerkInstance.user) {
+    const current = clerkInstance.user.unsafeMetadata?.searchCount || 0;
+    try {
+      await clerkInstance.user.update({
+        unsafeMetadata: {
+          ...clerkInstance.user.unsafeMetadata,
+          searchCount: current + 1
+        }
+      });
+    } catch(e) { console.warn('Could not save search count:', e); }
+  } else {
+    const current = parseInt(sessionStorage.getItem('paf_searches') || '0');
+    sessionStorage.setItem('paf_searches', current + 1);
+  }
+}
+
+function isSubscriber() {
+  // Will be connected to Stripe later — for now always false
+  if (clerkInstance && clerkInstance.user) {
+    return clerkInstance.user.unsafeMetadata?.subscribed === true;
+  }
+  return false;
+}
+
+function showPaywall(area) {
+  const isLoggedIn = !!(clerkInstance && clerkInstance.user);
+  area.innerHTML = `
+    <div class="paywall-wrap">
+      <div class="paywall-eyebrow">Your free search has been used</div>
+      <h2 class="paywall-heading">Unlock unlimited<br>personal styling</h2>
+      <p class="paywall-sub">You've used your complimentary search. Subscribe to Prêt-à-Fit for unlimited recommendations, saved looks, and your full style profile — always ready when you are.</p>
+      <button class="paywall-btn" onclick="handleSubscribe()">Subscribe to continue</button>
+      ${!isLoggedIn ? `<div class="paywall-signin">Already have an account? <button onclick="goToSignIn()">Sign in</button></div>` : ''}
+    </div>`;
+}
+
+function handleSubscribe() {
+  // Stripe not yet connected — show coming soon message for now
+  alert('Subscriptions are coming very soon. Thank you for your patience.');
+}
+
+function goToSignIn() {
+  // Pre-select the sign-in tab and go to auth screen
+  goTo('screen-auth');
+  setTimeout(() => switchAuthTab('signin'), 350);
+}
+
 /* ── Search ── */
 let allItems = [];
 
@@ -2093,6 +2216,12 @@ async function findOutfits() {
   const priceMin = document.getElementById('priceMin').value;
   const priceMax = document.getElementById('priceMax').value;
   if (!priceMin || !priceMax) { alert('Please enter a price range.'); return; }
+
+  // Check search limit
+  if (!isSubscriber() && getSearchCount() >= FREE_SEARCH_LIMIT) {
+    showPaywall(document.getElementById('resultsArea'));
+    return;
+  }
 
   allItems = [];
   const btn = document.getElementById('searchBtn');
@@ -2111,6 +2240,10 @@ async function findOutfits() {
     if (!response.ok) throw new Error(data.error || 'Search failed');
     const items = parseItems(data.result);
     allItems = items;
+
+    // Count this search
+    await incrementSearchCount();
+
     area.innerHTML = `
       <div class="results-label">${items.length} picks for you</div>
       <p class="image-disclaimer">Some images may not display due to individual retailer settings — click any card to view the item and its photo directly on the retailer's site.</p>
