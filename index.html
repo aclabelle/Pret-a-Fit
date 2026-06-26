@@ -5,10 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prêt-à-Fit</title>
 <script>
-  // Clerk publishable key — safe to be in frontend code
   window.__clerk_publishable_key = 'pk_test_cHJvcGVyLXRhZHBvbGUtNTQuY2xlcmsuYWNjb3VudHMuZGV2JA';
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" crossorigin="anonymous"></script>
+<script async crossorigin="anonymous"
+  data-clerk-publishable-key="pk_test_cHJvcGVyLXRhZHBvbGUtNTQuY2xlcmsuYWNjb3VudHMuZGV2JA"
+  src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+  onload="window.__clerkScriptLoaded = true;"
+  onerror="window.__clerkScriptFailed = true; console.warn('Clerk CDN failed to load — auth features disabled.');">
+</script>
 <style>
 /* ── Tokens ── */
 :root {
@@ -1086,6 +1090,213 @@ select.text-input { cursor: pointer; }
   margin-bottom: 1rem;
 }
 
+/* ── Body shape quiz ── */
+.quiz-method-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 2rem;
+}
+.photo-tips-wrap {
+  width: 100%;
+  margin-bottom: 2rem;
+}
+.photo-tips-heading {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 1.25rem;
+}
+.photo-tip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  border: 0.5px solid var(--dust);
+}
+.photo-tip-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 0.5px solid var(--linen);
+  background: var(--mist);
+}
+.photo-tip-item:last-child { border-bottom: none; }
+.photo-tip-icon {
+  width: 28px;
+  height: 28px;
+  background: var(--linen);
+  border: 0.5px solid var(--dust);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.photo-tip-icon svg {
+  width: 13px;
+  height: 13px;
+  stroke: var(--bark);
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.photo-tip-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bark);
+  margin-bottom: 3px;
+}
+.photo-tip-text {
+  font-size: 13px;
+  color: var(--charcoal);
+  line-height: 1.55;
+}
+.photo-upload-zone {
+  width: 100%;
+  border: 0.5px dashed var(--dust);
+  background: var(--mist);
+  padding: 2.5rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 1rem;
+  position: relative;
+}
+.photo-upload-zone:hover { border-color: var(--bark); background: var(--linen); }
+.photo-upload-zone.has-photo { border-style: solid; border-color: var(--bark); background: var(--linen); }
+.photo-upload-label {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 6px;
+}
+.photo-upload-title {
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  color: var(--ink);
+  font-weight: 400;
+  margin-bottom: 6px;
+}
+.photo-upload-sub {
+  font-size: 11px;
+  color: var(--charcoal);
+  letter-spacing: 0.03em;
+}
+.photo-upload-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 0.5px solid var(--dust);
+  margin: 0 auto 8px;
+  display: block;
+}
+.photo-privacy-note {
+  font-size: 11px;
+  color: var(--dust);
+  line-height: 1.6;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  letter-spacing: 0.02em;
+}
+.quiz-questions-wrap { width: 100%; }
+.quiz-q {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 0.5px solid var(--linen);
+}
+.quiz-q:last-child { border-bottom: none; }
+.quiz-q-label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 4px;
+}
+.quiz-q-text {
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  color: var(--ink);
+  font-weight: 400;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+.quiz-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.quiz-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 0.5px solid var(--dust);
+  background: var(--mist);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--charcoal);
+  text-align: left;
+  width: 100%;
+}
+.quiz-opt:hover { border-color: var(--bark); color: var(--bark); }
+.quiz-opt.selected { background: var(--linen); border-color: var(--ink); color: var(--ink); }
+.quiz-opt-dot {
+  width: 8px; height: 8px;
+  border: 0.5px solid var(--dust);
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.quiz-opt.selected .quiz-opt-dot { background: var(--ink); border-color: var(--ink); }
+.quiz-result-wrap {
+  width: 100%;
+  padding: 1.5rem;
+  background: var(--linen);
+  border: 0.5px solid var(--dust);
+  margin-bottom: 1.5rem;
+}
+.quiz-result-eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 8px;
+}
+.quiz-result-type {
+  font-family: Georgia, serif;
+  font-size: 1.3rem;
+  color: var(--ink);
+  font-weight: 400;
+  margin-bottom: 6px;
+}
+.quiz-result-desc {
+  font-size: 13px;
+  color: var(--charcoal);
+  line-height: 1.6;
+}
+.quiz-analysing {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 1rem 1.25rem;
+  background: var(--linen);
+  font-size: 13px;
+  color: var(--charcoal);
+  margin-bottom: 1.5rem;
+  letter-spacing: 0.04em;
+  width: 100%;
+}
+
 /* ── Paywall prompt ── */
 .paywall-wrap {
   margin: 2.5rem 0;
@@ -1242,17 +1453,224 @@ select.text-input { cursor: pointer; }
   <div class="onboarding-wrap">
     <div class="screen-eyebrow">About you</div>
     <h1 class="screen-heading">Your body type</h1>
-    <p class="screen-sub">Every recommendation is shaped around your silhouette. Select the one that feels closest — or take the quiz.</p>
+    <p class="screen-sub">Every recommendation is shaped around your silhouette. Select the one that feels closest, or let us figure it out for you.</p>
     <div class="body-grid" id="bodyGrid"></div>
     <div class="screen-nav">
       <button class="btn-back" onclick="goTo('screen-gender')">← Back</button>
       <div style="display:flex;gap:12px;align-items:center;">
-        <button class="btn-skip" onclick="goTo('screen-colour')">Not sure — skip for now</button>
+        <button class="btn-skip" onclick="goTo('screen-body-quiz')">Not sure — take the quiz</button>
         <button class="btn-next" id="bodyNext" onclick="goTo('screen-colour')" disabled>Continue</button>
       </div>
     </div>
   </div>
   <div class="progress-dots" id="dots-body"></div>
+</div>
+
+<!-- ══ SCREEN 3B: BODY SHAPE QUIZ ══ -->
+<div class="screen" id="screen-body-quiz">
+  <div class="onboarding-wrap" style="justify-content:flex-start;padding-top:3rem;">
+    <div class="screen-eyebrow">Body shape quiz</div>
+    <h1 class="screen-heading">Let's find your shape</h1>
+    <p class="screen-sub">Answer three gentle questions to discover your shape — or upgrade to unlock the photo analysis.</p>
+
+    <!-- Method choice -->
+    <div class="quiz-method-grid" id="quizMethodGrid">
+      <div class="choice-card" id="quizMethodPhoto" onclick="handlePhotoMethodClick()">
+        <div class="choice-card-label">Most accurate</div>
+        <div class="choice-card-title">Upload a photo</div>
+        <div class="choice-card-desc">Our AI reads your proportions directly — no guesswork on your part.</div>
+        <div class="choice-card-badge">Subscribers</div>
+      </div>
+      <div class="choice-card" id="quizMethodQuestions" onclick="selectQuizMethod('questions')">
+        <div class="choice-card-label">No photo needed</div>
+        <div class="choice-card-title">Answer a few questions</div>
+        <div class="choice-card-desc">Three simple questions about your proportions guide us to your shape.</div>
+      </div>
+    </div>
+
+    <!-- ── PHOTO PATH ── -->
+    <div id="quizPhotoPath" style="display:none;width:100%;">
+
+      <!-- Tips -->
+      <div class="photo-tips-wrap">
+        <div class="photo-tips-heading">For the best result</div>
+        <div class="photo-tip-list">
+          <div class="photo-tip-item">
+            <div class="photo-tip-icon">
+              <svg viewBox="0 0 16 16"><path d="M8 2v12M2 8h12"/></svg>
+            </div>
+            <div>
+              <div class="photo-tip-label">Stand straight, full body</div>
+              <div class="photo-tip-text">A full-length photo from the front works best. Arms slightly away from your body, feet hip-width apart — as if you're standing in a shop changing room.</div>
+            </div>
+          </div>
+          <div class="photo-tip-item">
+            <div class="photo-tip-icon">
+              <svg viewBox="0 0 16 16"><circle cx="8" cy="6" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/></svg>
+            </div>
+            <div>
+              <div class="photo-tip-label">Wear fitted clothing</div>
+              <div class="photo-tip-text">Loose or oversized pieces hide your natural shape. A fitted top and trousers, or a bodycon dress, lets us read your proportions accurately.</div>
+            </div>
+          </div>
+          <div class="photo-tip-item">
+            <div class="photo-tip-icon">
+              <svg viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="1"/><path d="M2 6h12"/></svg>
+            </div>
+            <div>
+              <div class="photo-tip-label">Good, even lighting</div>
+              <div class="photo-tip-text">Natural daylight or indoor lighting that falls evenly across you. Avoid strong backlighting or harsh shadows — they can obscure your outline.</div>
+            </div>
+          </div>
+          <div class="photo-tip-item">
+            <div class="photo-tip-icon">
+              <svg viewBox="0 0 16 16"><path d="M8 3l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z"/></svg>
+            </div>
+            <div>
+              <div class="photo-tip-label">Plain background if possible</div>
+              <div class="photo-tip-text">A wall, door, or plain curtain behind you makes it easier to read your silhouette clearly. It doesn't need to be perfect — just uncluttered.</div>
+            </div>
+          </div>
+          <div class="photo-tip-item">
+            <div class="photo-tip-icon">
+              <svg viewBox="0 0 16 16"><path d="M3 8a5 5 0 1010 0A5 5 0 003 8zm5-2v4m-2-2h4"/></svg>
+            </div>
+            <div>
+              <div class="photo-tip-label">Hair up helps too</div>
+              <div class="photo-tip-text">If your hair is long, tying it up exposes your shoulder line — one of the key measurements we look at. Not essential, but it improves accuracy.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload zone -->
+      <div class="photo-upload-zone" id="photoUploadZone" onclick="document.getElementById('photoFileInput').click()">
+        <div id="photoUploadDefault">
+          <div class="photo-upload-label">Tap to upload</div>
+          <div class="photo-upload-title">Choose a photo from your device</div>
+          <div class="photo-upload-sub">JPG or PNG · stays private · never stored</div>
+        </div>
+        <div id="photoUploadPreviewWrap" style="display:none;">
+          <img id="photoUploadPreview" class="photo-upload-preview" src="" alt="Your photo" />
+          <div class="photo-upload-label">Photo selected</div>
+          <div class="photo-upload-sub">Tap to choose a different one</div>
+        </div>
+      </div>
+      <input type="file" id="photoFileInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handlePhotoSelected(this)" />
+
+      <div class="photo-privacy-note">Your photo is sent directly to our AI for analysis and immediately discarded — it is never stored, never seen by a person, and never used for any other purpose.</div>
+
+      <!-- Analysing state -->
+      <div id="photoAnalysing" style="display:none;" class="quiz-analysing">
+        <div class="spinner"></div>Reading your proportions…
+      </div>
+
+      <!-- Result -->
+      <div id="photoResult" style="display:none;" class="quiz-result-wrap">
+        <div class="quiz-result-eyebrow">Your body shape</div>
+        <div class="quiz-result-type" id="photoResultType"></div>
+        <div class="quiz-result-desc" id="photoResultDesc"></div>
+      </div>
+
+      <div class="screen-nav" style="margin-top:0.5rem;">
+        <button class="btn-back" onclick="resetQuizMethod()">← Change method</button>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <button class="btn-next" id="photoAnalyseBtn" onclick="analysePhoto()" disabled>Analyse my photo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── QUESTIONS PATH ── -->
+    <div id="quizQuestionsPath" style="display:none;width:100%;">
+      <div class="quiz-questions-wrap">
+
+        <div class="quiz-q">
+          <div class="quiz-q-label">Question 1 of 3</div>
+          <div class="quiz-q-text">How would you describe your shoulders compared to your hips?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt" data-q="1" data-v="broader" onclick="selectQuizOpt(this,1)">
+              <span class="quiz-opt-dot"></span>My shoulders are noticeably broader
+            </button>
+            <button class="quiz-opt" data-q="1" data-v="similar" onclick="selectQuizOpt(this,1)">
+              <span class="quiz-opt-dot"></span>They're roughly the same width
+            </button>
+            <button class="quiz-opt" data-q="1" data-v="narrower" onclick="selectQuizOpt(this,1)">
+              <span class="quiz-opt-dot"></span>My hips are noticeably wider
+            </button>
+          </div>
+        </div>
+
+        <div class="quiz-q">
+          <div class="quiz-q-label">Question 2 of 3</div>
+          <div class="quiz-q-text">How defined is your waist relative to your shoulders and hips?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt" data-q="2" data-v="defined" onclick="selectQuizOpt(this,2)">
+              <span class="quiz-opt-dot"></span>Clearly defined — noticeably narrower
+            </button>
+            <button class="quiz-opt" data-q="2" data-v="slight" onclick="selectQuizOpt(this,2)">
+              <span class="quiz-opt-dot"></span>Slightly defined — a gentle curve inward
+            </button>
+            <button class="quiz-opt" data-q="2" data-v="straight" onclick="selectQuizOpt(this,2)">
+              <span class="quiz-opt-dot"></span>Fairly straight — similar width throughout
+            </button>
+            <button class="quiz-opt" data-q="2" data-v="fuller" onclick="selectQuizOpt(this,2)">
+              <span class="quiz-opt-dot"></span>Fuller through the middle
+            </button>
+          </div>
+        </div>
+
+        <div class="quiz-q">
+          <div class="quiz-q-label">Question 3 of 3</div>
+          <div class="quiz-q-text">Where do you tend to carry weight first, or feel fullest?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt" data-q="3" data-v="hips-thighs" onclick="selectQuizOpt(this,3)">
+              <span class="quiz-opt-dot"></span>Hips and thighs
+            </button>
+            <button class="quiz-opt" data-q="3" data-v="midsection" onclick="selectQuizOpt(this,3)">
+              <span class="quiz-opt-dot"></span>Stomach and midsection
+            </button>
+            <button class="quiz-opt" data-q="3" data-v="bust-shoulders" onclick="selectQuizOpt(this,3)">
+              <span class="quiz-opt-dot"></span>Bust and upper body
+            </button>
+            <button class="quiz-opt" data-q="3" data-v="evenly" onclick="selectQuizOpt(this,3)">
+              <span class="quiz-opt-dot"></span>Fairly evenly — no single area
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Analysing state -->
+      <div id="questionsAnalysing" style="display:none;" class="quiz-analysing">
+        <div class="spinner"></div>Working out your shape…
+      </div>
+
+      <!-- Result -->
+      <div id="questionsResult" style="display:none;" class="quiz-result-wrap">
+        <div class="quiz-result-eyebrow">Your body shape</div>
+        <div class="quiz-result-type" id="questionsResultType"></div>
+        <div class="quiz-result-desc" id="questionsResultDesc"></div>
+      </div>
+
+      <div class="screen-nav" style="margin-top:0.5rem;">
+        <button class="btn-back" onclick="resetQuizMethod()">← Change method</button>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <button class="btn-next" id="questionsSubmitBtn" onclick="submitQuizQuestions()" disabled>Find my shape</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shared continue button (shown after result) -->
+    <div id="quizContinueWrap" style="display:none;width:100%;margin-top:1rem;">
+      <div class="screen-nav">
+        <span></span>
+        <button class="btn-next" onclick="acceptQuizResult()">Continue with this →</button>
+      </div>
+      <p style="font-size:11px;color:var(--dust);text-align:right;margin-top:8px;letter-spacing:0.04em;">Not right? You can adjust it on the previous screen.</p>
+    </div>
+
+  </div>
+  <div class="progress-dots" id="dots-body-quiz"></div>
 </div>
 
 <!-- ══ SCREEN 4: COLOUR ANALYSIS ══ -->
@@ -1572,13 +1990,42 @@ let clerkInstance = null;
 let clerkSignUp = null;   // holds in-progress sign-up object
 
 async function initClerk() {
+  // If the CDN script itself failed (network error / CSP), bail out silently
+  if (window.__clerkScriptFailed) return null;
+
+  // Wait up to 5 seconds for the async script to finish loading
+  const ready = await new Promise(resolve => {
+    if (window.__clerkScriptLoaded || typeof window.Clerk !== 'undefined') {
+      resolve(true);
+      return;
+    }
+    let waited = 0;
+    const poll = setInterval(() => {
+      waited += 100;
+      if (typeof window.Clerk !== 'undefined' || window.__clerkScriptLoaded) {
+        clearInterval(poll);
+        resolve(true);
+      } else if (waited >= 5000 || window.__clerkScriptFailed) {
+        clearInterval(poll);
+        resolve(false);
+      }
+    }, 100);
+  });
+
+  if (!ready || typeof window.Clerk === 'undefined') {
+    console.warn('Clerk: script not available — auth features disabled.');
+    return null;
+  }
+
   try {
+    // clerk-js v5 CDN: window.Clerk is a constructor
     const clerk = new window.Clerk(window.__clerk_publishable_key);
-    await clerk.load();
+    await clerk.load({ appearance: {} });
     clerkInstance = clerk;
     return clerk;
   } catch(e) {
-    console.warn('Clerk failed to load:', e);
+    // Swallow all errors — app works fine without auth
+    console.warn('Clerk: failed to initialise —', e.message || e);
     return null;
   }
 }
@@ -1595,7 +2042,7 @@ const session = {
 };
 
 /* ── Screen navigation ── */
-const SCREENS = ['screen-hero','screen-gender','screen-body','screen-colour','screen-style','screen-muses','screen-sizing','screen-auth','screen-app'];
+const SCREENS = ['screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-style','screen-muses','screen-sizing','screen-auth','screen-app'];
 const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-colour','screen-style','screen-muses','screen-sizing'];
 const TOTAL_DOTS = ONBOARDING_SCREENS.length;
 
@@ -2280,6 +2727,244 @@ async function loadMore() {
   } catch(err) {
     if (btn) { btn.disabled = false; btn.textContent = 'Discover more'; }
   }
+}
+
+/* ── Body shape quiz ── */
+const quizAnswers = { 1: null, 2: null, 3: null };
+let quizPhotoBase64 = null;
+let quizPhotoMediaType = 'image/jpeg';
+let quizResultBody = '';
+
+function handlePhotoMethodClick() {
+  // Photo analysis is a subscriber feature — show paywall
+  const isSubscriber = clerkInstance && clerkInstance.user &&
+    clerkInstance.user.publicMetadata && clerkInstance.user.publicMetadata.subscriber;
+  if (isSubscriber) {
+    selectQuizMethod('photo');
+  } else {
+    goTo('screen-auth');
+    // After auth screen is shown, we can't easily redirect back, so we show a note
+    // For now, direct non-subscribers to questions path
+    setTimeout(() => {
+      // If they end up back here, show a gentle message
+    }, 100);
+    showPhotoPaywall();
+  }
+}
+
+function showPhotoPaywall() {
+  var grid = document.getElementById('quizMethodGrid');
+  var paywall = document.getElementById('quizPhotoPaywall');
+  if (!paywall) {
+    paywall = document.createElement('div');
+    paywall.id = 'quizPhotoPaywall';
+    paywall.className = 'paywall-wrap';
+    paywall.style.marginBottom = '0';
+
+    var eyebrow = document.createElement('div');
+    eyebrow.className = 'paywall-eyebrow';
+    eyebrow.textContent = 'Subscriber feature';
+
+    var heading = document.createElement('div');
+    heading.className = 'paywall-heading';
+    heading.textContent = 'Photo analysis is part of Prêt-à-Fit Premium';
+
+    var sub = document.createElement('div');
+    sub.className = 'paywall-sub';
+    sub.textContent = 'Subscribers unlock AI photo body assessment, the colour analysis quiz, saved looks, and unlimited searches. The questions quiz is available to everyone — and works beautifully.';
+
+    var upgradeBtn = document.createElement('button');
+    upgradeBtn.className = 'paywall-btn';
+    upgradeBtn.textContent = 'Upgrade or sign in';
+    upgradeBtn.onclick = function() { goTo('screen-auth'); };
+
+    var signinDiv = document.createElement('div');
+    signinDiv.className = 'paywall-signin';
+    var skipBtn = document.createElement('button');
+    skipBtn.textContent = 'Continue with questions instead →';
+    skipBtn.onclick = function() {
+      paywall.remove();
+      selectQuizMethod('questions');
+    };
+    signinDiv.appendChild(skipBtn);
+
+    paywall.appendChild(eyebrow);
+    paywall.appendChild(heading);
+    paywall.appendChild(sub);
+    paywall.appendChild(upgradeBtn);
+    paywall.appendChild(signinDiv);
+    grid.parentNode.insertBefore(paywall, grid.nextSibling);
+  }
+  paywall.style.display = 'block';
+}
+function selectQuizMethod(method) {
+  document.getElementById('quizMethodGrid').style.display = 'none';
+  document.getElementById('quizPhotoPath').style.display = method === 'photo' ? 'block' : 'none';
+  document.getElementById('quizQuestionsPath').style.display = method === 'questions' ? 'block' : 'none';
+}
+
+function resetQuizMethod() {
+  document.getElementById('quizMethodGrid').style.display = 'grid';
+  document.getElementById('quizPhotoPath').style.display = 'none';
+  document.getElementById('quizQuestionsPath').style.display = 'none';
+  document.getElementById('quizContinueWrap').style.display = 'none';
+  document.getElementById('photoResult').style.display = 'none';
+  document.getElementById('questionsResult').style.display = 'none';
+  document.getElementById('photoAnalysing').style.display = 'none';
+  document.getElementById('questionsAnalysing').style.display = 'none';
+  quizPhotoBase64 = null;
+  quizResultBody = '';
+  document.getElementById('photoAnalyseBtn').disabled = true;
+  const existingPaywall = document.getElementById('quizPhotoPaywall');
+  if (existingPaywall) existingPaywall.remove();
+}
+
+function handlePhotoSelected(input) {
+  const file = input.files[0];
+  if (!file) return;
+  quizPhotoMediaType = file.type || 'image/jpeg';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    quizPhotoBase64 = dataUrl.split(',')[1];
+    const preview = document.getElementById('photoUploadPreview');
+    preview.src = dataUrl;
+    document.getElementById('photoUploadDefault').style.display = 'none';
+    document.getElementById('photoUploadPreviewWrap').style.display = 'block';
+    document.getElementById('photoUploadZone').classList.add('has-photo');
+    document.getElementById('photoAnalyseBtn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analysePhoto() {
+  if (!quizPhotoBase64) return;
+  document.getElementById('photoAnalyseBtn').disabled = true;
+  document.getElementById('photoAnalysing').style.display = 'flex';
+  document.getElementById('photoResult').style.display = 'none';
+  document.getElementById('quizContinueWrap').style.display = 'none';
+
+  const prompt = `You are a warm, thoughtful personal stylist who deeply respects and celebrates every body. The user has shared a photo for body shape analysis.
+
+Look at the proportions in this photo and identify the body shape from this list:
+- hourglass (balanced bust & hips, defined waist)
+- pear (hips fuller than shoulders)
+- apple (fuller through the midsection)
+- rectangle (shoulders, waist and hips roughly aligned)
+- inverted triangle (broader shoulders, narrower hips)
+- petite (slight, smaller frame overall)
+- athletic (broader shoulders, tapered waist)
+
+Write the description with genuine warmth — every shape is beautiful and dresses beautifully in the right way. Celebrate what is lovely about this shape. Be specific about what makes it elegant to dress, name a styling strength, and keep it to 2 sentences. Never use clinical or negative language.
+
+Respond ONLY with valid JSON in this exact format, no other text:
+{"bodyShape":"rectangle","description":"Your long, lean proportions give you an effortless elegance that's the envy of many — think of the clean lines of Carolyn Bessette-Kennedy. You have total freedom to play with silhouette, adding curves where you wish or keeping things beautifully streamlined."}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: quizPhotoMediaType, data: quizPhotoBase64 } },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+    const data = await response.json();
+    const text = (data.content || []).map(b => b.text || '').join('').trim();
+    const clean = text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+    quizResultBody = result.bodyShape;
+    document.getElementById('photoResultType').textContent = formatBodyName(result.bodyShape);
+    document.getElementById('photoResultDesc').textContent = result.description;
+    document.getElementById('photoResult').style.display = 'block';
+    document.getElementById('quizContinueWrap').style.display = 'block';
+  } catch(err) {
+    document.getElementById('photoResultType').textContent = 'Unable to analyse';
+    document.getElementById('photoResultDesc').textContent = 'Something went wrong — please try again, or switch to the questions method instead.';
+    document.getElementById('photoResult').style.display = 'block';
+    document.getElementById('photoAnalyseBtn').disabled = false;
+  } finally {
+    document.getElementById('photoAnalysing').style.display = 'none';
+  }
+}
+
+function selectQuizOpt(el, qNum) {
+  el.closest('.quiz-opts').querySelectorAll('.quiz-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  quizAnswers[qNum] = el.dataset.v;
+  const allAnswered = quizAnswers[1] && quizAnswers[2] && quizAnswers[3];
+  document.getElementById('questionsSubmitBtn').disabled = !allAnswered;
+}
+
+async function submitQuizQuestions() {
+  document.getElementById('questionsSubmitBtn').disabled = true;
+  document.getElementById('questionsAnalysing').style.display = 'flex';
+  document.getElementById('questionsResult').style.display = 'none';
+  document.getElementById('quizContinueWrap').style.display = 'none';
+
+  const prompt = `You are a warm, thoughtful personal stylist who deeply respects and celebrates every body. Based on the user's answers, gently identify their body shape.
+
+Q1 — Shoulders vs hips: "${quizAnswers[1]}" (broader=shoulders wider, similar=same width, narrower=hips fuller)
+Q2 — Waist definition: "${quizAnswers[2]}" (defined=clearly narrower, slight=gentle curve inward, straight=similar width throughout, fuller=fullest at the midsection)
+Q3 — Where weight is carried: "${quizAnswers[3]}" (hips-thighs, midsection, bust-shoulders, evenly distributed)
+
+Choose from: hourglass, pear, apple, rectangle, inverted triangle, athletic, petite
+
+Write the description with genuine warmth — every shape is beautiful and dresses beautifully. Celebrate what is lovely about this shape. Be specific about what makes it elegant to dress, name a real styling strength, and keep it to 2 warm sentences. Never use clinical, critical, or negative language. If in doubt, lean toward the most flattering interpretation.
+
+Respond ONLY with valid JSON in this exact format, no other text:
+{"bodyShape":"pear","description":"Your shape is one of the most celebrated in fashion — fuller through the hips with a neat upper body, a silhouette shared by some of the world's most beautifully dressed women. With the right pieces, your waist becomes your signature and your hips something to highlight rather than hide."}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 300,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await response.json();
+    const text = (data.content || []).map(b => b.text || '').join('').trim();
+    const clean = text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+    quizResultBody = result.bodyShape;
+    document.getElementById('questionsResultType').textContent = formatBodyName(result.bodyShape);
+    document.getElementById('questionsResultDesc').textContent = result.description;
+    document.getElementById('questionsResult').style.display = 'block';
+    document.getElementById('quizContinueWrap').style.display = 'block';
+  } catch(err) {
+    document.getElementById('questionsResultType').textContent = 'Something went wrong';
+    document.getElementById('questionsResultDesc').textContent = 'Please try again — or go back and select your body type manually.';
+    document.getElementById('questionsResult').style.display = 'block';
+    document.getElementById('questionsSubmitBtn').disabled = false;
+  } finally {
+    document.getElementById('questionsAnalysing').style.display = 'none';
+  }
+}
+
+function formatBodyName(val) {
+  const names = {
+    hourglass: 'Hourglass', pear: 'Pear', apple: 'Apple',
+    rectangle: 'Rectangle', 'inverted triangle': 'Inverted Triangle',
+    athletic: 'Athletic', petite: 'Petite'
+  };
+  return names[val] || val.charAt(0).toUpperCase() + val.slice(1);
+}
+
+function acceptQuizResult() {
+  if (!quizResultBody) return;
+  profile.body = quizResultBody;
+  // Also visually select the matching card on the body screen for consistency
+  goTo('screen-colour');
 }
 
 /* ── Contact form ── */
