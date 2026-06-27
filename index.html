@@ -1663,10 +1663,9 @@ select.text-input { cursor: pointer; }
     <!-- Shared continue button (shown after result) -->
     <div id="quizContinueWrap" style="display:none;width:100%;margin-top:1rem;">
       <div class="screen-nav">
-        <span></span>
+        <button class="btn-skip" onclick="if(quizResultBody){highlightBodyCard(quizResultBody);}goTo('screen-body')">Not right? Pick manually →</button>
         <button class="btn-next" onclick="acceptQuizResult()">Continue with this →</button>
       </div>
-      <p style="font-size:11px;color:var(--dust);text-align:right;margin-top:8px;letter-spacing:0.04em;">Not right? You can adjust it on the previous screen.</p>
     </div>
 
   </div>
@@ -1916,10 +1915,9 @@ select.text-input { cursor: pointer; }
     <!-- Shared continue -->
     <div id="colourQuizContinueWrap" style="display:none;width:100%;margin-top:1rem;">
       <div class="screen-nav">
-        <span></span>
+        <button class="btn-skip" onclick="goTo('screen-colour')">Not right? Pick manually →</button>
         <button class="btn-next" onclick="acceptColourResult()">Continue with this →</button>
       </div>
-      <p style="font-size:11px;color:var(--dust);text-align:right;margin-top:8px;letter-spacing:0.04em;">Not quite right? You can adjust it on the previous screen.</p>
     </div>
 
   </div>
@@ -3070,7 +3068,15 @@ async function analysePhoto() {
   document.getElementById('photoResult').style.display = 'none';
   document.getElementById('quizContinueWrap').style.display = 'none';
 
+  const genderCtxPhoto = profile.gender === 'men'
+    ? 'The person is a man. Use menswear styling language — tailoring, shirts, trousers, jackets. Never reference womenswear.'
+    : profile.gender === 'non-binary'
+    ? 'The person is non-binary. Use gender-neutral styling language. Focus on silhouette and proportion without gendering garments. Never reference dresses, skirts, or explicitly gendered pieces.'
+    : 'The person is a woman. Use womenswear styling language.';
+
   const prompt = `You are a warm, thoughtful personal stylist who deeply respects and celebrates every body. The user has shared a photo for body shape analysis.
+
+${genderCtxPhoto}
 
 Look at the proportions in this photo and identify the body shape from this list:
 - hourglass (balanced bust & hips, defined waist)
@@ -3081,10 +3087,10 @@ Look at the proportions in this photo and identify the body shape from this list
 - petite (slight, smaller frame overall)
 - athletic (broader shoulders, tapered waist)
 
-Write the description with genuine warmth — every shape is beautiful and dresses beautifully in the right way. Celebrate what is lovely about this shape. Be specific about what makes it elegant to dress, name a styling strength, and keep it to 2 sentences. Never use clinical or negative language.
+Write the description with genuine warmth. Celebrate what is lovely about this shape. Name a styling strength appropriate to the gender context above. Keep it to 2 sentences. Never use clinical or negative language.
 
-Respond ONLY with valid JSON in this exact format, no other text:
-{"bodyShape":"rectangle","description":"Your long, lean proportions give you an effortless elegance that's the envy of many — think of the clean lines of Carolyn Bessette-Kennedy. You have total freedom to play with silhouette, adding curves where you wish or keeping things beautifully streamlined."}`;
+Respond ONLY with valid JSON:
+{"bodyShape":"rectangle","description":"Your long, lean proportions give you an effortless elegance — clothes hang beautifully on you and you have total freedom to play with silhouette. A well-cut blazer or a relaxed taper trouser needs very little else to look considered and sharp."}` ;
 
   try {
     const response = await fetch('/api/search', {
@@ -3127,7 +3133,16 @@ async function submitQuizQuestions() {
   document.getElementById('questionsResult').style.display = 'none';
   document.getElementById('quizContinueWrap').style.display = 'none';
 
+
+  const genderCtx = profile.gender === 'men'
+    ? 'The person is a man. Use menswear styling language throughout — tailoring, shirts, trousers, jackets, knitwear. Never reference dresses, skirts, or any womenswear silhouettes.'
+    : profile.gender === 'non-binary'
+    ? 'The person is non-binary. Use gender-neutral language and styling throughout. Avoid feminine and masculine stereotypes equally. Focus on silhouette, proportion, and garment structure without gendering them. Reference trousers, tops, outerwear, and layering — never dresses, skirts, or explicitly gendered pieces.'
+    : 'The person is a woman. Use womenswear styling language.';
+
   const prompt = `You are a warm, thoughtful personal stylist who deeply respects and celebrates every body. Based on the user's answers, gently identify their body shape.
+
+${genderCtx}
 
 Q1 — Shoulders vs hips: "${quizAnswers[1]}" (broader=shoulders wider, similar=same width, narrower=hips fuller)
 Q2 — Waist definition: "${quizAnswers[2]}" (defined=clearly narrower, slight=gentle curve inward, straight=similar width throughout, fuller=fullest at the midsection)
@@ -3135,10 +3150,10 @@ Q3 — Where weight is carried: "${quizAnswers[3]}" (hips-thighs, midsection, bu
 
 Choose from: hourglass, pear, apple, rectangle, inverted triangle, athletic, petite
 
-Write the description with genuine warmth — every shape is beautiful and dresses beautifully. Celebrate what is lovely about this shape. Be specific about what makes it elegant to dress, name a real styling strength, and keep it to 2 warm sentences. Never use clinical, critical, or negative language. If in doubt, lean toward the most flattering interpretation.
+Write the description with genuine warmth — every shape is beautiful. Celebrate what is lovely about this shape. Name a real styling strength that is appropriate for the gender context above. Keep it to 2 warm sentences. Never use clinical or negative language.
 
-Respond ONLY with valid JSON in this exact format, no other text:
-{"bodyShape":"pear","description":"Your shape is one of the most celebrated in fashion — fuller through the hips with a neat upper body, a silhouette shared by some of the world's most beautifully dressed women. With the right pieces, your waist becomes your signature and your hips something to highlight rather than hide."}`;
+Respond ONLY with valid JSON:
+{"bodyShape":"athletic","description":"Your broad shoulders and defined waist give you the kind of powerful, well-proportioned frame that tailoring was invented for. A fitted jacket needs almost nothing else — trousers with a slight taper and an open collar let your natural V-shape do all the work."}` ;
 
   try {
     const response = await fetch('/api/search', {
@@ -3178,8 +3193,21 @@ function formatBodyName(val) {
 function acceptQuizResult() {
   if (!quizResultBody) return;
   profile.body = quizResultBody;
-  // Also visually select the matching card on the body screen for consistency
+  highlightBodyCard(quizResultBody);
   goTo('screen-colour');
+}
+
+function highlightBodyCard(bodyValue) {
+  // Pre-select the matching card on the manual body screen
+  const cards = document.querySelectorAll('#bodyGrid .body-card');
+  cards.forEach(c => {
+    c.classList.remove('selected');
+    if (c.dataset.value === bodyValue) {
+      c.classList.add('selected');
+    }
+  });
+  const nextBtn = document.getElementById('bodyNext');
+  if (nextBtn) nextBtn.disabled = false;
 }
 
 /* ── Colour palette quiz ── */
