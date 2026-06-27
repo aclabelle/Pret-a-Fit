@@ -1359,6 +1359,149 @@ select.text-input { cursor: pointer; }
   text-decoration: underline;
   padding: 0;
 }
+
+/* ── Wishlist ── */
+.wishlist-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 0.5px solid var(--dust);
+  margin-bottom: 2rem;
+}
+.wishlist-tab {
+  padding: 10px 0;
+  margin-right: 28px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dust);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  border-bottom: 1.5px solid transparent;
+  margin-bottom: -0.5px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.wishlist-tab.active { color: var(--ink); border-bottom-color: var(--ink); }
+.wishlist-tab:hover { color: var(--charcoal); }
+
+.wishlist-empty {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+.wishlist-empty-heading {
+  font-family: Georgia, serif;
+  font-size: 1.2rem;
+  color: var(--ink);
+  font-weight: 400;
+  margin-bottom: 0.75rem;
+}
+.wishlist-empty-sub {
+  font-size: 13px;
+  color: var(--dust);
+  line-height: 1.7;
+  max-width: 320px;
+  margin: 0 auto 1.5rem;
+}
+
+.past-search-card {
+  border: 0.5px solid var(--dust);
+  background: var(--mist);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.past-search-card:hover { border-color: var(--bark); background: var(--linen); }
+.past-search-meta {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 6px;
+}
+.past-search-occasion {
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  color: var(--ink);
+  font-weight: 400;
+  margin-bottom: 4px;
+}
+.past-search-detail {
+  font-size: 12px;
+  color: var(--charcoal);
+  letter-spacing: 0.03em;
+}
+.past-search-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--linen);
+}
+.btn-search-again {
+  padding: 7px 18px;
+  border: 0.5px solid var(--ink);
+  background: var(--ink);
+  color: var(--parchment);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: all 0.15s;
+}
+.btn-search-again:hover { background: var(--bark); border-color: var(--bark); }
+.btn-delete-search {
+  padding: 7px 14px;
+  border: 0.5px solid var(--dust);
+  background: transparent;
+  color: var(--dust);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: all 0.15s;
+}
+.btn-delete-search:hover { border-color: var(--error); color: var(--error); }
+
+.wishlist-save-btn {
+  width: 28px;
+  height: 28px;
+  border: 0.5px solid var(--dust);
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.wishlist-save-btn:hover { border-color: var(--bark); }
+.wishlist-save-btn.saved { background: var(--linen); border-color: var(--bark); }
+
+.wishlist-login-prompt {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: var(--linen);
+  border: 0.5px solid var(--dust);
+  margin: 2rem 0;
+}
+.wishlist-login-heading {
+  font-family: Georgia, serif;
+  font-size: 1.1rem;
+  color: var(--ink);
+  font-weight: 400;
+  margin-bottom: 0.5rem;
+}
+.wishlist-login-sub {
+  font-size: 13px;
+  color: var(--charcoal);
+  line-height: 1.6;
+  margin-bottom: 1.25rem;
+}
 </style>
 </head>
 <body>
@@ -2104,6 +2247,7 @@ select.text-input { cursor: pointer; }
   <div class="app-topbar">
     <div class="app-logo-small">prêt-à-<em>fit</em></div>
     <nav class="app-nav">
+      <button class="app-nav-link" onclick="openWishlist()">Saved</button>
       <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
       <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
       <button class="app-nav-link" onclick="goTo('screen-gender')">Edit profile</button>
@@ -2254,7 +2398,7 @@ const session = {
 };
 
 /* ── Screen navigation ── */
-const SCREENS = ['screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-quiz','screen-style','screen-muses','screen-sizing','screen-auth','screen-app'];
+const SCREENS = ['screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-quiz','screen-style','screen-muses','screen-sizing','screen-auth','screen-app','screen-wishlist'];
 const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-colour','screen-style','screen-muses','screen-sizing'];
 const TOTAL_DOTS = ONBOARDING_SCREENS.length;
 
@@ -2755,6 +2899,7 @@ function renderProducts(items, offset=0) {
         <span class="feedback-label">Was this right for you?</span>
         <button class="feedback-btn" id="up${idx}" onclick="giveFeedback(${idx},'up','${n}')" title="Yes">👍</button>
         <button class="feedback-btn" id="down${idx}" onclick="giveFeedback(${idx},'down','${n}')" title="No">👎</button>
+        <button class="wishlist-save-btn" id="save${idx}" onclick="toggleWishlistItem(${idx})" title="Save to wishlist">♡</button>
       </div>
       <div class="feedback-thanks" id="thanks${idx}"></div>
     </div>`;
@@ -2903,6 +3048,9 @@ async function findOutfits() {
 
     // Count this search
     await incrementSearchCount();
+
+    // Auto-save this search to wishlist
+    await saveSearchToWishlist(items);
 
     area.innerHTML = `
       <div class="results-label">${items.length} picks for you</div>
@@ -3474,6 +3622,248 @@ function acceptColourResult() {
   goTo('screen-style');
 }
 
+/* ── Wishlist ── */
+// In-memory cache so we don't hammer Clerk on every re-render
+let wishlistItems = [];    // [{...item, savedAt}]
+let wishlistSearches = []; // [{id, occasion, detail, savedAt, params}]
+
+function openWishlist() {
+  if (!clerkInstance || !clerkInstance.user) {
+    goTo('screen-wishlist');
+    document.getElementById('wishlistLoginPrompt').style.display = 'block';
+    document.getElementById('wishlistContent').style.display = 'none';
+  } else {
+    goTo('screen-wishlist');
+    document.getElementById('wishlistLoginPrompt').style.display = 'none';
+    document.getElementById('wishlistContent').style.display = 'block';
+    loadWishlistFromClerk().then(renderWishlist);
+  }
+}
+
+function switchWishlistTab(tab) {
+  document.getElementById('tabSavedItems').classList.toggle('active', tab === 'items');
+  document.getElementById('tabPastSearches').classList.toggle('active', tab === 'searches');
+  document.getElementById('wishlistItemsPanel').style.display = tab === 'items' ? 'block' : 'none';
+  document.getElementById('wishlistSearchesPanel').style.display = tab === 'searches' ? 'block' : 'none';
+}
+
+async function loadWishlistFromClerk() {
+  if (!clerkInstance || !clerkInstance.user) return;
+  try {
+    const meta = clerkInstance.user.unsafeMetadata || {};
+    wishlistItems = meta.wishlistItems || [];
+    wishlistSearches = meta.wishlistSearches || [];
+  } catch(e) {
+    console.warn('Could not load wishlist:', e);
+  }
+}
+
+async function saveWishlistToClerk() {
+  if (!clerkInstance || !clerkInstance.user) return;
+  try {
+    await clerkInstance.user.update({
+      unsafeMetadata: {
+        ...clerkInstance.user.unsafeMetadata,
+        wishlistItems,
+        wishlistSearches
+      }
+    });
+  } catch(e) {
+    console.warn('Could not save wishlist:', e);
+  }
+}
+
+function renderWishlist() {
+  renderWishlistItems();
+  renderWishlistSearches();
+}
+
+function renderWishlistItems() {
+  const grid = document.getElementById('wishlistItemsGrid');
+  const empty = document.getElementById('wishlistItemsEmpty');
+  if (!wishlistItems.length) {
+    empty.style.display = 'block';
+    grid.innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+  grid.innerHTML = wishlistItems.map((item, i) => {
+    const n = (item.name || '').replace(/'/g, "\'");
+    return '<div class="product-card">' +
+      '<a href="' + item.url + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">' +
+        '<div class="product-image-wrap">' + makeImgHtml(item, 'w' + i) + '</div>' +
+        '<div class="product-retailer">' + (item.retailer || '') + '</div>' +
+        '<div class="product-name">' + (item.name || '') + '</div>' +
+        '<div class="product-price">' + (item.price || '') + '</div>' +
+      '</a>' +
+      '<div class="feedback-row" style="margin-top:auto;">' +
+        '<span class="feedback-label">Saved ' + formatSavedDate(item.savedAt) + '</span>' +
+        '<button class="wishlist-save-btn saved" onclick="removeWishlistItem(' + i + ')" title="Remove">♥</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderWishlistSearches() {
+  const list = document.getElementById('wishlistSearchesList');
+  const empty = document.getElementById('wishlistSearchesEmpty');
+  const clearWrap = document.getElementById('wishlistClearWrap');
+  if (!wishlistSearches.length) {
+    empty.style.display = 'block';
+    list.innerHTML = '';
+    clearWrap.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  clearWrap.style.display = 'block';
+  // Show most recent first
+  const sorted = [...wishlistSearches].reverse();
+  list.innerHTML = sorted.map((s, i) => {
+    const realIdx = wishlistSearches.length - 1 - i;
+    return '<div class="past-search-card">' +
+      '<div class="past-search-meta">' + formatSavedDate(s.savedAt) + '</div>' +
+      '<div class="past-search-occasion">' + (s.occasion || 'Search') + '</div>' +
+      '<div class="past-search-detail">' + (s.detail || '') + '</div>' +
+      '<div class="past-search-actions">' +
+        '<button class="btn-search-again" onclick="rerunSearch(' + realIdx + ')">Search again</button>' +
+        '<button class="btn-delete-search" onclick="deleteSearch(' + realIdx + ')">Remove</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function formatSavedDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch(e) { return ''; }
+}
+
+// ── Save / remove individual items ──
+function toggleWishlistItem(idx) {
+  if (!clerkInstance || !clerkInstance.user) {
+    // Nudge to sign in
+    goToSignIn();
+    return;
+  }
+  const item = allItems[idx];
+  if (!item) return;
+  const btn = document.getElementById('save' + idx);
+  const existingIdx = wishlistItems.findIndex(w => w.url === item.url);
+  if (existingIdx > -1) {
+    // Already saved — remove
+    wishlistItems.splice(existingIdx, 1);
+    if (btn) { btn.textContent = '♡'; btn.classList.remove('saved'); btn.title = 'Save to wishlist'; }
+  } else {
+    // Save
+    wishlistItems.unshift({ ...item, savedAt: new Date().toISOString() });
+    if (btn) { btn.textContent = '♥'; btn.classList.add('saved'); btn.title = 'Saved'; }
+  }
+  saveWishlistToClerk();
+}
+
+function removeWishlistItem(idx) {
+  wishlistItems.splice(idx, 1);
+  saveWishlistToClerk();
+  renderWishlistItems();
+}
+
+// ── Auto-save searches ──
+async function saveSearchToWishlist(items) {
+  if (!clerkInstance || !clerkInstance.user) return;
+  const currency = document.getElementById('currency').value;
+  const priceMin = document.getElementById('priceMin').value;
+  const priceMax = document.getElementById('priceMax').value;
+  const syms = {USD:'$',GBP:'£',EUR:'€',SGD:'S$',AUD:'A$',CAD:'C$',JPY:'¥',HKD:'HK$'};
+  const sym = syms[currency] || currency;
+  const occasion = session.occasionChild || session.occasionParent || 'Search';
+  const detail = [
+    session.climate && session.climate !== 'any climate' ? session.climate : '',
+    priceMin && priceMax ? sym + priceMin + '–' + sym + priceMax + ' ' + currency : '',
+    profile.size ? profile.size + ' ' + profile.sizeSystem : ''
+  ].filter(Boolean).join(' · ');
+
+  const search = {
+    id: Date.now(),
+    savedAt: new Date().toISOString(),
+    occasion: occasion.charAt(0).toUpperCase() + occasion.slice(1),
+    detail,
+    params: {
+      occasionParent: session.occasionParent,
+      occasionChild: session.occasionChild,
+      climate: session.climate,
+      currency,
+      priceMin,
+      priceMax,
+      exclusions: [...session.exclusions],
+      localOnly: session.localOnly
+    }
+  };
+
+  // Keep last 20 searches max
+  wishlistSearches.push(search);
+  if (wishlistSearches.length > 20) wishlistSearches = wishlistSearches.slice(-20);
+  await saveWishlistToClerk();
+}
+
+// ── Re-run a past search ──
+function rerunSearch(idx) {
+  const s = wishlistSearches[idx];
+  if (!s || !s.params) return;
+  // Restore session params
+  const p = s.params;
+  session.occasionParent = p.occasionParent || '';
+  session.occasionChild = p.occasionChild || '';
+  session.climate = p.climate || '';
+  session.exclusions = p.exclusions || [];
+  session.localOnly = !!p.localOnly;
+  // Restore UI
+  goTo('screen-app');
+  // Let the DOM settle then restore selections
+  setTimeout(() => {
+    // Occasion
+    if (p.occasionParent) {
+      const parentBtn = document.querySelector('.occasion-parent[data-id="' + p.occasionParent + '"]');
+      if (parentBtn) selectOccasionParent(p.occasionParent);
+      if (p.occasionChild) {
+        setTimeout(() => {
+          const childBtn = document.querySelector('#occasionChildren .chip[data-value="' + p.occasionChild + '"]');
+          if (childBtn) { childBtn.classList.add('selected'); }
+        }, 50);
+      }
+    }
+    // Climate
+    if (p.climate) {
+      document.querySelectorAll('.climate-chip').forEach(c => {
+        c.classList.toggle('selected', c.dataset.value === p.climate);
+      });
+    }
+    // Budget
+    if (p.currency) document.getElementById('currency').value = p.currency;
+    if (p.priceMin) document.getElementById('priceMin').value = p.priceMin;
+    if (p.priceMax) document.getElementById('priceMax').value = p.priceMax;
+    // Exclusions
+    renderExclusions();
+    // Local toggle
+    const toggle = document.getElementById('localToggle');
+    if (toggle) toggle.classList.toggle('on', !!p.localOnly);
+  }, 350);
+}
+
+function deleteSearch(idx) {
+  wishlistSearches.splice(idx, 1);
+  saveWishlistToClerk();
+  renderWishlistSearches();
+}
+
+function clearAllSearches() {
+  if (!confirm('Remove all past searches?')) return;
+  wishlistSearches = [];
+  saveWishlistToClerk();
+  renderWishlistSearches();
+}
+
 /* ── Contact form ── */
 async function submitContact() {
   const name = document.getElementById('contactName').value.trim();
@@ -3526,6 +3916,67 @@ async function init() {
 
 init();
 </script>
+
+
+<!-- ══ SCREEN: WISHLIST ══ -->
+<div class="screen" id="screen-wishlist">
+  <div class="app-topbar">
+    <div class="app-logo-small">prêt-à-<em>fit</em></div>
+    <nav class="app-nav">
+      <button class="app-nav-link" onclick="goTo('screen-app')">← Back</button>
+      <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
+      <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
+    </nav>
+  </div>
+  <div class="app-body">
+
+    <div style="padding:1.5rem 0 0.5rem;">
+      <div class="screen-eyebrow">Your account</div>
+      <h1 class="editorial-heading" style="font-size:clamp(1.6rem,4vw,2.2rem);margin-bottom:0;">Saved</h1>
+    </div>
+
+    <!-- Not logged in -->
+    <div id="wishlistLoginPrompt" style="display:none;">
+      <div class="wishlist-login-prompt">
+        <div class="wishlist-login-heading">Sign in to save items and searches</div>
+        <p class="wishlist-login-sub">Your wishlist and past searches are stored securely to your account — available on any device, any time.</p>
+        <button class="btn-next" onclick="goToSignIn()">Sign in or create account</button>
+      </div>
+    </div>
+
+    <!-- Logged in -->
+    <div id="wishlistContent" style="display:none;">
+      <div class="wishlist-tabs">
+        <button class="wishlist-tab active" id="tabSavedItems" onclick="switchWishlistTab('items')">Saved items</button>
+        <button class="wishlist-tab" id="tabPastSearches" onclick="switchWishlistTab('searches')">Past searches</button>
+      </div>
+
+      <!-- Saved items tab -->
+      <div id="wishlistItemsPanel">
+        <div id="wishlistItemsEmpty" style="display:none;" class="wishlist-empty">
+          <div class="wishlist-empty-heading">Nothing saved yet</div>
+          <p class="wishlist-empty-sub">Tap the bookmark on any item in your results to save it here.</p>
+          <button class="btn-next" onclick="goTo('screen-app')">Start searching</button>
+        </div>
+        <div class="product-grid" id="wishlistItemsGrid"></div>
+      </div>
+
+      <!-- Past searches tab -->
+      <div id="wishlistSearchesPanel" style="display:none;">
+        <div id="wishlistSearchesEmpty" style="display:none;" class="wishlist-empty">
+          <div class="wishlist-empty-heading">No past searches</div>
+          <p class="wishlist-empty-sub">Your searches are saved automatically each time you run one. They'll appear here so you can revisit or re-run them.</p>
+          <button class="btn-next" onclick="goTo('screen-app')">Start searching</button>
+        </div>
+        <div id="wishlistSearchesList"></div>
+        <div id="wishlistClearWrap" style="display:none;margin-top:1.5rem;text-align:right;">
+          <button class="btn-delete-search" onclick="clearAllSearches()">Clear all searches</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
 
 <div class="screen" id="screen-about">
   <div class="app-topbar">
