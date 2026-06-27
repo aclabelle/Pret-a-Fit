@@ -9,6 +9,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing prompt' });
   }
 
+  const isOutfitSearch = typeof prompt === 'string' && prompt.includes('Fashion search engine');
+
   // Build the message content — text only, or text + image for photo analysis
   let messageContent;
   if (imageBase64) {
@@ -27,24 +29,20 @@ export default async function handler(req, res) {
     messageContent = prompt;
   }
 
-  // For outfit searches, attach the web_search tool
-  // Quiz prompts always include 'quiz:true' flag or we detect by absence of retailer pattern
-  const isOutfitSearch = typeof prompt === 'string' && prompt.includes('Fashion search engine');
   const requestBody = {
     model: 'claude-sonnet-4-6',
-    max_tokens: 4000,
     messages: [{ role: 'user', content: messageContent }]
   };
 
   if (isOutfitSearch) {
-    requestBody.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
     requestBody.max_tokens = 4000;
+    requestBody.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
   } else {
-    // Quiz calls need much less — keep it fast and cheap
+    // Quiz calls: enforce strict JSON-only output via system prompt
     requestBody.max_tokens = 500;
+    requestBody.system = 'You are a helpful assistant. You must respond with valid JSON only — no preamble, no explanation, no markdown, no code fences. Your entire response must be a single JSON object starting with { and ending with }.';
   }
 
-  // Only send the beta header for outfit searches that use web_search
   const headers = {
     'Content-Type': 'application/json',
     'x-api-key': process.env.ANTHROPIC_API_KEY,
@@ -69,7 +67,6 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: errMsg });
     }
 
-    // Extract text from the response content blocks
     const result = (data.content || [])
       .filter(block => block.type === 'text')
       .map(block => block.text)

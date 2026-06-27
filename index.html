@@ -2945,6 +2945,16 @@ async function loadMore() {
 }
 
 
+/* ── Quiz JSON parser — extracts {...} even if model adds surrounding text ── */
+function parseQuizJSON(text) {
+  if (!text) throw new Error('Empty response from API');
+  var clean = text.replace(/```json|```/g, '').trim();
+  try { return JSON.parse(clean); } catch(e) {}
+  var match = clean.match(/\{[\s\S]*\}/);
+  if (match) { try { return JSON.parse(match[0]); } catch(e2) {} }
+  throw new Error('Could not parse: ' + clean.slice(0, 80));
+}
+
 /* ── Body shape quiz ── */
 const quizAnswers = { 1: null, 2: null, 3: null };
 let quizPhotoBase64 = null;
@@ -3087,9 +3097,7 @@ Respond ONLY with valid JSON in this exact format, no other text:
       })
     });
     const data = await response.json();
-    const text = (data.result || '').trim();
-    const clean = text.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(clean);
+    const result = parseQuizJSON(data.result);
     quizResultBody = result.bodyShape;
     document.getElementById('photoResultType').textContent = formatBodyName(result.bodyShape);
     document.getElementById('photoResultDesc').textContent = result.description;
@@ -3140,10 +3148,7 @@ Respond ONLY with valid JSON in this exact format, no other text:
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'API error ' + response.status);
-    const text = (data.result || '').trim();
-    if (!text) throw new Error('Empty response from API');
-    const clean = text.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(clean);
+    const result = parseQuizJSON(data.result);
     if (!result.bodyShape) throw new Error('Unexpected response format');
     quizResultBody = result.bodyShape;
     document.getElementById('questionsResultType').textContent = formatBodyName(result.bodyShape);
@@ -3356,9 +3361,8 @@ async function analyseColourPhoto() {
       })
     });
     var data = await response.json();
-    var text = (data.result || '').trim();
-    var clean = text.replace(/```json|```/g, '').trim();
-    var result = JSON.parse(clean);
+    if (!response.ok) throw new Error(data.error || "API error " + response.status);
+    var result = parseQuizJSON(data.result);
     var palette = colourPalettes[result.palette] || colourPalettes.neutral;
     colourResultTone = result.palette;
     colourResultSeason = palette.season;
@@ -3414,10 +3418,7 @@ async function submitColourQuestions() {
     });
     var data = await response.json();
     if (!response.ok) throw new Error(data.error || 'API error ' + response.status);
-    var text = (data.result || '').trim();
-    if (!text) throw new Error('Empty response from API');
-    var clean = text.replace(/```json|```/g, '').trim();
-    var result = JSON.parse(clean);
+    var result = parseQuizJSON(data.result);
     if (!result.palette) throw new Error('Unexpected response format');
     var palette = colourPalettes[result.palette] || colourPalettes.neutral;
     colourResultTone = result.palette;
