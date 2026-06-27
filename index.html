@@ -3139,17 +3139,21 @@ Respond ONLY with valid JSON in this exact format, no other text:
       body: JSON.stringify({ prompt })
     });
     const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'API error ' + response.status);
     const text = (data.result || '').trim();
+    if (!text) throw new Error('Empty response from API');
     const clean = text.replace(/```json|```/g, '').trim();
     const result = JSON.parse(clean);
+    if (!result.bodyShape) throw new Error('Unexpected response format');
     quizResultBody = result.bodyShape;
     document.getElementById('questionsResultType').textContent = formatBodyName(result.bodyShape);
     document.getElementById('questionsResultDesc').textContent = result.description;
     document.getElementById('questionsResult').style.display = 'block';
     document.getElementById('quizContinueWrap').style.display = 'block';
   } catch(err) {
+    console.error('Body quiz error:', err);
     document.getElementById('questionsResultType').textContent = 'Something went wrong';
-    document.getElementById('questionsResultDesc').textContent = 'Please try again — or go back and select your body type manually.';
+    document.getElementById('questionsResultDesc').textContent = 'Error: ' + err.message + ' — please try again.';
     document.getElementById('questionsResult').style.display = 'block';
     document.getElementById('questionsSubmitBtn').disabled = false;
   } finally {
@@ -3409,9 +3413,12 @@ async function submitColourQuestions() {
       body: JSON.stringify({ prompt })
     });
     var data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'API error ' + response.status);
     var text = (data.result || '').trim();
+    if (!text) throw new Error('Empty response from API');
     var clean = text.replace(/```json|```/g, '').trim();
     var result = JSON.parse(clean);
+    if (!result.palette) throw new Error('Unexpected response format');
     var palette = colourPalettes[result.palette] || colourPalettes.neutral;
     colourResultTone = result.palette;
     colourResultSeason = palette.season;
@@ -3421,8 +3428,9 @@ async function submitColourQuestions() {
     document.getElementById('colourQuestionsResult').style.display = 'block';
     document.getElementById('colourQuizContinueWrap').style.display = 'block';
   } catch(err) {
+    console.error('Colour quiz error:', err);
     document.getElementById('colourQuestionsResultType').textContent = 'Something went wrong';
-    document.getElementById('colourQuestionsResultDesc').textContent = 'Please try again — or go back and select your colour tones manually.';
+    document.getElementById('colourQuestionsResultDesc').textContent = 'Error: ' + err.message + ' — please try again.';
     document.getElementById('colourQuestionsResult').style.display = 'block';
     document.getElementById('colourQuestionsSubmitBtn').disabled = false;
   } finally {
