@@ -3077,23 +3077,17 @@ Respond ONLY with valid JSON in this exact format, no other text:
 {"bodyShape":"rectangle","description":"Your long, lean proportions give you an effortless elegance that's the envy of many — think of the clean lines of Carolyn Bessette-Kennedy. You have total freedom to play with silhouette, adding curves where you wish or keeping things beautifully streamlined."}`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 300,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: quizPhotoMediaType, data: quizPhotoBase64 } },
-            { type: 'text', text: prompt }
-          ]
-        }]
+        prompt,
+        imageBase64: quizPhotoBase64,
+        imageMediaType: quizPhotoMediaType
       })
     });
     const data = await response.json();
-    const text = (data.content || []).map(b => b.text || '').join('').trim();
+    const text = (data.result || '').trim();
     const clean = text.replace(/```json|```/g, '').trim();
     const result = JSON.parse(clean);
     quizResultBody = result.bodyShape;
@@ -3139,17 +3133,13 @@ Respond ONLY with valid JSON in this exact format, no other text:
 {"bodyShape":"pear","description":"Your shape is one of the most celebrated in fashion — fuller through the hips with a neat upper body, a silhouette shared by some of the world's most beautifully dressed women. With the right pieces, your waist becomes your signature and your hips something to highlight rather than hide."}`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 300,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      body: JSON.stringify({ prompt })
     });
     const data = await response.json();
-    const text = (data.content || []).map(b => b.text || '').join('').trim();
+    const text = (data.result || '').trim();
     const clean = text.replace(/```json|```/g, '').trim();
     const result = JSON.parse(clean);
     quizResultBody = result.bodyShape;
@@ -3352,23 +3342,17 @@ async function analyseColourPhoto() {
     ' {"palette":"cool","description":"Your cool, luminous undertones mean you were made for the shades most people can only admire on the rack — icy blues, soft rose, and true jewel tones light you up from within. Silver and white gold are your natural element, and a crisp white shirt on you is a masterclass in effortless elegance."}';
 
   try {
-    var response = await fetch('https://api.anthropic.com/v1/messages', {
+    var response = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 400,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: colourPhotoMediaType, data: colourPhotoBase64 } },
-            { type: 'text', text: prompt }
-          ]
-        }]
+        prompt,
+        imageBase64: colourPhotoBase64,
+        imageMediaType: colourPhotoMediaType
       })
     });
     var data = await response.json();
-    var text = (data.content || []).map(function(b) { return b.text || ''; }).join('').trim();
+    var text = (data.result || '').trim();
     var clean = text.replace(/```json|```/g, '').trim();
     var result = JSON.parse(clean);
     var palette = colourPalettes[result.palette] || colourPalettes.neutral;
@@ -3419,17 +3403,13 @@ async function submitColourQuestions() {
     ' {"palette":"warm","description":"Your warm, sun-kissed palette is one of the most luscious in fashion — you were made for the colours of autumn: burnt orange, camel, rust, and the kind of rich olive that makes others look washed out but makes you glow. Gold jewellery is your natural companion, and a camel coat on you is simply the only thing to wear."}';
 
   try {
-    var response = await fetch('https://api.anthropic.com/v1/messages', {
+    var response = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 400,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      body: JSON.stringify({ prompt })
     });
     var data = await response.json();
-    var text = (data.content || []).map(function(b) { return b.text || ''; }).join('').trim();
+    var text = (data.result || '').trim();
     var clean = text.replace(/```json|```/g, '').trim();
     var result = JSON.parse(clean);
     var palette = colourPalettes[result.palette] || colourPalettes.neutral;

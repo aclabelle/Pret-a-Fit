@@ -3,9 +3,44 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { prompt } = req.body;
+  const { prompt, imageBase64, imageMediaType } = req.body;
+
   if (!prompt) {
-    return res.status(400).json({ error: 'No prompt provided' });
+    return res.status(400).json({ error: 'Missing prompt' });
+  }
+
+  // Build the message content — text only, or text + image for photo analysis
+  let messageContent;
+  if (imageBase64) {
+    messageContent = [
+      {
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: imageMediaType || 'image/jpeg',
+          data: imageBase64
+        }
+      },
+      { type: 'text', text: prompt }
+    ];
+  } else {
+    messageContent = prompt;
+  }
+
+  // For outfit searches, attach the web_search tool
+  const isOutfitSearch = prompt.includes('Find') && prompt.includes('retailer');
+  const requestBody = {
+    model: 'claude-sonnet-4-6',
+    max_tokens: 4000,
+    messages: [{ role: 'user', content: messageContent }]
+  };
+
+  if (isOutfitSearch) {
+    requestBody.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
+    requestBody.max_tokens = 4000;
+  } else {
+    // Quiz calls need much less — keep it fast and cheap
+    requestBody.max_tokens = 500;
   }
 
   try {
@@ -14,14 +49,10 @@ export default async function handler(req, res) {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'web-search-2025-03-05'
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4096,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{ role: 'user', content: prompt }]
-      })
+      body: JSON.stringify(requestBody)
     });
 
     const data = await response.json();
@@ -30,14 +61,15 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: data.error?.message || 'API error' });
     }
 
-    const text = (data.content || [])
+    // Extract text from the response content blocks
+    const result = (data.content || [])
       .filter(block => block.type === 'text')
       .map(block => block.text)
       .join('');
 
-    return res.status(200).json({ result: text });
+    return res.status(200).json({ result });
 
   } catch (err) {
-    return res.status(500).json({ error: 'Server error: ' + err.message });
+    return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 }
