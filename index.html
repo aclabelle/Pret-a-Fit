@@ -1678,29 +1678,41 @@ select.text-input { cursor: pointer; }
   <div class="onboarding-wrap">
     <div class="screen-eyebrow">Colour</div>
     <h1 class="screen-heading">Understanding your palette</h1>
-    <p class="screen-sub">The right colours don't just complement your wardrobe — they illuminate you. How would you like to approach this?</p>
-    <div class="choice-grid">
-      <div class="choice-card" onclick="selectChoice(this,'colourMethod','self')">
-        <div class="choice-card-label">I know my tones</div>
-        <div class="choice-card-title">I'll choose my own</div>
-        <div class="choice-card-desc">Select from warm, cool, or neutral — and we'll filter accordingly.</div>
+    <p class="screen-sub">The right colours don't just complement your wardrobe — they illuminate you. How would you like to discover yours?</p>
+    <div class="choice-grid" style="grid-template-columns:1fr;">
+
+      <div class="choice-card" onclick="selectChoice(this,'colourMethod','self');document.getElementById('colourSelfSelect').style.display='block';">
+        <div class="choice-card-label">I already know</div>
+        <div class="choice-card-title">I'll choose my own tones</div>
+        <div class="choice-card-desc">Select from warm, cool, neutral, or deep — and we'll filter accordingly.</div>
       </div>
-      <div class="choice-card" onclick="selectChoice(this,'colourMethod','quiz')">
+
+      <div class="choice-card" onclick="goTo('screen-colour-quiz')">
         <div class="choice-card-label">Discover yours</div>
         <div class="choice-card-title">Take the colour quiz</div>
-        <div class="choice-card-desc">A few simple questions reveal which tones flatter you most.</div>
+        <div class="choice-card-desc">A few questions about your complexion, hair, and how colours land on you — no photo needed.</div>
+      </div>
+
+      <div class="choice-card" onclick="handleColourPhotoClick()">
+        <div class="choice-card-label">Most precise</div>
+        <div class="choice-card-title">Analyse my photo</div>
+        <div class="choice-card-desc">Upload a photo and our AI reads your undertones, depth, and contrast directly from your complexion.</div>
         <div class="choice-card-badge">Subscribers</div>
       </div>
+
     </div>
-    <!-- Self-select colour tones (shown if 'self' selected) -->
-    <div id="colourSelfSelect" style="display:none;width:100%;margin-bottom:1.5rem;">
+
+    <!-- Self-select colour tones -->
+    <div id="colourSelfSelect" style="display:none;width:100%;margin-bottom:1.5rem;margin-top:0.5rem;">
       <div class="chip-grid">
         <button class="chip" data-value="warm" onclick="selectSingle(this,'colourTone')">Warm tones</button>
         <button class="chip" data-value="cool" onclick="selectSingle(this,'colourTone')">Cool tones</button>
         <button class="chip" data-value="neutral" onclick="selectSingle(this,'colourTone')">Neutral — balanced</button>
+        <button class="chip" data-value="deep" onclick="selectSingle(this,'colourTone')">Deep &amp; rich</button>
         <button class="chip" data-value="unsure" onclick="selectSingle(this,'colourTone')">Not sure</button>
       </div>
     </div>
+
     <div class="screen-nav">
       <button class="btn-back" onclick="goTo('screen-body')">← Back</button>
       <div style="display:flex;gap:12px;align-items:center;">
@@ -1710,6 +1722,208 @@ select.text-input { cursor: pointer; }
     </div>
   </div>
   <div class="progress-dots" id="dots-colour"></div>
+</div>
+
+
+<!-- ══ SCREEN 4B: COLOUR QUIZ ══ -->
+<div class="screen" id="screen-colour-quiz">
+  <div class="onboarding-wrap" style="justify-content:flex-start;padding-top:3rem;">
+    <div class="screen-eyebrow">Colour palette quiz</div>
+    <h1 class="screen-heading">Let's find your palette</h1>
+    <p class="screen-sub">Upload a photo for the most precise read, or answer a few questions about your natural colouring instead.</p>
+
+    <!-- Method choice -->
+    <div class="quiz-method-grid" id="colourMethodGrid">
+      <div class="choice-card" onclick="handleColourPhotoMethod()">
+        <div class="choice-card-label">Most precise</div>
+        <div class="choice-card-title">Upload a photo</div>
+        <div class="choice-card-desc">Our AI reads your undertones, depth and contrast directly from your complexion.</div>
+        <div class="choice-card-badge">Subscribers</div>
+      </div>
+      <div class="choice-card" onclick="selectColourMethod('questions')">
+        <div class="choice-card-label">No photo needed</div>
+        <div class="choice-card-title">Answer a few questions</div>
+        <div class="choice-card-desc">Five gentle questions about your natural colouring guide us to your palette.</div>
+      </div>
+    </div>
+
+    <!-- ── PHOTO PATH ── -->
+    <div id="colourPhotoPath" style="display:none;width:100%;">
+
+      <div class="photo-tips-wrap">
+        <div class="photo-tips-heading">For the most accurate colour read</div>
+        <div class="photo-tip-list">
+          <div class="photo-tip-item">
+            <div class="photo-tip-icon">
+              <svg viewBox="0 0 16 16"><circle cx="8" cy="6" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/></svg>
+            </div>
+            <div>
+              <div class="photo-tip-label">Show your bare face</div>
+              <div class="photo-tip-text">A makeup-free photo gives us your true skin tone and undertones. If you prefer to wear makeup, keep it minimal — heavy foundation can shift the colour reading.</div>
+            </div>
+          </div>
+          <div class="photo-tip-item">
+            <div class="photo-tip-icon">
+              <svg viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="1"/><path d="M2 6h12"/></svg>
+            </div>
+            <div>
+              <div class="photo-tip-label">Natural daylight is best</div>
+              <div class="photo-tip-text">Step near a window with natural light falling on your face. Avoid artificial lighting — warm bulbs skew amber, cool LEDs skew blue, and both will throw off the reading.</div>
+            </div>
+          </div>
+          <div class="photo-tip-item">
+            <div class="photo-tip-icon">
+              <svg viewBox="0 0 16 16"><path d="M8 2v12M2 8h12"/></svg>
+            </div>
+            <div>
+              <div class="photo-tip-label">Face the light directly</div>
+              <div class="photo-tip-text">Turn to face the light source rather than having it behind or to the side of you. Even light across your face lets us see your skin, hair, and eyes without shadow.</div>
+            </div>
+          </div>
+          <div class="photo-tip-item">
+            <div class="photo-tip-icon">
+              <svg viewBox="0 0 16 16"><path d="M3 8a5 5 0 1010 0A5 5 0 003 8zm5-2v2l2 1"/></svg>
+            </div>
+            <div>
+              <div class="photo-tip-label">Wear a white or grey top</div>
+              <div class="photo-tip-text">A neutral top removes any colour cast from clothing that might reflect onto your skin. White or light grey is ideal — it gives us the cleanest read of your natural colouring.</div>
+            </div>
+          </div>
+          <div class="photo-tip-item">
+            <div class="photo-tip-icon">
+              <svg viewBox="0 0 16 16"><path d="M8 3l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z"/></svg>
+            </div>
+            <div>
+              <div class="photo-tip-label">Hair down and natural</div>
+              <div class="photo-tip-text">Let your hair fall naturally so we can see its true colour and depth. If your hair is coloured, that's fine — just know we'll be reading both your natural and current tones together.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="photo-upload-zone" id="colourPhotoZone" onclick="document.getElementById('colourPhotoInput').click()">
+        <div id="colourUploadDefault">
+          <div class="photo-upload-label">Tap to upload</div>
+          <div class="photo-upload-title">Choose a photo from your device</div>
+          <div class="photo-upload-sub">JPG or PNG · stays private · never stored</div>
+        </div>
+        <div id="colourUploadPreviewWrap" style="display:none;">
+          <img id="colourUploadPreview" class="photo-upload-preview" src="" alt="Your photo" />
+          <div class="photo-upload-label">Photo selected</div>
+          <div class="photo-upload-sub">Tap to choose a different one</div>
+        </div>
+      </div>
+      <input type="file" id="colourPhotoInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handleColourPhotoSelected(this)" />
+
+      <div class="photo-privacy-note">Your photo is sent directly to our AI for analysis and immediately discarded — never stored, never seen by a person, never used for any other purpose.</div>
+
+      <div id="colourPhotoAnalysing" style="display:none;" class="quiz-analysing">
+        <div class="spinner"></div>Reading your palette…
+      </div>
+
+      <div id="colourPhotoResult" style="display:none;" class="quiz-result-wrap">
+        <div class="quiz-result-eyebrow">Your colour palette</div>
+        <div class="quiz-result-type" id="colourPhotoResultType"></div>
+        <div style="margin:8px 0 4px;">
+          <span id="colourSwatchRow"></span>
+        </div>
+        <div class="quiz-result-desc" id="colourPhotoResultDesc"></div>
+      </div>
+
+      <div class="screen-nav" style="margin-top:0.5rem;">
+        <button class="btn-back" onclick="resetColourMethod()">← Change method</button>
+        <button class="btn-next" id="colourPhotoAnalyseBtn" onclick="analyseColourPhoto()" disabled>Analyse my palette</button>
+      </div>
+    </div>
+
+    <!-- ── QUESTIONS PATH ── -->
+    <div id="colourQuestionsPath" style="display:none;width:100%;">
+      <div class="quiz-questions-wrap">
+
+        <div class="quiz-q">
+          <div class="quiz-q-label">Question 1 of 5</div>
+          <div class="quiz-q-text">What is your natural skin tone?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt" data-q="c1" data-v="fair" onclick="selectColourOpt(this,'c1')"><span class="quiz-opt-dot"></span>Fair — I burn easily, rarely tan</button>
+            <button class="quiz-opt" data-q="c1" data-v="light" onclick="selectColourOpt(this,'c1')"><span class="quiz-opt-dot"></span>Light — I tan slowly with some effort</button>
+            <button class="quiz-opt" data-q="c1" data-v="medium" onclick="selectColourOpt(this,'c1')"><span class="quiz-opt-dot"></span>Medium — I tan fairly easily</button>
+            <button class="quiz-opt" data-q="c1" data-v="deep" onclick="selectColourOpt(this,'c1')"><span class="quiz-opt-dot"></span>Deep — rich, dark skin that rarely burns</button>
+          </div>
+        </div>
+
+        <div class="quiz-q">
+          <div class="quiz-q-label">Question 2 of 5</div>
+          <div class="quiz-q-text">Look at the underside of your wrist in natural light. What colour are your veins?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt" data-q="c2" data-v="blue-purple" onclick="selectColourOpt(this,'c2')"><span class="quiz-opt-dot"></span>Blue or purple</button>
+            <button class="quiz-opt" data-q="c2" data-v="green" onclick="selectColourOpt(this,'c2')"><span class="quiz-opt-dot"></span>Green or olive</button>
+            <button class="quiz-opt" data-q="c2" data-v="mix" onclick="selectColourOpt(this,'c2')"><span class="quiz-opt-dot"></span>A mix of both — hard to tell</button>
+          </div>
+        </div>
+
+        <div class="quiz-q">
+          <div class="quiz-q-label">Question 3 of 5</div>
+          <div class="quiz-q-text">Which metals tend to suit you better?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt" data-q="c3" data-v="silver" onclick="selectColourOpt(this,'c3')"><span class="quiz-opt-dot"></span>Silver and white gold feel most natural on me</button>
+            <button class="quiz-opt" data-q="c3" data-v="gold" onclick="selectColourOpt(this,'c3')"><span class="quiz-opt-dot"></span>Gold and rose gold feel most natural on me</button>
+            <button class="quiz-opt" data-q="c3" data-v="both" onclick="selectColourOpt(this,'c3')"><span class="quiz-opt-dot"></span>Both suit me equally well</button>
+          </div>
+        </div>
+
+        <div class="quiz-q">
+          <div class="quiz-q-label">Question 4 of 5</div>
+          <div class="quiz-q-text">What is your natural hair colour (or closest to it)?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt" data-q="c4" data-v="platinum-ash" onclick="selectColourOpt(this,'c4')"><span class="quiz-opt-dot"></span>Platinum, ash blonde, or cool brown</button>
+            <button class="quiz-opt" data-q="c4" data-v="golden-red" onclick="selectColourOpt(this,'c4')"><span class="quiz-opt-dot"></span>Golden blonde, strawberry, auburn, or warm brown</button>
+            <button class="quiz-opt" data-q="c4" data-v="dark-brown" onclick="selectColourOpt(this,'c4')"><span class="quiz-opt-dot"></span>Dark brown — rich and warm</button>
+            <button class="quiz-opt" data-q="c4" data-v="black" onclick="selectColourOpt(this,'c4')"><span class="quiz-opt-dot"></span>Black — very deep, possibly with a blue sheen</button>
+          </div>
+        </div>
+
+        <div class="quiz-q">
+          <div class="quiz-q-label">Question 5 of 5</div>
+          <div class="quiz-q-text">When you wear bright white close to your face, how does it look?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt" data-q="c5" data-v="harsh" onclick="selectColourOpt(this,'c5')"><span class="quiz-opt-dot"></span>Harsh — it washes me out or makes me look tired</button>
+            <button class="quiz-opt" data-q="c5" data-v="fine" onclick="selectColourOpt(this,'c5')"><span class="quiz-opt-dot"></span>Fine — it looks clean and fresh on me</button>
+            <button class="quiz-opt" data-q="c5" data-v="unsure" onclick="selectColourOpt(this,'c5')"><span class="quiz-opt-dot"></span>I honestly can't tell the difference</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div id="colourQuestionsAnalysing" style="display:none;" class="quiz-analysing">
+        <div class="spinner"></div>Discovering your palette…
+      </div>
+
+      <div id="colourQuestionsResult" style="display:none;" class="quiz-result-wrap">
+        <div class="quiz-result-eyebrow">Your colour palette</div>
+        <div class="quiz-result-type" id="colourQuestionsResultType"></div>
+        <div style="margin:8px 0 4px;">
+          <span id="colourQuestionsSwatchRow"></span>
+        </div>
+        <div class="quiz-result-desc" id="colourQuestionsResultDesc"></div>
+      </div>
+
+      <div class="screen-nav" style="margin-top:0.5rem;">
+        <button class="btn-back" onclick="resetColourMethod()">← Change method</button>
+        <button class="btn-next" id="colourQuestionsSubmitBtn" onclick="submitColourQuestions()" disabled>Find my palette</button>
+      </div>
+    </div>
+
+    <!-- Shared continue -->
+    <div id="colourQuizContinueWrap" style="display:none;width:100%;margin-top:1rem;">
+      <div class="screen-nav">
+        <span></span>
+        <button class="btn-next" onclick="acceptColourResult()">Continue with this →</button>
+      </div>
+      <p style="font-size:11px;color:var(--dust);text-align:right;margin-top:8px;letter-spacing:0.04em;">Not quite right? You can adjust it on the previous screen.</p>
+    </div>
+
+  </div>
+  <div class="progress-dots" id="dots-colour-quiz"></div>
 </div>
 
 <!-- ══ SCREEN 5: STYLE VIBE ══ -->
@@ -2032,7 +2246,7 @@ async function initClerk() {
 
 /* ── State ── */
 const profile = {
-  gender: '', body: '', colourMethod: '', colourTone: '',
+  gender: '', body: '', colourMethod: '', colourTone: '', colourSeason: '',
   vibes: [], muses: [], sizeSystem: 'US', size: '', location: ''
 };
 const session = {
@@ -2042,7 +2256,7 @@ const session = {
 };
 
 /* ── Screen navigation ── */
-const SCREENS = ['screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-style','screen-muses','screen-sizing','screen-auth','screen-app'];
+const SCREENS = ['screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-quiz','screen-style','screen-muses','screen-sizing','screen-auth','screen-app'];
 const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-colour','screen-style','screen-muses','screen-sizing'];
 const TOTAL_DOTS = ONBOARDING_SCREENS.length;
 
@@ -2280,6 +2494,7 @@ async function saveProfileToClerk() {
           body: profile.body,
           colourMethod: profile.colourMethod,
           colourTone: profile.colourTone,
+          colourSeason: profile.colourSeason,
           vibes: profile.vibes,
           muses: profile.muses,
           sizeSystem: profile.sizeSystem,
@@ -2558,7 +2773,7 @@ function buildPrompt(count, exclude=[]) {
   const occasion = session.occasionChild || session.occasionParent;
   const vibeNote = profile.vibes.length ? `Style vibes: ${profile.vibes.join(', ')}.` : '';
   const museNote = profile.muses.length ? `Style muses: ${profile.muses.join(', ')}.` : '';
-  const colourNote = profile.colourTone ? `Colour: ${profile.colourTone} tones.` : '';
+  const colourNote = profile.colourTone ? `Colour palette: ${profile.colourTone} tones${profile.colourSeason ? ' (' + profile.colourSeason + ')' : ''}. Prioritise colours that suit this palette.` : '';
   const climateNote = session.climate ? `Climate: ${session.climate}.` : '';
   const exclNote = session.exclusions.length ? `Exclude: ${session.exclusions.join(', ')}.` : '';
   const localNote = session.localOnly ? 'Local retailers only.' : '';
@@ -2728,6 +2943,7 @@ async function loadMore() {
     if (btn) { btn.disabled = false; btn.textContent = 'Discover more'; }
   }
 }
+
 
 /* ── Body shape quiz ── */
 const quizAnswers = { 1: null, 2: null, 3: null };
@@ -2965,6 +3181,280 @@ function acceptQuizResult() {
   profile.body = quizResultBody;
   // Also visually select the matching card on the body screen for consistency
   goTo('screen-colour');
+}
+
+/* ── Colour palette quiz ── */
+const colourAnswers = { c1: null, c2: null, c3: null, c4: null, c5: null };
+let colourPhotoBase64 = null;
+let colourPhotoMediaType = 'image/jpeg';
+let colourResultTone = '';
+let colourResultSeason = '';
+
+// Palette definitions — used to render swatches and enrich the search prompt
+const colourPalettes = {
+  cool: {
+    label: 'Cool',
+    season: 'Cool & clear',
+    swatches: ['#7BA7BC','#9B8EA8','#C8D8E8','#B8C4CC','#8896A0','#E8ECF0','#6B7FA8','#D4C8D8'],
+    desc: 'Your natural colouring has cool, blue-based undertones — you light up in icy, jewel, and blue-based shades. Think sapphire, rose, lavender, and crisp white rather than orange, mustard, or olive. Silver jewellery will always feel most at home on you.'
+  },
+  warm: {
+    label: 'Warm',
+    season: 'Warm & golden',
+    swatches: ['#C8A882','#D4956A','#B8864E','#E8C89A','#8B6F47','#D4A574','#C4884E','#F0D4A8'],
+    desc: 'Your colouring is warm and golden — you glow in earth tones, amber, terracotta, and rich autumn shades. Mustard, olive, rust, camel, and warm browns are your allies. Gold jewellery enhances your natural warmth beautifully.'
+  },
+  neutral: {
+    label: 'Neutral',
+    season: 'Neutral & versatile',
+    swatches: ['#B8A898','#C8B8A8','#A89888','#D4C8B8','#987868','#E0D4C8','#887060','#C4B4A4'],
+    desc: 'You have the rare gift of balance — your undertones sit between warm and cool, meaning you can wear both with equal ease. Soft neutrals, blush, sage, dusty rose, and warm greys all feel effortless. Both gold and silver work on you.'
+  },
+  deep: {
+    label: 'Deep & rich',
+    season: 'Deep & vibrant',
+    swatches: ['#2C1810','#4A2C1A','#6B3A28','#8B4A2A','#1A1A2E','#2E1A4A','#3A2840','#4A1A1A'],
+    desc: 'Your deep, rich colouring means you carry bold, saturated colour beautifully — where others get swallowed, you shine. Jewel tones, deep burgundy, forest green, cobalt, and true black are your power palette. You can also anchor any look with your natural depth.'
+  }
+};
+
+function handleColourPhotoClick() {
+  goTo('screen-colour-quiz');
+  setTimeout(() => handleColourPhotoMethod(), 300);
+}
+
+function handleColourPhotoMethod() {
+  const isSubscriber = clerkInstance && clerkInstance.user &&
+    clerkInstance.user.publicMetadata && clerkInstance.user.publicMetadata.subscriber;
+  if (isSubscriber) {
+    selectColourMethod('photo');
+  } else {
+    showColourPhotoPaywall();
+  }
+}
+
+function showColourPhotoPaywall() {
+  var grid = document.getElementById('colourMethodGrid');
+  var paywall = document.getElementById('colourPhotoPaywall');
+  if (!paywall) {
+    paywall = document.createElement('div');
+    paywall.id = 'colourPhotoPaywall';
+    paywall.className = 'paywall-wrap';
+    paywall.style.marginBottom = '0';
+
+    var eyebrow = document.createElement('div');
+    eyebrow.className = 'paywall-eyebrow';
+    eyebrow.textContent = 'Subscriber feature';
+
+    var heading = document.createElement('div');
+    heading.className = 'paywall-heading';
+    heading.textContent = 'Photo colour analysis is part of Prêt-à-Fit Premium';
+
+    var sub = document.createElement('div');
+    sub.className = 'paywall-sub';
+    sub.textContent = 'Subscribers unlock AI photo colour analysis, body shape assessment, saved looks, and unlimited searches. The questions quiz is available to everyone — and works beautifully.';
+
+    var upgradeBtn = document.createElement('button');
+    upgradeBtn.className = 'paywall-btn';
+    upgradeBtn.textContent = 'Upgrade or sign in';
+    upgradeBtn.onclick = function() { goTo('screen-auth'); };
+
+    var signinDiv = document.createElement('div');
+    signinDiv.className = 'paywall-signin';
+    var skipBtn = document.createElement('button');
+    skipBtn.textContent = 'Continue with questions instead →';
+    skipBtn.onclick = function() {
+      paywall.remove();
+      selectColourMethod('questions');
+    };
+    signinDiv.appendChild(skipBtn);
+
+    paywall.appendChild(eyebrow);
+    paywall.appendChild(heading);
+    paywall.appendChild(sub);
+    paywall.appendChild(upgradeBtn);
+    paywall.appendChild(signinDiv);
+    grid.parentNode.insertBefore(paywall, grid.nextSibling);
+  }
+  paywall.style.display = 'block';
+}
+
+function selectColourMethod(method) {
+  document.getElementById('colourMethodGrid').style.display = 'none';
+  document.getElementById('colourPhotoPath').style.display = method === 'photo' ? 'block' : 'none';
+  document.getElementById('colourQuestionsPath').style.display = method === 'questions' ? 'block' : 'none';
+}
+
+function resetColourMethod() {
+  document.getElementById('colourMethodGrid').style.display = 'grid';
+  document.getElementById('colourPhotoPath').style.display = 'none';
+  document.getElementById('colourQuestionsPath').style.display = 'none';
+  document.getElementById('colourQuizContinueWrap').style.display = 'none';
+  document.getElementById('colourPhotoResult').style.display = 'none';
+  document.getElementById('colourQuestionsResult').style.display = 'none';
+  document.getElementById('colourPhotoAnalysing').style.display = 'none';
+  document.getElementById('colourQuestionsAnalysing').style.display = 'none';
+  colourPhotoBase64 = null;
+  colourResultTone = '';
+  colourResultSeason = '';
+  document.getElementById('colourPhotoAnalyseBtn').disabled = true;
+  var paywall = document.getElementById('colourPhotoPaywall');
+  if (paywall) paywall.remove();
+}
+
+function handleColourPhotoSelected(input) {
+  var file = input.files[0];
+  if (!file) return;
+  colourPhotoMediaType = file.type || 'image/jpeg';
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var dataUrl = e.target.result;
+    colourPhotoBase64 = dataUrl.split(',')[1];
+    var preview = document.getElementById('colourUploadPreview');
+    preview.src = dataUrl;
+    document.getElementById('colourUploadDefault').style.display = 'none';
+    document.getElementById('colourUploadPreviewWrap').style.display = 'block';
+    document.getElementById('colourPhotoZone').classList.add('has-photo');
+    document.getElementById('colourPhotoAnalyseBtn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderColourSwatches(paletteKey, containerId) {
+  var palette = colourPalettes[paletteKey];
+  if (!palette) return;
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  var html = '<div class="colour-swatch-row">';
+  palette.swatches.forEach(function(hex) {
+    html += '<span class="colour-swatch" style="background:' + hex + ';"></span>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+async function analyseColourPhoto() {
+  if (!colourPhotoBase64) return;
+  document.getElementById('colourPhotoAnalyseBtn').disabled = true;
+  document.getElementById('colourPhotoAnalysing').style.display = 'flex';
+  document.getElementById('colourPhotoResult').style.display = 'none';
+  document.getElementById('colourQuizContinueWrap').style.display = 'none';
+
+  var prompt = 'You are a warm, expert colour analyst trained in seasonal colour theory. The user has shared a photo for palette analysis.' +
+    ' Study their skin undertones, hair depth and tone, and eye colour carefully.' +
+    ' Determine which of these four palettes fits them best: cool, warm, neutral, deep.' +
+    ' cool = blue or pink undertones, best in icy/jewel tones and silver.' +
+    ' warm = yellow or golden undertones, best in earth tones and gold.' +
+    ' neutral = balanced undertones, suits both warm and cool.' +
+    ' deep = very deep/rich skin, hair and features, suits bold saturated colour.' +
+    ' Write the description warmly — celebrate the beauty and versatility of their palette. 2 sentences maximum.' +
+    ' Respond ONLY with valid JSON, no other text:' +
+    ' {"palette":"cool","description":"Your cool, luminous undertones mean you were made for the shades most people can only admire on the rack — icy blues, soft rose, and true jewel tones light you up from within. Silver and white gold are your natural element, and a crisp white shirt on you is a masterclass in effortless elegance."}';
+
+  try {
+    var response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 400,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: colourPhotoMediaType, data: colourPhotoBase64 } },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+    var data = await response.json();
+    var text = (data.content || []).map(function(b) { return b.text || ''; }).join('').trim();
+    var clean = text.replace(/```json|```/g, '').trim();
+    var result = JSON.parse(clean);
+    var palette = colourPalettes[result.palette] || colourPalettes.neutral;
+    colourResultTone = result.palette;
+    colourResultSeason = palette.season;
+    document.getElementById('colourPhotoResultType').textContent = palette.label + ' palette';
+    renderColourSwatches(result.palette, 'colourSwatchRow');
+    document.getElementById('colourPhotoResultDesc').textContent = result.description;
+    document.getElementById('colourPhotoResult').style.display = 'block';
+    document.getElementById('colourQuizContinueWrap').style.display = 'block';
+  } catch(err) {
+    document.getElementById('colourPhotoResultType').textContent = 'Unable to analyse';
+    document.getElementById('colourPhotoResultDesc').textContent = 'Something went wrong — please try again, or switch to the questions method instead.';
+    document.getElementById('colourPhotoResult').style.display = 'block';
+    document.getElementById('colourPhotoAnalyseBtn').disabled = false;
+  } finally {
+    document.getElementById('colourPhotoAnalysing').style.display = 'none';
+  }
+}
+
+function selectColourOpt(el, qKey) {
+  el.closest('.quiz-opts').querySelectorAll('.quiz-opt').forEach(function(o) { o.classList.remove('selected'); });
+  el.classList.add('selected');
+  colourAnswers[qKey] = el.dataset.v;
+  var allAnswered = colourAnswers.c1 && colourAnswers.c2 && colourAnswers.c3 && colourAnswers.c4 && colourAnswers.c5;
+  document.getElementById('colourQuestionsSubmitBtn').disabled = !allAnswered;
+}
+
+async function submitColourQuestions() {
+  document.getElementById('colourQuestionsSubmitBtn').disabled = true;
+  document.getElementById('colourQuestionsAnalysing').style.display = 'flex';
+  document.getElementById('colourQuestionsResult').style.display = 'none';
+  document.getElementById('colourQuizContinueWrap').style.display = 'none';
+
+  var prompt = 'You are a warm, expert colour analyst trained in seasonal colour theory. Based on these answers, identify the user\'s colour palette.' +
+    ' Q1 skin tone: "' + colourAnswers.c1 + '" (fair/light/medium/deep).' +
+    ' Q2 vein colour: "' + colourAnswers.c2 + '" (blue-purple=cool, green=warm, mix=neutral).' +
+    ' Q3 metals: "' + colourAnswers.c3 + '" (silver=cool, gold=warm, both=neutral).' +
+    ' Q4 hair: "' + colourAnswers.c4 + '" (platinum-ash=cool, golden-red=warm, dark-brown=warm/deep, black=deep).' +
+    ' Q5 bright white: "' + colourAnswers.c5 + '" (harsh=warm/deep undertones, fine=cool undertones, unsure=neutral).' +
+    ' Choose one: cool, warm, neutral, or deep.' +
+    ' cool = blue/pink undertones, best in icy/jewel tones.' +
+    ' warm = golden/yellow undertones, best in earth tones.' +
+    ' neutral = balanced, suits both.' +
+    ' deep = very rich deep colouring, suits bold saturated colour.' +
+    ' Write the description warmly — celebrate the beauty of their palette, name specific colours that will flatter them. 2 sentences.' +
+    ' Respond ONLY with valid JSON, no other text:' +
+    ' {"palette":"warm","description":"Your warm, sun-kissed palette is one of the most luscious in fashion — you were made for the colours of autumn: burnt orange, camel, rust, and the kind of rich olive that makes others look washed out but makes you glow. Gold jewellery is your natural companion, and a camel coat on you is simply the only thing to wear."}';
+
+  try {
+    var response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    var data = await response.json();
+    var text = (data.content || []).map(function(b) { return b.text || ''; }).join('').trim();
+    var clean = text.replace(/```json|```/g, '').trim();
+    var result = JSON.parse(clean);
+    var palette = colourPalettes[result.palette] || colourPalettes.neutral;
+    colourResultTone = result.palette;
+    colourResultSeason = palette.season;
+    document.getElementById('colourQuestionsResultType').textContent = palette.label + ' palette';
+    renderColourSwatches(result.palette, 'colourQuestionsSwatchRow');
+    document.getElementById('colourQuestionsResultDesc').textContent = result.description;
+    document.getElementById('colourQuestionsResult').style.display = 'block';
+    document.getElementById('colourQuizContinueWrap').style.display = 'block';
+  } catch(err) {
+    document.getElementById('colourQuestionsResultType').textContent = 'Something went wrong';
+    document.getElementById('colourQuestionsResultDesc').textContent = 'Please try again — or go back and select your colour tones manually.';
+    document.getElementById('colourQuestionsResult').style.display = 'block';
+    document.getElementById('colourQuestionsSubmitBtn').disabled = false;
+  } finally {
+    document.getElementById('colourQuestionsAnalysing').style.display = 'none';
+  }
+}
+
+function acceptColourResult() {
+  if (!colourResultTone) return;
+  profile.colourTone = colourResultTone;
+  profile.colourSeason = colourResultSeason;
+  goTo('screen-style');
 }
 
 /* ── Contact form ── */
