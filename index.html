@@ -2965,7 +2965,7 @@ User profile:
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
 ${vibeNote}${museNote}${colourNote}${climateNote}${exclNote}${localNote}${feedbackNote}${excludeItems}
 
-Search for this specific item across well-known retailers. Match the description as closely as possible. If an exact match isn't available, find the closest alternative and note this in whyItWorks. For the whyItWorks field, explain how this item matches the description AND why it flatters their body type.
+Search for this specific item across large stable retailers (Net-a-Porter, Mytheresa, Farfetch, Nordstrom, ASOS, Selfridges, Shopbop, Revolve, Saks, Neiman Marcus). Each "url" must be a direct product page URL — not a search or category page. Match the description as closely as possible. If an exact match isn't available, find the closest alternative and note this in whyItWorks. For the whyItWorks field, explain how this item matches the description AND why it flatters their body type.
 
 Use at most 3 web searches total.
 
@@ -2983,7 +2983,7 @@ Find ${count} real clothing items:
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
 ${vibeNote}${museNote}${colourNote}${climateNote}${exclNote}${localNote}${feedbackNote}${excludeItems}
 
-Use at most 3 web searches total. Prioritise well-known retailers with international shipping.
+Use at most 3 web searches total. Prioritise large stable retailers (Net-a-Porter, Mytheresa, Farfetch, Nordstrom, ASOS, Selfridges, Shopbop, Revolve, Saks, Neiman Marcus). Each "url" must be a direct product page URL — not a search or category page.
 
 [{"retailer":"Name","name":"Product name","price":"${sym}XX","url":"https://specific-product-page","imageUrl":"https://cdn-image.jpg","whyItWorks":"Why flatters ${profile.body}","sizeNote":"Size note","stylingTip":"Tip"}]` };
 }
@@ -3057,6 +3057,43 @@ function goToSignIn() {
   setTimeout(() => switchAuthTab('signin'), 350);
 }
 
+/* ── Link validation (Option 2) ── */
+async function validateAndFilterItems(items) {
+  // Show a secondary status note while we check links
+  const disclaimer = document.querySelector('.image-disclaimer');
+  if (disclaimer) {
+    disclaimer.textContent = 'Verifying product links…';
+  }
+
+  try {
+    const urls = items.map(i => i.url);
+    const response = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ validateUrls: true, urls })
+    });
+    if (!response.ok) return items; // If validation itself fails, show everything
+
+    const { results } = await response.json();
+    const deadUrls = new Set(
+      (results || []).filter(r => !r.alive).map(r => r.url)
+    );
+
+    const live = items.filter(i => !deadUrls.has(i.url));
+    const deadCount = items.length - live.length;
+
+    if (disclaimer) {
+      disclaimer.textContent = deadCount > 0
+        ? `${deadCount} unavailable item${deadCount > 1 ? 's' : ''} removed. Some images may not display — click any card to view the item on the retailer's site.`
+        : 'Some images may not display due to individual retailer settings — click any card to view the item and its photo directly on the retailer\'s site.';
+    }
+
+    return live.length >= 3 ? live : items; // Safety: if too many removed, show all
+  } catch {
+    return items; // If anything goes wrong, show everything
+  }
+}
+
 /* ── Search ── */
 let allItems = [];
 
@@ -3101,6 +3138,7 @@ async function findOutfits() {
     // Auto-save this search to wishlist
     await saveSearchToWishlist(items);
 
+    // Show results immediately so the user isn't waiting longer
     area.innerHTML = `
       <div class="results-label">${session.occasionParent === 'specific' ? items.length + ' matches found' : items.length + ' picks for you'}</div>
       <p class="image-disclaimer">Some images may not display due to individual retailer settings — click any card to view the item and its photo directly on the retailer's site.</p>
@@ -3108,6 +3146,16 @@ async function findOutfits() {
       <div id="loadMoreWrap" style="text-align:center;margin-top:2.5rem;">
         <button class="btn-load-more" onclick="loadMore()">Discover more</button>
       </div>`;
+
+    // Then silently validate links and remove any dead ones
+    const liveItems = await validateAndFilterItems(items);
+    if (liveItems.length < items.length) {
+      allItems = liveItems;
+      const grid = document.getElementById('productGrid');
+      if (grid) grid.innerHTML = renderProducts(liveItems);
+      const label = area.querySelector('.results-label');
+      if (label) label.textContent = `${liveItems.length} ${session.occasionParent === 'specific' ? 'matches found' : 'picks for you'}`;
+    }
   } catch(err) {
     area.innerHTML = `<div class="error-msg">Something went wrong — please try again. (${err.message})</div>`;
   } finally {

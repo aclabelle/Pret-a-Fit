@@ -3,25 +3,50 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { prompt, imageBase64, imageMediaType } = req.body;
+  const { prompt, imageBase64, imageMediaType, validateUrls } = req.body;
 
+  // ── URL validation mode ──────────────────────────────────────────────────
+  // The frontend sends a list of URLs and we check which ones are alive.
+  if (validateUrls) {
+    const urls = req.body.urls || [];
+    const results = await Promise.all(
+      urls.map(async (url) => {
+        try {
+          const r = await fetch(url, {
+            method: 'HEAD',
+            redirect: 'follow',
+            signal: AbortSignal.timeout(6000),
+            headers: {
+              // Mimic a real browser so retailers don't block the request
+              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,*/*'
+            }
+          });
+          // 200–399 = live. 404/410 = dead. 403/429/5xx = uncertain, keep it.
+          const alive = r.status < 400 || (r.status !== 404 && r.status !== 410);
+          return { url, alive };
+        } catch {
+          // Network timeout or DNS failure — treat as uncertain, keep it
+          return { url, alive: true };
+        }
+      })
+    );
+    return res.status(200).json({ results });
+  }
+
+  // ── Normal search / quiz mode ────────────────────────────────────────────
   if (!prompt) {
     return res.status(400).json({ error: 'Missing prompt' });
   }
 
   const isOutfitSearch = typeof prompt === 'string' && prompt.includes('Fashion search engine');
 
-  // Build the message content — text only, or text + image for photo analysis
   let messageContent;
   if (imageBase64) {
     messageContent = [
       {
         type: 'image',
-        source: {
-          type: 'base64',
-          media_type: imageMediaType || 'image/jpeg',
-          data: imageBase64
-        }
+        source: { type: 'base64', media_type: imageMediaType || 'image/jpeg', data: imageBase64 }
       },
       { type: 'text', text: prompt }
     ];
@@ -37,8 +62,21 @@ export default async function handler(req, res) {
   if (isOutfitSearch) {
     requestBody.max_tokens = 4000;
     requestBody.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
+    // Option 1: system prompt that enforces live, stable URLs
+    requestBody.system = `You are a fashion search assistant. You MUST follow these rules strictly:
+
+LINKS — this is critical:
+- Every "url" field must be a direct, specific product page URL (e.g. https://www.net-a-porter.com/en-gb/shop/product/123456). Never use search pages, category pages, or homepage URLs.
+- Before including a URL, verify it leads directly to that exact product by checking the page in your web search results.
+- Strongly prefer large, stable retailers with reliable URLs: Net-a-Porter, Mytheresa, Farfetch, Nordstrom, ASOS, Matches Fashion, Selfridges, Browns Fashion, MatchesFashion, Saks Fifth Avenue, Neiman Marcus, Shopbop, Revolve. These retailers keep product pages live longer.
+- Do not include URLs from small boutiques, pop-up shops, or retailers with complex/dynamic URL structures.
+- If you are not confident a product URL is live and correct, do not include that product — find another one instead.
+
+IMAGES:
+- The "imageUrl" must be a direct CDN image URL ending in .jpg, .jpeg, .png, or .webp. No redirect URLs, no tracking URLs.
+
+Respond with a raw JSON array only. No markdown, no preamble, no explanation.`;
   } else {
-    // Quiz calls: enforce strict JSON-only output via system prompt
     requestBody.max_tokens = 500;
     requestBody.system = 'You are a helpful assistant. You must respond with valid JSON only — no preamble, no explanation, no markdown, no code fences. Your entire response must be a single JSON object starting with { and ending with }.';
   }
