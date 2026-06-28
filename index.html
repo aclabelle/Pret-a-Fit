@@ -2394,7 +2394,8 @@ const profile = {
 const session = {
   occasionParent: '', occasionChild: '', climate: '',
   currency: 'USD', priceMin: '', priceMax: '',
-  localOnly: false, exclusions: [], feedback: []
+  localOnly: false, exclusions: [], feedback: [],
+  specificItem: ''
 };
 
 /* ── Screen navigation ── */
@@ -2565,7 +2566,8 @@ const occasions = [
   { id: 'social', name: 'Social', hint: 'Evenings & events', children: ['Casual daytime','Brunch / lunch','Date night','Cocktail party','Wedding guest','Black tie / gala'] },
   { id: 'vacation', name: 'Vacation', hint: 'Travel & getaways', children: ['Beach / resort','City break','Safari / adventure','Ski / cold weather'] },
   { id: 'life', name: 'Life moments', hint: 'Special occasions', children: ['Job interview','First date','Meeting the parents','Graduation','Baby shower'] },
-  { id: 'browse', name: 'Just browsing', hint: 'Surprise me', children: [] }
+  { id: 'browse', name: 'Just browsing', hint: 'Surprise me', children: [] },
+  { id: 'specific', name: 'Something specific', hint: 'Describe exactly what you want', children: [] }
 ];
 
 function buildOccasions() {
@@ -2585,6 +2587,25 @@ function selectOccasionParent(id) {
   session.occasionChild = '';
   const occ = occasions.find(o => o.id === id);
   const childContainer = document.getElementById('occasionChildren');
+
+  if (id === 'specific') {
+    session.occasionChild = '';
+    childContainer.innerHTML = `
+      <div style="margin-top:12px;">
+        <p style="font-size:12px;color:var(--charcoal);line-height:1.6;margin-bottom:10px;">
+          Describe what you're looking for in as much detail as you like — fabric, colour, cut, occasion, anything.
+        </p>
+        <textarea class="text-input" id="specificItemInput" rows="3"
+          placeholder="e.g. A white linen button-down shirt with tortoise shell buttons, relaxed fit"
+          oninput="session.specificItem = this.value.trim()"
+          style="resize:vertical;margin-bottom:0;"></textarea>
+      </div>`;
+    return;
+  }
+
+  // Clear any specific item description when switching away
+  session.specificItem = '';
+
   if (occ.children.length === 0) {
     session.occasionChild = 'surprise me — show a curated selection of beautiful things across any category';
     childContainer.innerHTML = '';
@@ -2928,6 +2949,29 @@ function buildPrompt(count, exclude=[]) {
     disliked.length ? `User disliked: ${disliked.join(', ')}. Avoid similar.` : ''
   ].filter(Boolean).join(' ');
 
+  // Specific item search mode
+  if (session.occasionParent === 'specific' && session.specificItem) {
+    return { sym, currency, prompt: `Fashion search engine. Return ONLY a JSON array of exactly ${count} items. First character must be [. No text before or after.
+
+The user is searching for a specific item they have described. Find ${count} real products that match or come closest to this description:
+
+"${session.specificItem}"
+
+User profile:
+- Gender: ${profile.gender}
+- Body: ${profile.body}
+- Size: ${profile.size} ${profile.sizeSystem}
+- Ships to: ${profile.location}
+- Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
+${vibeNote}${museNote}${colourNote}${climateNote}${exclNote}${localNote}${feedbackNote}${excludeItems}
+
+Search for this specific item across well-known retailers. Match the description as closely as possible. If an exact match isn't available, find the closest alternative and note this in whyItWorks. For the whyItWorks field, explain how this item matches the description AND why it flatters their body type.
+
+Use at most 3 web searches total.
+
+[{"retailer":"Name","name":"Product name","price":"${sym}XX","url":"https://specific-product-page","imageUrl":"https://cdn-image.jpg","whyItWorks":"How this matches the request and flatters ${profile.body}","sizeNote":"Size note","stylingTip":"Tip"}]` };
+  }
+
   return { sym, currency, prompt: `Fashion search engine. Return ONLY a JSON array of exactly ${count} items. First character must be [. No text before or after.
 
 Find ${count} real clothing items:
@@ -3018,6 +3062,11 @@ let allItems = [];
 
 async function findOutfits() {
   if (!session.occasionParent) { alert('Please select an occasion.'); return; }
+  if (session.occasionParent === 'specific') {
+    const desc = document.getElementById('specificItemInput') ? document.getElementById('specificItemInput').value.trim() : session.specificItem;
+    session.specificItem = desc;
+    if (!desc) { alert('Please describe the item you\'re looking for.'); return; }
+  }
   const priceMin = document.getElementById('priceMin').value;
   const priceMax = document.getElementById('priceMax').value;
   if (!priceMin || !priceMax) { alert('Please enter a price range.'); return; }
@@ -3053,7 +3102,7 @@ async function findOutfits() {
     await saveSearchToWishlist(items);
 
     area.innerHTML = `
-      <div class="results-label">${items.length} picks for you</div>
+      <div class="results-label">${session.occasionParent === 'specific' ? items.length + ' matches found' : items.length + ' picks for you'}</div>
       <p class="image-disclaimer">Some images may not display due to individual retailer settings — click any card to view the item and its photo directly on the retailer's site.</p>
       <div class="product-grid" id="productGrid">${renderProducts(items)}</div>
       <div id="loadMoreWrap" style="text-align:center;margin-top:2.5rem;">
