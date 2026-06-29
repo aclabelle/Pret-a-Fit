@@ -1823,28 +1823,35 @@ select.text-input { cursor: pointer; }
     <p class="screen-sub">The right colours don't just complement your wardrobe — they illuminate you. How would you like to discover yours?</p>
     <div class="choice-grid" style="grid-template-columns:1fr;">
 
-      <div class="choice-card" onclick="selectChoice(this,'colourMethod','self');document.getElementById('colourSelfSelect').style.display='block';">
+      <div class="choice-card" onclick="selectColourOption('self',this)">
         <div class="choice-card-label">I already know</div>
         <div class="choice-card-title">I'll choose my own tones</div>
         <div class="choice-card-desc">Select from warm, cool, neutral, or deep — and we'll filter accordingly.</div>
       </div>
 
-      <div class="choice-card" onclick="goTo('screen-colour-quiz')">
+      <div class="choice-card" onclick="selectColourOption('questions',this)">
         <div class="choice-card-label">Discover yours</div>
-        <div class="choice-card-title">Take the colour quiz</div>
-        <div class="choice-card-desc">A few questions about your complexion, hair, and how colours land on you — no photo needed.</div>
+        <div class="choice-card-title">Answer a few questions</div>
+        <div class="choice-card-desc">Five gentle questions about your complexion, hair, and how colours land on you — no photo needed.</div>
       </div>
 
-      <div class="choice-card" onclick="handleColourPhotoClick()">
+      <div class="choice-card" onclick="selectColourOption('photo',this)">
         <div class="choice-card-label">Most precise</div>
-        <div class="choice-card-title">Analyse my photo</div>
-        <div class="choice-card-desc">Upload a photo and our AI reads your undertones, depth, and contrast directly from your complexion.</div>
+        <div class="choice-card-title">Upload a photo</div>
+        <div class="choice-card-desc">Upload a single photo and our AI reads your undertones, depth, and contrast directly from your complexion.</div>
+        <div class="choice-card-badge">Subscribers</div>
+      </div>
+
+      <div class="choice-card" onclick="selectColourOption('camera',this)">
+        <div class="choice-card-label">Hands-free</div>
+        <div class="choice-card-title">Use my camera</div>
+        <div class="choice-card-desc">Capture a front-facing and side-profile shot in-app — no manual uploading needed. Our AI reads both for the most complete read of your colouring.</div>
         <div class="choice-card-badge">Subscribers</div>
       </div>
 
     </div>
 
-    <!-- Self-select colour tones -->
+    <!-- Self-select colour tones (shown inline when "I'll choose" is selected) -->
     <div id="colourSelfSelect" style="display:none;width:100%;margin-bottom:1.5rem;margin-top:0.5rem;">
       <div class="chip-grid">
         <button class="chip" data-value="warm" onclick="selectSingle(this,'colourTone')">Warm tones</button>
@@ -1867,27 +1874,11 @@ select.text-input { cursor: pointer; }
 </div>
 
 
-<!-- ══ SCREEN 4B: COLOUR QUIZ ══ -->
+<!-- ══ SCREEN 4B: COLOUR QUIZ / PHOTO / CAMERA ══ -->
 <div class="screen" id="screen-colour-quiz">
   <div class="onboarding-wrap" style="justify-content:flex-start;padding-top:3rem;">
-    <div class="screen-eyebrow">Colour palette quiz</div>
-    <h1 class="screen-heading">Let's find your palette</h1>
-    <p class="screen-sub">Upload a photo for the most precise read, or answer a few questions about your natural colouring instead.</p>
-
-    <!-- Method choice -->
-    <div class="quiz-method-grid" id="colourMethodGrid">
-      <div class="choice-card" onclick="handleColourPhotoMethod()">
-        <div class="choice-card-label">Most precise</div>
-        <div class="choice-card-title">Upload a photo</div>
-        <div class="choice-card-desc">Our AI reads your undertones, depth and contrast directly from your complexion.</div>
-        <div class="choice-card-badge">Subscribers</div>
-      </div>
-      <div class="choice-card" onclick="selectColourMethod('questions')">
-        <div class="choice-card-label">No photo needed</div>
-        <div class="choice-card-title">Answer a few questions</div>
-        <div class="choice-card-desc">Five gentle questions about your natural colouring guide us to your palette.</div>
-      </div>
-    </div>
+    <div class="screen-eyebrow" id="colourQuizEyebrow">Colour palette</div>
+    <h1 class="screen-heading" id="colourQuizHeading">Let's find your palette</h1>
 
     <!-- ── PHOTO PATH ── -->
     <div id="colourPhotoPath" style="display:none;width:100%;">
@@ -1915,29 +1906,11 @@ select.text-input { cursor: pointer; }
           </div>
           <div class="photo-tip-item">
             <div class="photo-tip-icon">
-              <svg viewBox="0 0 16 16"><path d="M8 2v12M2 8h12"/></svg>
-            </div>
-            <div>
-              <div class="photo-tip-label">Face the light directly</div>
-              <div class="photo-tip-text">Turn to face the light source rather than having it behind or to the side of you. Even light across your face lets us see your skin, hair, and eyes without shadow.</div>
-            </div>
-          </div>
-          <div class="photo-tip-item">
-            <div class="photo-tip-icon">
-              <svg viewBox="0 0 16 16"><path d="M3 8a5 5 0 1010 0A5 5 0 003 8zm5-2v2l2 1"/></svg>
+              <svg viewBox="0 0 16 16"><path d="M8 3l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z"/></svg>
             </div>
             <div>
               <div class="photo-tip-label">Wear a white or grey top</div>
               <div class="photo-tip-text">A neutral top removes any colour cast from clothing that might reflect onto your skin. White or light grey is ideal — it gives us the cleanest read of your natural colouring.</div>
-            </div>
-          </div>
-          <div class="photo-tip-item">
-            <div class="photo-tip-icon">
-              <svg viewBox="0 0 16 16"><path d="M8 3l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z"/></svg>
-            </div>
-            <div>
-              <div class="photo-tip-label">Hair down and natural</div>
-              <div class="photo-tip-text">Let your hair fall naturally so we can see its true colour and depth. If your hair is coloured, that's fine — just know we'll be reading both your natural and current tones together.</div>
             </div>
           </div>
         </div>
@@ -1973,8 +1946,61 @@ select.text-input { cursor: pointer; }
       </div>
 
       <div class="screen-nav" style="margin-top:0.5rem;">
-        <button class="btn-back" onclick="resetColourMethod()">← Change method</button>
+        <button class="btn-back" onclick="goTo('screen-colour')">← Back</button>
         <button class="btn-next" id="colourPhotoAnalyseBtn" onclick="analyseColourPhoto()" disabled>Analyse my palette</button>
+      </div>
+    </div>
+
+    <!-- ── CAMERA PATH ── -->
+    <div id="colourCameraPath" style="display:none;width:100%;">
+      <p class="screen-sub" style="margin-bottom:1.5rem;">
+        We'll take two quick photos — one front-facing, one side profile. Natural light works best. When you're ready, tap <strong>Start</strong>.
+      </p>
+
+      <!-- Step 1: front shot -->
+      <div id="cameraStep1">
+        <div class="photo-tips-heading" style="margin-bottom:0.75rem;">Step 1 of 2 — Face the camera directly</div>
+        <video id="cameraPreview1" autoplay playsinline muted style="width:100%;max-height:280px;object-fit:cover;border:1px solid var(--dust);background:var(--ink);display:none;"></video>
+        <canvas id="cameraCanvas1" style="display:none;"></canvas>
+        <div id="cameraCapture1Wrap" style="display:none;">
+          <img id="cameraCapture1Preview" style="width:100%;max-height:220px;object-fit:cover;border:1px solid var(--dust);margin-top:0.5rem;" src="" alt="Front capture" />
+          <div class="photo-upload-sub" style="margin-top:6px;">Front photo captured ✓</div>
+        </div>
+        <div class="screen-nav" style="margin-top:1rem;">
+          <button class="btn-back" onclick="goTo('screen-colour')">← Back</button>
+          <button class="btn-next" id="cameraStartBtn" onclick="startCamera(1)">Start camera</button>
+          <button class="btn-next" id="cameraCaptureBtn1" onclick="captureShot(1)" style="display:none;">Capture front</button>
+          <button class="btn-next" id="cameraNextStepBtn" onclick="goToCameraStep2()" style="display:none;">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: side shot -->
+      <div id="cameraStep2" style="display:none;">
+        <div class="photo-tips-heading" style="margin-bottom:0.75rem;">Step 2 of 2 — Turn to show your profile</div>
+        <video id="cameraPreview2" autoplay playsinline muted style="width:100%;max-height:280px;object-fit:cover;border:1px solid var(--dust);background:var(--ink);display:none;"></video>
+        <canvas id="cameraCanvas2" style="display:none;"></canvas>
+        <div id="cameraCapture2Wrap" style="display:none;">
+          <img id="cameraCapture2Preview" style="width:100%;max-height:220px;object-fit:cover;border:1px solid var(--dust);margin-top:0.5rem;" src="" alt="Side capture" />
+          <div class="photo-upload-sub" style="margin-top:6px;">Side photo captured ✓</div>
+        </div>
+        <div class="screen-nav" style="margin-top:1rem;">
+          <button class="btn-back" onclick="goBackToCameraStep1()">← Retake front</button>
+          <button class="btn-next" id="cameraCaptureBtn2" onclick="captureShot(2)">Capture side</button>
+          <button class="btn-next" id="cameraAnalyseBtn" onclick="analyseCameraPhotos()" style="display:none;">Analyse my palette</button>
+        </div>
+      </div>
+
+      <div class="photo-privacy-note">Both photos are sent directly to our AI for analysis and immediately discarded — never stored, never seen by a person.</div>
+
+      <div id="colourCameraAnalysing" style="display:none;" class="quiz-analysing">
+        <div class="spinner"></div>Reading your palette from both photos…
+      </div>
+
+      <div id="colourCameraResult" style="display:none;" class="quiz-result-wrap">
+        <div class="quiz-result-eyebrow">Your colour palette</div>
+        <div class="quiz-result-type" id="colourCameraResultType"></div>
+        <div style="margin:8px 0 4px;"><span id="colourCameraSwatchRow"></span></div>
+        <div class="quiz-result-desc" id="colourCameraResultDesc"></div>
       </div>
     </div>
 
@@ -2050,12 +2076,12 @@ select.text-input { cursor: pointer; }
       </div>
 
       <div class="screen-nav" style="margin-top:0.5rem;">
-        <button class="btn-back" onclick="resetColourMethod()">← Change method</button>
+        <button class="btn-back" onclick="goTo('screen-colour')">← Back</button>
         <button class="btn-next" id="colourQuestionsSubmitBtn" onclick="submitColourQuestions()" disabled>Find my palette</button>
       </div>
     </div>
 
-    <!-- Shared continue -->
+    <!-- Shared continue (shown after any result) -->
     <div id="colourQuizContinueWrap" style="display:none;width:100%;margin-top:1rem;">
       <div class="screen-nav">
         <button class="btn-skip" onclick="goTo('screen-colour')">Not right? Pick manually →</button>
@@ -2965,7 +2991,7 @@ User profile:
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
 ${vibeNote}${museNote}${colourNote}${climateNote}${exclNote}${localNote}${feedbackNote}${excludeItems}
 
-Search for this specific item across large stable retailers (Net-a-Porter, Mytheresa, Farfetch, Nordstrom, ASOS, Selfridges, Shopbop, Revolve, Saks, Neiman Marcus). Each "url" must be a direct product page URL — not a search or category page. Match the description as closely as possible. If an exact match isn't available, find the closest alternative and note this in whyItWorks. For the whyItWorks field, explain how this item matches the description AND why it flatters their body type.
+Search for this specific item across well-known retailers. Match the description as closely as possible. If an exact match isn't available, find the closest alternative and note this in whyItWorks. For the whyItWorks field, explain how this item matches the description AND why it flatters their body type.
 
 Use at most 3 web searches total.
 
@@ -2983,7 +3009,7 @@ Find ${count} real clothing items:
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
 ${vibeNote}${museNote}${colourNote}${climateNote}${exclNote}${localNote}${feedbackNote}${excludeItems}
 
-Use at most 3 web searches total. Prioritise large stable retailers (Net-a-Porter, Mytheresa, Farfetch, Nordstrom, ASOS, Selfridges, Shopbop, Revolve, Saks, Neiman Marcus). Each "url" must be a direct product page URL — not a search or category page.
+Use at most 3 web searches total. Prioritise well-known retailers with international shipping.
 
 [{"retailer":"Name","name":"Product name","price":"${sym}XX","url":"https://specific-product-page","imageUrl":"https://cdn-image.jpg","whyItWorks":"Why flatters ${profile.body}","sizeNote":"Size note","stylingTip":"Tip"}]` };
 }
@@ -3057,43 +3083,6 @@ function goToSignIn() {
   setTimeout(() => switchAuthTab('signin'), 350);
 }
 
-/* ── Link validation (Option 2) ── */
-async function validateAndFilterItems(items) {
-  // Show a secondary status note while we check links
-  const disclaimer = document.querySelector('.image-disclaimer');
-  if (disclaimer) {
-    disclaimer.textContent = 'Verifying product links…';
-  }
-
-  try {
-    const urls = items.map(i => i.url);
-    const response = await fetch('/api/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ validateUrls: true, urls })
-    });
-    if (!response.ok) return items; // If validation itself fails, show everything
-
-    const { results } = await response.json();
-    const deadUrls = new Set(
-      (results || []).filter(r => !r.alive).map(r => r.url)
-    );
-
-    const live = items.filter(i => !deadUrls.has(i.url));
-    const deadCount = items.length - live.length;
-
-    if (disclaimer) {
-      disclaimer.textContent = deadCount > 0
-        ? `${deadCount} unavailable item${deadCount > 1 ? 's' : ''} removed. Some images may not display — click any card to view the item on the retailer's site.`
-        : 'Some images may not display due to individual retailer settings — click any card to view the item and its photo directly on the retailer\'s site.';
-    }
-
-    return live.length >= 3 ? live : items; // Safety: if too many removed, show all
-  } catch {
-    return items; // If anything goes wrong, show everything
-  }
-}
-
 /* ── Search ── */
 let allItems = [];
 
@@ -3138,7 +3127,6 @@ async function findOutfits() {
     // Auto-save this search to wishlist
     await saveSearchToWishlist(items);
 
-    // Show results immediately so the user isn't waiting longer
     area.innerHTML = `
       <div class="results-label">${session.occasionParent === 'specific' ? items.length + ' matches found' : items.length + ' picks for you'}</div>
       <p class="image-disclaimer">Some images may not display due to individual retailer settings — click any card to view the item and its photo directly on the retailer's site.</p>
@@ -3146,16 +3134,6 @@ async function findOutfits() {
       <div id="loadMoreWrap" style="text-align:center;margin-top:2.5rem;">
         <button class="btn-load-more" onclick="loadMore()">Discover more</button>
       </div>`;
-
-    // Then silently validate links and remove any dead ones
-    const liveItems = await validateAndFilterItems(items);
-    if (liveItems.length < items.length) {
-      allItems = liveItems;
-      const grid = document.getElementById('productGrid');
-      if (grid) grid.innerHTML = renderProducts(liveItems);
-      const label = area.querySelector('.results-label');
-      if (label) label.textContent = `${liveItems.length} ${session.occasionParent === 'specific' ? 'matches found' : 'picks for you'}`;
-    }
   } catch(err) {
     area.innerHTML = `<div class="error-msg">Something went wrong — please try again. (${err.message})</div>`;
   } finally {
@@ -3461,6 +3439,9 @@ let colourPhotoBase64 = null;
 let colourPhotoMediaType = 'image/jpeg';
 let colourResultTone = '';
 let colourResultSeason = '';
+let cameraStream = null;
+let cameraPhoto1Base64 = null;
+let cameraPhoto2Base64 = null;
 
 // Palette definitions — used to render swatches and enrich the search prompt
 const colourPalettes = {
@@ -3490,88 +3471,224 @@ const colourPalettes = {
   }
 };
 
-function handleColourPhotoClick() {
+/* Route from Screen 4 directly to the right path on Screen 4B */
+function selectColourOption(method, cardEl) {
+  // Highlight selected card
+  document.querySelectorAll('#screen-colour .choice-card').forEach(c => c.classList.remove('selected'));
+  if (cardEl) cardEl.classList.add('selected');
+
+  if (method === 'self') {
+    selectChoice(cardEl, 'colourMethod', 'self');
+    document.getElementById('colourSelfSelect').style.display = 'block';
+    return;
+  }
+
+  // Hide self-select if another option chosen
+  document.getElementById('colourSelfSelect').style.display = 'none';
+
+  if (method === 'photo' || method === 'camera') {
+    // Check subscriber status
+    const isSubscriber = clerkInstance && clerkInstance.user &&
+      clerkInstance.user.publicMetadata && clerkInstance.user.publicMetadata.subscriber;
+    if (!isSubscriber) {
+      showColourPaywallInline(method, cardEl);
+      return;
+    }
+  }
+
+  // Navigate to 4B with the right path open
   goTo('screen-colour-quiz');
-  setTimeout(() => handleColourPhotoMethod(), 300);
+  setTimeout(() => openColourPath(method), 320);
 }
 
-function handleColourPhotoMethod() {
-  const isSubscriber = clerkInstance && clerkInstance.user &&
-    clerkInstance.user.publicMetadata && clerkInstance.user.publicMetadata.subscriber;
-  if (isSubscriber) {
-    selectColourMethod('photo');
-  } else {
-    showColourPhotoPaywall();
-  }
-}
-
-function showColourPhotoPaywall() {
-  var grid = document.getElementById('colourMethodGrid');
-  var paywall = document.getElementById('colourPhotoPaywall');
-  if (!paywall) {
-    paywall = document.createElement('div');
-    paywall.id = 'colourPhotoPaywall';
-    paywall.className = 'paywall-wrap';
-    paywall.style.marginBottom = '0';
-
-    var eyebrow = document.createElement('div');
-    eyebrow.className = 'paywall-eyebrow';
-    eyebrow.textContent = 'Subscriber feature';
-
-    var heading = document.createElement('div');
-    heading.className = 'paywall-heading';
-    heading.textContent = 'Photo colour analysis is part of Prêt-à-Fit Premium';
-
-    var sub = document.createElement('div');
-    sub.className = 'paywall-sub';
-    sub.textContent = 'Subscribers unlock AI photo colour analysis, body shape assessment, saved looks, and unlimited searches. The questions quiz is available to everyone — and works beautifully.';
-
-    var upgradeBtn = document.createElement('button');
-    upgradeBtn.className = 'paywall-btn';
-    upgradeBtn.textContent = 'Upgrade or sign in';
-    upgradeBtn.onclick = function() { goTo('screen-auth'); };
-
-    var signinDiv = document.createElement('div');
-    signinDiv.className = 'paywall-signin';
-    var skipBtn = document.createElement('button');
-    skipBtn.textContent = 'Continue with questions instead →';
-    skipBtn.onclick = function() {
-      paywall.remove();
-      selectColourMethod('questions');
-    };
-    signinDiv.appendChild(skipBtn);
-
-    paywall.appendChild(eyebrow);
-    paywall.appendChild(heading);
-    paywall.appendChild(sub);
-    paywall.appendChild(upgradeBtn);
-    paywall.appendChild(signinDiv);
-    grid.parentNode.insertBefore(paywall, grid.nextSibling);
-  }
-  paywall.style.display = 'block';
-}
-
-function selectColourMethod(method) {
-  document.getElementById('colourMethodGrid').style.display = 'none';
-  document.getElementById('colourPhotoPath').style.display = method === 'photo' ? 'block' : 'none';
-  document.getElementById('colourQuestionsPath').style.display = method === 'questions' ? 'block' : 'none';
-}
-
-function resetColourMethod() {
-  document.getElementById('colourMethodGrid').style.display = 'grid';
-  document.getElementById('colourPhotoPath').style.display = 'none';
-  document.getElementById('colourQuestionsPath').style.display = 'none';
+function openColourPath(method) {
+  // Hide all paths first
+  ['colourPhotoPath','colourCameraPath','colourQuestionsPath'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
   document.getElementById('colourQuizContinueWrap').style.display = 'none';
-  document.getElementById('colourPhotoResult').style.display = 'none';
-  document.getElementById('colourQuestionsResult').style.display = 'none';
-  document.getElementById('colourPhotoAnalysing').style.display = 'none';
-  document.getElementById('colourQuestionsAnalysing').style.display = 'none';
-  colourPhotoBase64 = null;
-  colourResultTone = '';
-  colourResultSeason = '';
-  document.getElementById('colourPhotoAnalyseBtn').disabled = true;
-  var paywall = document.getElementById('colourPhotoPaywall');
-  if (paywall) paywall.remove();
+
+  const headings = {
+    photo: ['Upload a photo', 'Upload a clear, front-facing photo for the most precise palette read.'],
+    camera: ['Use your camera', 'We\'ll take a front and side shot — no uploading needed.'],
+    questions: ['Answer a few questions', 'Five quick questions to discover your colour palette.']
+  };
+  document.getElementById('colourQuizEyebrow').textContent = 'Colour palette';
+  document.getElementById('colourQuizHeading').textContent = headings[method][0];
+
+  if (method === 'photo') {
+    document.getElementById('colourPhotoPath').style.display = 'block';
+  } else if (method === 'camera') {
+    document.getElementById('colourCameraPath').style.display = 'block';
+  } else {
+    document.getElementById('colourQuestionsPath').style.display = 'block';
+  }
+}
+
+function showColourPaywallInline(method, cardEl) {
+  // Remove any existing paywall
+  var existing = document.getElementById('colourInlinePaywall');
+  if (existing) existing.remove();
+
+  var paywall = document.createElement('div');
+  paywall.id = 'colourInlinePaywall';
+  paywall.className = 'paywall-wrap';
+  paywall.style.marginBottom = '0';
+
+  paywall.innerHTML = `
+    <div class="paywall-eyebrow">Subscriber feature</div>
+    <div class="paywall-heading">Photo &amp; camera colour analysis is part of Prêt-à-Fit Premium</div>
+    <div class="paywall-sub">Subscribers unlock AI photo and camera colour analysis, body shape assessment, saved looks, and unlimited searches. The questions quiz is available to everyone — and works beautifully.</div>
+    <button class="paywall-btn" onclick="goTo('screen-auth')">Upgrade or sign in</button>
+    <div class="paywall-signin">
+      <button onclick="document.getElementById('colourInlinePaywall').remove();selectColourOption('questions',null);">Continue with questions instead →</button>
+    </div>`;
+
+  // Insert after the choice grid
+  var grid = document.querySelector('#screen-colour .choice-grid');
+  grid.parentNode.insertBefore(paywall, grid.nextSibling);
+}
+
+/* Legacy kept for any back-button usage */
+function resetColourMethod() {
+  goTo('screen-colour');
+}
+
+/* Kept for backward compat with selectColourMethod('questions') calls */
+function selectColourMethod(method) {
+  openColourPath(method);
+}
+
+/* Also kept — called by handleColourPhotoClick legacy path */
+function handleColourPhotoClick() {
+  selectColourOption('photo', null);
+}
+function handleColourPhotoMethod() {
+  selectColourOption('photo', null);
+}
+function showColourPhotoPaywall() {
+  showColourPaywallInline('photo', null);
+}
+
+/* ── Camera capture ── */
+async function startCamera(step) {
+  try {
+    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); }
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    var video = document.getElementById('cameraPreview' + step);
+    video.srcObject = cameraStream;
+    video.style.display = 'block';
+    document.getElementById('cameraStartBtn').style.display = 'none';
+    document.getElementById('cameraCaptureBtn1').style.display = 'inline-block';
+  } catch(err) {
+    alert('Camera access was denied or is unavailable. Please use the "Upload a photo" option instead.');
+  }
+}
+
+function captureShot(step) {
+  var video = document.getElementById('cameraPreview' + step);
+  var canvas = document.getElementById('cameraCanvas' + step);
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+  if (step === 1) {
+    cameraPhoto1Base64 = dataUrl.split(',')[1];
+    document.getElementById('cameraCapture1Preview').src = dataUrl;
+    document.getElementById('cameraCapture1Wrap').style.display = 'block';
+    video.style.display = 'none';
+    document.getElementById('cameraCaptureBtn1').style.display = 'none';
+    document.getElementById('cameraNextStepBtn').style.display = 'inline-block';
+  } else {
+    cameraPhoto2Base64 = dataUrl.split(',')[1];
+    document.getElementById('cameraCapture2Preview').src = dataUrl;
+    document.getElementById('cameraCapture2Wrap').style.display = 'block';
+    video.style.display = 'none';
+    document.getElementById('cameraCaptureBtn2').style.display = 'none';
+    document.getElementById('cameraAnalyseBtn').style.display = 'inline-block';
+    // Stop camera stream — we have both shots
+    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  }
+}
+
+function goToCameraStep2() {
+  document.getElementById('cameraStep1').style.display = 'none';
+  document.getElementById('cameraStep2').style.display = 'block';
+  startCameraForStep2();
+}
+
+async function startCameraForStep2() {
+  try {
+    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); }
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    var video = document.getElementById('cameraPreview2');
+    video.srcObject = cameraStream;
+    video.style.display = 'block';
+  } catch(err) {
+    alert('Camera access was denied. Please upload photos manually instead.');
+  }
+}
+
+function goBackToCameraStep1() {
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  document.getElementById('cameraStep2').style.display = 'none';
+  document.getElementById('cameraStep1').style.display = 'block';
+  // Reset step 1 to allow retake
+  document.getElementById('cameraCapture1Wrap').style.display = 'none';
+  document.getElementById('cameraNextStepBtn').style.display = 'none';
+  document.getElementById('cameraStartBtn').style.display = 'inline-block';
+  cameraPhoto1Base64 = null;
+}
+
+async function analyseCameraPhotos() {
+  if (!cameraPhoto1Base64 || !cameraPhoto2Base64) return;
+  document.getElementById('cameraAnalyseBtn').style.display = 'none';
+  document.getElementById('colourCameraAnalysing').style.display = 'flex';
+
+  var prompt = 'You are a warm, expert colour analyst trained in seasonal colour theory. The user has shared two photos — one front-facing and one side profile — for palette analysis.' +
+    ' Study their skin undertones, hair depth and tone, and eye colour carefully across both images.' +
+    ' Determine which of these four palettes fits them best: cool, warm, neutral, deep.' +
+    ' cool = blue or pink undertones, best in icy/jewel tones and silver.' +
+    ' warm = yellow or golden undertones, best in earth tones and gold.' +
+    ' neutral = balanced undertones, suits both warm and cool.' +
+    ' deep = very deep/rich skin, hair and features, suits bold saturated colour.' +
+    ' Write the description warmly — celebrate the beauty and versatility of their palette. 2 sentences maximum.' +
+    ' Respond ONLY with valid JSON, no other text:' +
+    ' {"palette":"cool","description":"..."}';
+
+  try {
+    // Send both images — front first, then side
+    var response = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        imageBase64: cameraPhoto1Base64,
+        imageMediaType: 'image/jpeg',
+        image2Base64: cameraPhoto2Base64,
+        image2MediaType: 'image/jpeg'
+      })
+    });
+    var data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'API error ' + response.status);
+    var result = parseQuizJSON(data.result);
+    var palette = colourPalettes[result.palette] || colourPalettes.neutral;
+    colourResultTone = result.palette;
+    colourResultSeason = palette.season;
+    document.getElementById('colourCameraResultType').textContent = palette.label + ' palette';
+    renderColourSwatches(result.palette, 'colourCameraSwatchRow');
+    document.getElementById('colourCameraResultDesc').textContent = result.description;
+    document.getElementById('colourCameraResult').style.display = 'block';
+    document.getElementById('colourQuizContinueWrap').style.display = 'block';
+  } catch(err) {
+    document.getElementById('colourCameraResultType').textContent = 'Unable to analyse';
+    document.getElementById('colourCameraResultDesc').textContent = 'Something went wrong — please try again, or switch to the questions method instead.';
+    document.getElementById('colourCameraResult').style.display = 'block';
+    document.getElementById('cameraAnalyseBtn').style.display = 'inline-block';
+  } finally {
+    document.getElementById('colourCameraAnalysing').style.display = 'none';
+  }
 }
 
 function handleColourPhotoSelected(input) {

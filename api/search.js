@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { prompt, imageBase64, imageMediaType, validateUrls } = req.body;
+  const { prompt, imageBase64, imageMediaType, image2Base64, image2MediaType, validateUrls } = req.body;
 
   // ── URL validation mode ──────────────────────────────────────────────────
   // The frontend sends a list of URLs and we check which ones are alive.
@@ -42,12 +42,16 @@ export default async function handler(req, res) {
   const isOutfitSearch = typeof prompt === 'string' && prompt.includes('Fashion search engine');
 
   let messageContent;
-  if (imageBase64) {
+  if (imageBase64 && image2Base64) {
+    // Camera capture: two images (front + side)
     messageContent = [
-      {
-        type: 'image',
-        source: { type: 'base64', media_type: imageMediaType || 'image/jpeg', data: imageBase64 }
-      },
+      { type: 'image', source: { type: 'base64', media_type: imageMediaType || 'image/jpeg', data: imageBase64 } },
+      { type: 'image', source: { type: 'base64', media_type: image2MediaType || 'image/jpeg', data: image2Base64 } },
+      { type: 'text', text: prompt }
+    ];
+  } else if (imageBase64) {
+    messageContent = [
+      { type: 'image', source: { type: 'base64', media_type: imageMediaType || 'image/jpeg', data: imageBase64 } },
       { type: 'text', text: prompt }
     ];
   } else {
