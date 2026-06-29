@@ -1704,7 +1704,7 @@ select.text-input { cursor: pointer; }
       <div class="paywall-eyebrow">Subscriber feature</div>
       <div class="paywall-heading">Photo &amp; camera body analysis is part of Prêt-à-Fit Premium</div>
       <div class="paywall-sub">Subscribers unlock AI photo body assessment, colour analysis, saved looks, and unlimited searches. The questions quiz is available to everyone — and works beautifully.</div>
-      <button class="paywall-btn" onclick="goTo('screen-auth')">Upgrade or sign in</button>
+      <button class="paywall-btn" onclick="goToSignIn('screen-body')">Upgrade or sign in</button>
       <div class="paywall-signin">
         <button onclick="document.getElementById('bodyMethodPaywall').style.display='none';selectBodyOption('questions',null);">Continue with questions instead →</button>
       </div>
@@ -2447,7 +2447,7 @@ select.text-input { cursor: pointer; }
         <button class="auth-submit" onclick="handleVerifyCode()">Verify & enter</button>
       </div>
     </div>
-    <button class="auth-skip" onclick="skipAuth()">Skip for now — continue as guest</button>
+    <button class="auth-skip" onclick="skipAuth()">Skip — continue as guest</button>
   </div>
 </div>
 
@@ -3009,10 +3009,25 @@ function skipAuth() {
   enterApp();
 }
 
-/* ── Enter the main app ── */
+/* ── Auth return destination ── */
+let authReturnTo = 'screen-app';
+
+function goToSignIn(returnTo) {
+  authReturnTo = returnTo || 'screen-app';
+  switchAuthTab('signin');
+  goTo('screen-auth');
+}
+
+/* ── Enter the main app (or return screen) ── */
 function enterApp() {
   updateUserAvatar();
-  goTo('screen-app');
+  const dest = authReturnTo || 'screen-app';
+  authReturnTo = 'screen-app';
+  if (dest === 'screen-profile') {
+    openProfile();
+  } else {
+    goTo(dest);
+  }
 }
 
 /* ── User avatar in nav ── */
@@ -3260,11 +3275,7 @@ function handleSubscribe() {
   alert('Subscriptions are coming very soon. Thank you for your patience.');
 }
 
-function goToSignIn() {
-  // Pre-select the sign-in tab and go to auth screen
-  goTo('screen-auth');
-  setTimeout(() => switchAuthTab('signin'), 350);
-}
+
 
 /* ── Search ── */
 let allItems = [];
@@ -4722,7 +4733,7 @@ init();
       <div class="profile-row" id="profileGuestRow" style="display:none;">
         <div class="profile-row-label">Account</div>
         <div class="profile-row-value">Guest — profile not saved</div>
-        <button class="profile-row-action" onclick="goTo('screen-auth')">Sign in</button>
+        <button class="profile-row-action" onclick="goToSignIn('screen-profile')">Sign in</button>
       </div>
     </div>
 
@@ -4819,7 +4830,7 @@ init();
       <div class="wishlist-login-prompt">
         <div class="wishlist-login-heading">Sign in to save items and searches</div>
         <p class="wishlist-login-sub">Your wishlist and past searches are stored securely to your account — available on any device, any time.</p>
-        <button class="btn-next" onclick="goToSignIn()">Sign in or create account</button>
+        <button class="btn-next" onclick="goToSignIn('screen-wishlist')">Sign in or create account</button>
       </div>
     </div>
 
