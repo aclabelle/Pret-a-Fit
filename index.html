@@ -1591,43 +1591,100 @@ select.text-input { cursor: pointer; }
   <div class="progress-dots" id="dots-gender"></div>
 </div>
 
-<!-- ══ SCREEN 3: BODY TYPE ══ -->
+<!-- ══ SCREEN 3: BODY TYPE (choice) ══ -->
 <div class="screen" id="screen-body">
   <div class="onboarding-wrap">
     <div class="screen-eyebrow">About you</div>
     <h1 class="screen-heading">Your body type</h1>
-    <p class="screen-sub">Every recommendation is shaped around your silhouette. Select the one that feels closest, or let us figure it out for you.</p>
-    <div class="body-grid" id="bodyGrid"></div>
+    <p class="screen-sub">Every recommendation is shaped around your silhouette. How would you like to determine yours?</p>
+    <div class="choice-grid" style="grid-template-columns:1fr;" id="bodyMethodGrid">
+
+      <div class="choice-card" onclick="selectBodyOption('manual',this)">
+        <div class="choice-card-label">I already know</div>
+        <div class="choice-card-title">I'll choose my own shape</div>
+        <div class="choice-card-desc">Pick from our illustrated guide — hourglass, pear, apple, rectangle and more.</div>
+      </div>
+
+      <div class="choice-card" onclick="selectBodyOption('questions',this)">
+        <div class="choice-card-label">Discover yours</div>
+        <div class="choice-card-title">Answer a few questions</div>
+        <div class="choice-card-desc">Three simple questions about your proportions — no photo needed.</div>
+      </div>
+
+      <div class="choice-card" onclick="selectBodyOption('photo',this)">
+        <div class="choice-card-label">Most accurate</div>
+        <div class="choice-card-title">Upload a photo</div>
+        <div class="choice-card-desc">Our AI reads your proportions directly from a single photo — no guesswork required.</div>
+        <div class="choice-card-badge">Subscribers</div>
+      </div>
+
+      <div class="choice-card" onclick="selectBodyOption('camera',this)">
+        <div class="choice-card-label">Hands-free</div>
+        <div class="choice-card-title">Use my camera</div>
+        <div class="choice-card-desc">Capture a front-facing shot in-app — no uploading needed. AI reads your shape directly.</div>
+        <div class="choice-card-badge">Subscribers</div>
+      </div>
+
+    </div>
+
+    <!-- Inline paywall -->
+    <div id="bodyMethodPaywall" style="display:none;" class="paywall-wrap">
+      <div class="paywall-eyebrow">Subscriber feature</div>
+      <div class="paywall-heading">Photo &amp; camera body analysis is part of Prêt-à-Fit Premium</div>
+      <div class="paywall-sub">Subscribers unlock AI photo body assessment, colour analysis, saved looks, and unlimited searches. The questions quiz is available to everyone — and works beautifully.</div>
+      <button class="paywall-btn" onclick="goTo('screen-auth')">Upgrade or sign in</button>
+      <div class="paywall-signin">
+        <button onclick="document.getElementById('bodyMethodPaywall').style.display='none';selectBodyOption('questions',null);">Continue with questions instead →</button>
+      </div>
+    </div>
+
     <div class="screen-nav">
       <button class="btn-back" onclick="goTo('screen-gender')">← Back</button>
-      <div style="display:flex;gap:12px;align-items:center;">
-        <button class="btn-skip" onclick="goTo('screen-body-quiz')">Not sure — take the quiz</button>
-        <button class="btn-next" id="bodyNext" onclick="goTo('screen-colour')" disabled>Continue</button>
-      </div>
+      <button class="btn-skip" onclick="goTo('screen-colour')">Skip for now</button>
     </div>
   </div>
   <div class="progress-dots" id="dots-body"></div>
 </div>
 
+<!-- ══ SCREEN 3M: BODY TYPE MANUAL PICK ══ -->
+<div class="screen" id="screen-body-manual">
+  <div class="onboarding-wrap">
+    <div class="screen-eyebrow">About you</div>
+    <h1 class="screen-heading">Your body type</h1>
+    <p class="screen-sub">Select the shape that feels closest to you.</p>
+    <div class="body-grid" id="bodyGrid"></div>
+    <div class="screen-nav">
+      <button class="btn-back" onclick="goTo('screen-body')">← Back</button>
+      <button class="btn-next" id="bodyNext" onclick="goTo('screen-colour')" disabled>Continue</button>
+    </div>
+  </div>
+  <div class="progress-dots" id="dots-body-manual"></div>
+</div>
+
 <!-- ══ SCREEN 3B: BODY SHAPE QUIZ ══ -->
 <div class="screen" id="screen-body-quiz">
   <div class="onboarding-wrap" style="justify-content:flex-start;padding-top:3rem;">
-    <div class="screen-eyebrow">Body shape quiz</div>
-    <h1 class="screen-heading">Let's find your shape</h1>
-    <p class="screen-sub">Answer three gentle questions to discover your shape — or upgrade to unlock the photo analysis.</p>
+    <div class="screen-eyebrow">Body shape</div>
+    <h1 class="screen-heading" id="bodyQuizHeading">Let's find your shape</h1>
 
     <!-- Method choice -->
-    <div class="quiz-method-grid" id="quizMethodGrid">
-      <div class="choice-card" id="quizMethodPhoto" onclick="handlePhotoMethodClick()">
+    <div class="quiz-method-grid" id="quizMethodGrid" style="grid-template-columns:1fr;">
+      <div class="choice-card" onclick="selectQuizMethod('questions')">
+        <div class="choice-card-label">No photo needed</div>
+        <div class="choice-card-title">Answer a few questions</div>
+        <div class="choice-card-desc">Three simple questions about your proportions guide us to your shape.</div>
+      </div>
+      <div class="choice-card" onclick="handleBodyPhotoMethodClick('photo')">
         <div class="choice-card-label">Most accurate</div>
         <div class="choice-card-title">Upload a photo</div>
         <div class="choice-card-desc">Our AI reads your proportions directly — no guesswork on your part.</div>
         <div class="choice-card-badge">Subscribers</div>
       </div>
-      <div class="choice-card" id="quizMethodQuestions" onclick="selectQuizMethod('questions')">
-        <div class="choice-card-label">No photo needed</div>
-        <div class="choice-card-title">Answer a few questions</div>
-        <div class="choice-card-desc">Three simple questions about your proportions guide us to your shape.</div>
+      <div class="choice-card" onclick="handleBodyPhotoMethodClick('camera')">
+        <div class="choice-card-label">Hands-free</div>
+        <div class="choice-card-title">Use my camera</div>
+        <div class="choice-card-desc">Capture a front-facing shot in-app — no uploading needed. AI reads your shape directly.</div>
+        <div class="choice-card-badge">Subscribers</div>
       </div>
     </div>
 
@@ -1803,10 +1860,64 @@ select.text-input { cursor: pointer; }
       </div>
     </div>
 
+
+    <!-- ── CAMERA PATH ── -->
+    <div id="quizCameraPath" style="display:none;width:100%;">
+      <div class="photo-tips-wrap">
+        <div class="photo-tips-heading">For the best result</div>
+        <div class="photo-tip-list">
+          <div class="photo-tip-item">
+            <div class="photo-tip-icon"><svg viewBox="0 0 16 16"><path d="M8 2v12M2 8h12"/></svg></div>
+            <div>
+              <div class="photo-tip-label">Stand straight, full body visible</div>
+              <div class="photo-tip-text">Position your device so it captures you from head to toe. Arms slightly away from your body, feet hip-width apart.</div>
+            </div>
+          </div>
+          <div class="photo-tip-item">
+            <div class="photo-tip-icon"><svg viewBox="0 0 16 16"><circle cx="8" cy="6" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/></svg></div>
+            <div>
+              <div class="photo-tip-label">Wear fitted clothing</div>
+              <div class="photo-tip-text">Loose or oversized pieces hide your natural shape. Fitted clothing lets us read your proportions accurately.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Camera preview -->
+      <div style="width:100%;text-align:center;margin-bottom:1rem;">
+        <video id="bodyCameraPreview" style="display:none;width:100%;max-width:320px;border:0.5px solid var(--dust);" autoplay playsinline muted></video>
+        <canvas id="bodyCameraCanvas" style="display:none;"></canvas>
+        <div id="bodyCameraCapture1Wrap" style="display:none;">
+          <img id="bodyCameraCapture1Preview" style="width:100%;max-width:240px;border:0.5px solid var(--dust);" src="" alt="Your photo" />
+          <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--bark);margin-top:0.5rem;">Photo captured</div>
+        </div>
+      </div>
+
+      <div class="photo-privacy-note">Your photo is sent directly to our AI for analysis and immediately discarded — never stored, never seen by a person.</div>
+
+      <div id="bodyCameraAnalysing" style="display:none;" class="quiz-analysing">
+        <div class="spinner"></div>Reading your proportions…
+      </div>
+
+      <div id="bodyCameraResult" style="display:none;" class="quiz-result-wrap">
+        <div class="quiz-result-eyebrow">Your body shape</div>
+        <div class="quiz-result-type" id="bodyCameraResultType"></div>
+        <div class="quiz-result-desc" id="bodyCameraResultDesc"></div>
+      </div>
+
+      <div class="screen-nav" style="margin-top:0.5rem;">
+        <button class="btn-back" onclick="resetQuizMethod()">← Change method</button>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <button class="btn-next" id="bodyCameraStartBtn" onclick="startBodyCamera()">Start camera</button>
+          <button class="btn-next" id="bodyCameraCaptureBtn" style="display:none;" onclick="captureBodyShot()">Take photo</button>
+          <button class="btn-next" id="bodyCameraAnalyseBtn" style="display:none;" onclick="analyseBodyCamera()">Analyse my photo</button>
+        </div>
+      </div>
+    </div>
     <!-- Shared continue button (shown after result) -->
     <div id="quizContinueWrap" style="display:none;width:100%;margin-top:1rem;">
       <div class="screen-nav">
-        <button class="btn-skip" onclick="if(quizResultBody){highlightBodyCard(quizResultBody);}goTo('screen-body')">Not right? Pick manually →</button>
+        <button class="btn-skip" onclick="if(quizResultBody){highlightBodyCard(quizResultBody);}goTo('screen-body-manual')">Not right? Pick manually →</button>
         <button class="btn-next" onclick="acceptQuizResult()">Continue with this →</button>
       </div>
     </div>
@@ -2426,7 +2537,7 @@ const session = {
 
 /* ── Screen navigation ── */
 const SCREENS = ['screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-quiz','screen-style','screen-muses','screen-sizing','screen-auth','screen-app','screen-wishlist'];
-const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-colour','screen-style','screen-muses','screen-sizing'];
+const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-body-manual','screen-colour','screen-style','screen-muses','screen-sizing'];
 const TOTAL_DOTS = ONBOARDING_SCREENS.length;
 
 function goTo(id) {
@@ -3182,20 +3293,132 @@ let quizPhotoBase64 = null;
 let quizPhotoMediaType = 'image/jpeg';
 let quizResultBody = '';
 
-function handlePhotoMethodClick() {
-  // Photo analysis is a subscriber feature — show paywall
+/* ── Body type option selection (screen-body choice screen) ── */
+function selectBodyOption(method, cardEl) {
+  // Highlight selected card
+  document.querySelectorAll('#bodyMethodGrid .choice-card').forEach(c => c.classList.remove('selected'));
+  if (cardEl) cardEl.classList.add('selected');
+  document.getElementById('bodyMethodPaywall').style.display = 'none';
+
+  if (method === 'manual') {
+    goTo('screen-body-manual');
+    return;
+  }
+  if (method === 'questions') {
+    goTo('screen-body-quiz');
+    setTimeout(() => selectQuizMethod('questions'), 320);
+    return;
+  }
+  // photo or camera — subscriber only
   const isSubscriber = clerkInstance && clerkInstance.user &&
     clerkInstance.user.publicMetadata && clerkInstance.user.publicMetadata.subscriber;
   if (isSubscriber) {
-    selectQuizMethod('photo');
+    goTo('screen-body-quiz');
+    setTimeout(() => selectQuizMethod(method), 320);
   } else {
-    goTo('screen-auth');
-    // After auth screen is shown, we can't easily redirect back, so we show a note
-    // For now, direct non-subscribers to questions path
-    setTimeout(() => {
-      // If they end up back here, show a gentle message
-    }, 100);
+    document.getElementById('bodyMethodPaywall').style.display = 'block';
+  }
+}
+
+function handleBodyPhotoMethodClick(method) {
+  // Called from inside quiz screen method grid
+  const isSubscriber = clerkInstance && clerkInstance.user &&
+    clerkInstance.user.publicMetadata && clerkInstance.user.publicMetadata.subscriber;
+  if (isSubscriber) {
+    selectQuizMethod(method);
+  } else {
     showPhotoPaywall();
+  }
+}
+
+/* Legacy kept for any back-button usage */
+function handlePhotoMethodClick() { handleBodyPhotoMethodClick('photo'); }
+
+/* ── Body camera capture ── */
+let bodyCameraStream = null;
+let bodyCameraPhotoBase64 = null;
+
+async function startBodyCamera() {
+  try {
+    if (bodyCameraStream) { bodyCameraStream.getTracks().forEach(t => t.stop()); }
+    bodyCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    var video = document.getElementById('bodyCameraPreview');
+    video.srcObject = bodyCameraStream;
+    video.style.display = 'block';
+    document.getElementById('bodyCameraStartBtn').style.display = 'none';
+    document.getElementById('bodyCameraCaptureBtn').style.display = 'inline-block';
+  } catch(err) {
+    alert('Camera access was denied or is unavailable. Please use the "Upload a photo" option instead.');
+  }
+}
+
+function captureBodyShot() {
+  var video = document.getElementById('bodyCameraPreview');
+  var canvas = document.getElementById('bodyCameraCanvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  bodyCameraPhotoBase64 = dataUrl.split(',')[1];
+  document.getElementById('bodyCameraCapture1Preview').src = dataUrl;
+  document.getElementById('bodyCameraCapture1Wrap').style.display = 'block';
+  video.style.display = 'none';
+  document.getElementById('bodyCameraCaptureBtn').style.display = 'none';
+  document.getElementById('bodyCameraAnalyseBtn').style.display = 'inline-block';
+  if (bodyCameraStream) { bodyCameraStream.getTracks().forEach(t => t.stop()); bodyCameraStream = null; }
+}
+
+async function analyseBodyCamera() {
+  if (!bodyCameraPhotoBase64) return;
+  document.getElementById('bodyCameraAnalyseBtn').style.display = 'none';
+  document.getElementById('bodyCameraAnalysing').style.display = 'flex';
+  document.getElementById('bodyCameraResult').style.display = 'none';
+  document.getElementById('quizContinueWrap').style.display = 'none';
+
+  const genderCtxCam = profile.gender === 'men'
+    ? 'The person is a man. Use menswear styling language — tailoring, shirts, trousers, jackets. Never reference womenswear.'
+    : profile.gender === 'non-binary'
+    ? 'The person is non-binary. Use gender-neutral styling language. Focus on silhouette and proportion without gendering garments.'
+    : 'The person is a woman. Use womenswear styling language.';
+
+  const prompt = `You are a warm, thoughtful personal stylist who deeply respects and celebrates every body. The user has shared a photo via their camera for body shape analysis.
+
+${genderCtxCam}
+
+Look at the proportions in this photo and identify the body shape from this list:
+- hourglass (balanced bust & hips, defined waist)
+- pear (hips fuller than shoulders)
+- apple (fuller through the midsection)
+- rectangle (shoulders, waist and hips roughly aligned)
+- inverted triangle (broader shoulders, narrower hips)
+- petite (slight, smaller frame overall)
+- athletic (broader shoulders, tapered waist)
+
+Write the description with genuine warmth. Celebrate what is lovely about this shape. Keep it to 2 sentences. Never use clinical or negative language.
+
+Respond ONLY with valid JSON:
+{"bodyShape":"rectangle","description":"Your long, lean proportions give you an effortless elegance — clothes hang beautifully on you and you have total freedom to play with silhouette."}`;
+
+  try {
+    const response = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, imageBase64: bodyCameraPhotoBase64, imageMediaType: 'image/jpeg' })
+    });
+    const data = await response.json();
+    const result = parseQuizJSON(data.result);
+    quizResultBody = result.bodyShape;
+    document.getElementById('bodyCameraResultType').textContent = formatBodyName(result.bodyShape);
+    document.getElementById('bodyCameraResultDesc').textContent = result.description;
+    document.getElementById('bodyCameraResult').style.display = 'block';
+    document.getElementById('quizContinueWrap').style.display = 'block';
+  } catch(err) {
+    document.getElementById('bodyCameraResultType').textContent = 'Unable to analyse';
+    document.getElementById('bodyCameraResultDesc').textContent = 'Something went wrong — please try again, or switch to the questions method instead.';
+    document.getElementById('bodyCameraResult').style.display = 'block';
+    document.getElementById('bodyCameraAnalyseBtn').style.display = 'inline-block';
+  } finally {
+    document.getElementById('bodyCameraAnalysing').style.display = 'none';
   }
 }
 
@@ -3248,17 +3471,28 @@ function selectQuizMethod(method) {
   document.getElementById('quizMethodGrid').style.display = 'none';
   document.getElementById('quizPhotoPath').style.display = method === 'photo' ? 'block' : 'none';
   document.getElementById('quizQuestionsPath').style.display = method === 'questions' ? 'block' : 'none';
+  document.getElementById('quizCameraPath').style.display = method === 'camera' ? 'block' : 'none';
 }
 
 function resetQuizMethod() {
   document.getElementById('quizMethodGrid').style.display = 'grid';
   document.getElementById('quizPhotoPath').style.display = 'none';
   document.getElementById('quizQuestionsPath').style.display = 'none';
+  document.getElementById('quizCameraPath').style.display = 'none';
   document.getElementById('quizContinueWrap').style.display = 'none';
   document.getElementById('photoResult').style.display = 'none';
   document.getElementById('questionsResult').style.display = 'none';
   document.getElementById('photoAnalysing').style.display = 'none';
   document.getElementById('questionsAnalysing').style.display = 'none';
+  document.getElementById('bodyCameraResult').style.display = 'none';
+  document.getElementById('bodyCameraAnalysing').style.display = 'none';
+  if (bodyCameraStream) { bodyCameraStream.getTracks().forEach(t => t.stop()); bodyCameraStream = null; }
+  bodyCameraPhotoBase64 = null;
+  document.getElementById('bodyCameraCapture1Wrap').style.display = 'none';
+  document.getElementById('bodyCameraPreview').style.display = 'none';
+  document.getElementById('bodyCameraStartBtn').style.display = 'inline-block';
+  document.getElementById('bodyCameraCaptureBtn').style.display = 'none';
+  document.getElementById('bodyCameraAnalyseBtn').style.display = 'none';
   quizPhotoBase64 = null;
   quizResultBody = '';
   document.getElementById('photoAnalyseBtn').disabled = true;
