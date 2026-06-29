@@ -1502,6 +1502,78 @@ select.text-input { cursor: pointer; }
   line-height: 1.6;
   margin-bottom: 1.25rem;
 }
+
+/* ── Profile screen ── */
+.profile-section {
+  border: 0.5px solid var(--linen);
+  margin-bottom: 1.25rem;
+  background: var(--mist);
+}
+.profile-section-heading {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bark);
+  padding: 0.75rem 1rem 0.5rem;
+  border-bottom: 0.5px solid var(--linen);
+  background: var(--linen);
+}
+.profile-row {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 0.5px solid var(--linen);
+}
+.profile-row:last-child { border-bottom: none; }
+.profile-row-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--charcoal);
+  text-transform: uppercase;
+}
+.profile-row-value {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.4;
+}
+.profile-row-action {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bark);
+  background: none;
+  border: 0.5px solid var(--dust);
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: system-ui, sans-serif;
+  transition: background 0.15s, color 0.15s;
+}
+.profile-row-action:hover { background: var(--linen); color: var(--ink); }
+.profile-edit-panel {
+  border: 0.5px solid var(--ink);
+  background: var(--mist);
+  padding: 1.5rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.profile-edit-heading {
+  font-family: Georgia, serif;
+  font-size: 1.05rem;
+  color: var(--ink);
+  margin-bottom: 1.25rem;
+  font-weight: 400;
+}
+.profile-edit-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 0.5px solid var(--linen);
+}
+
 </style>
 </head>
 <body>
@@ -2387,7 +2459,7 @@ select.text-input { cursor: pointer; }
       <button class="app-nav-link" onclick="openWishlist()">Saved</button>
       <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
       <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
-      <button class="app-nav-link" onclick="goTo('screen-gender')">Edit profile</button>
+      <button class="app-nav-link" onclick="openProfile()">Edit profile</button>
       <div id="userAvatarWrap" style="display:none;">
         <button class="user-avatar" id="userAvatarBtn" onclick="handleUserMenu()" title="Account"></button>
       </div>
@@ -2536,7 +2608,7 @@ const session = {
 };
 
 /* ── Screen navigation ── */
-const SCREENS = ['screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-quiz','screen-style','screen-muses','screen-sizing','screen-auth','screen-app','screen-wishlist'];
+const SCREENS = ['screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-quiz','screen-style','screen-muses','screen-sizing','screen-auth','screen-app','screen-wishlist','screen-profile'];
 const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-body-manual','screen-colour','screen-style','screen-muses','screen-sizing'];
 const TOTAL_DOTS = ONBOARDING_SCREENS.length;
 
@@ -4312,6 +4384,244 @@ function clearAllSearches() {
   renderWishlistSearches();
 }
 
+
+/* ── Profile screen ── */
+let profileEditField = null;
+
+function openProfile() {
+  // Populate values
+  const user = clerkInstance && clerkInstance.user;
+  const email = user ? (user.primaryEmailAddress?.emailAddress || user.emailAddresses?.[0]?.emailAddress || '') : '';
+
+  if (email) {
+    document.getElementById('profileAccountRow').style.display = 'grid';
+    document.getElementById('profileGuestRow').style.display = 'none';
+    document.getElementById('profileEmail').textContent = email;
+  } else {
+    document.getElementById('profileAccountRow').style.display = 'none';
+    document.getElementById('profileGuestRow').style.display = 'grid';
+  }
+
+  // Gender
+  const genderMap = { women: 'Women', men: 'Men', 'non-binary': 'Non-binary' };
+  document.getElementById('profileGender').textContent = genderMap[profile.gender] || '—';
+
+  // Body
+  document.getElementById('profileBody').textContent = profile.body ? formatBodyName(profile.body) : '—';
+
+  // Colour
+  if (profile.colourSeason) {
+    document.getElementById('profileColour').textContent = profile.colourSeason;
+  } else if (profile.colourTone) {
+    const toneMap = { warm: 'Warm & golden', cool: 'Cool & clear', neutral: 'Neutral & versatile', deep: 'Deep & rich' };
+    document.getElementById('profileColour').textContent = toneMap[profile.colourTone] || profile.colourTone;
+  } else {
+    document.getElementById('profileColour').textContent = '—';
+  }
+
+  // Vibes
+  document.getElementById('profileVibes').textContent = profile.vibes.length ? profile.vibes.join(', ') : '—';
+
+  // Muses
+  document.getElementById('profileMuses').textContent = profile.muses.length ? profile.muses.join(', ') : '—';
+
+  // Size
+  document.getElementById('profileSize').textContent = profile.size || '—';
+  document.getElementById('profileSizeSystem').textContent = profile.sizeSystem || '—';
+  document.getElementById('profileLocation').textContent = profile.location || '—';
+
+  // Hide any open edit panel
+  closeProfileEdit();
+  goTo('screen-profile');
+}
+
+function editProfileField(field) {
+  profileEditField = field;
+  const panel = document.getElementById('profileEditPanel');
+  const heading = document.getElementById('profileEditHeading');
+  const body = document.getElementById('profileEditBody');
+
+  if (field === 'gender') {
+    heading.textContent = 'Change gender';
+    body.innerHTML = `
+      <div class="chip-grid">
+        <button class="chip ${profile.gender === 'women' ? 'selected' : ''}" onclick="profileTempSet('gender','women',this)">Women</button>
+        <button class="chip ${profile.gender === 'men' ? 'selected' : ''}" onclick="profileTempSet('gender','men',this)">Men</button>
+        <button class="chip ${profile.gender === 'non-binary' ? 'selected' : ''}" onclick="profileTempSet('gender','non-binary',this)">Non-binary</button>
+      </div>`;
+
+  } else if (field === 'body') {
+    heading.textContent = 'Change body type';
+    const types = bodyTypes[profile.gender] || bodyTypes.women;
+    body.innerHTML = `<div class="chip-grid">${types.map(t =>
+      `<button class="chip ${profile.body === t.value ? 'selected' : ''}" onclick="profileTempSet('body','${t.value}',this)">${t.name}</button>`
+    ).join('')}</div>`;
+
+  } else if (field === 'colour') {
+    heading.textContent = 'Change colour palette';
+    const opts = [
+      { value: 'warm', label: 'Warm & golden' },
+      { value: 'cool', label: 'Cool & clear' },
+      { value: 'neutral', label: 'Neutral & versatile' },
+      { value: 'deep', label: 'Deep & rich' }
+    ];
+    body.innerHTML = `<div class="chip-grid">${opts.map(o =>
+      `<button class="chip ${profile.colourTone === o.value ? 'selected' : ''}" onclick="profileTempSet('colourTone','${o.value}',this)">${o.label}</button>`
+    ).join('')}</div>
+    <p style="font-size:12px;color:var(--charcoal);margin-top:0.75rem;">To re-do the full colour quiz, <button style="background:none;border:none;color:var(--bark);cursor:pointer;font-size:12px;text-decoration:underline;" onclick="closeProfileEdit();goTo('screen-colour')">go to the colour screen →</button></p>`;
+
+  } else if (field === 'vibes') {
+    heading.textContent = 'Change style vibes';
+    const allVibes = [
+      'Classic & timeless','Elegant & refined','Timeless & understated','Preppy','Minimalist',
+      'Sporty & athleisure','Bohemian','Edgy & alternative','Romantic & feminine','Streetwear',
+      'Luxe & polished','Maximalist','Coastal & resort','Dark & moody','Cottagecore',
+      'Y2K & retro','Power dressing','Avant-garde'
+    ];
+    body.innerHTML = `<div class="chip-grid">${allVibes.map(v =>
+      `<button class="chip ${profile.vibes.includes(v) ? 'selected' : ''}" onclick="profileToggleVibe('${v.replace(/'/g,"\\'")}',this)">${v.split(' & ')[0].split(' ')[0]}</button>`
+    ).join('')}</div>`;
+
+  } else if (field === 'muses') {
+    heading.textContent = 'Change style muses';
+    body.innerHTML = `
+      <div id="profileMuseTags" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem;"></div>
+      <div style="display:flex;gap:8px;">
+        <input class="text-input" type="text" id="profileMuseInput" placeholder="e.g. Audrey Hepburn, The Row…" style="flex:1;" onkeydown="if(event.key==='Enter')addProfileMuse()" />
+        <button class="btn-add" onclick="addProfileMuse()">Add</button>
+      </div>`;
+    renderProfileMuses();
+
+  } else if (field === 'sizing') {
+    heading.textContent = 'Change size & location';
+    const sizeOpts = {
+      US: ['XXS','XS','S','M','L','XL','XXL','0','2','4','6','8','10','12','14','16'],
+      UK: ['4','6','8','10','12','14','16','18','20'],
+      EU: ['32','34','36','38','40','42','44','46'],
+      AU: ['4','6','8','10','12','14','16','18','20']
+    };
+    const sys = profile.sizeSystem || 'US';
+    const sizes = sizeOpts[sys] || sizeOpts.US;
+    body.innerHTML = `
+      <div class="form-grid" style="margin-bottom:0;">
+        <div class="field">
+          <label>Sizing system</label>
+          <select class="text-input" id="profileSizeSysEdit" onchange="updateProfileSizeOptions()">
+            ${['US','UK','EU','AU'].map(s => `<option value="${s}" ${sys === s ? 'selected' : ''}>${s} sizing</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Your size</label>
+          <select class="text-input" id="profileSizeEdit">
+            ${sizes.map(s => `<option value="${s}" ${profile.size === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>Shipping location</label>
+          <input class="text-input" type="text" id="profileLocationEdit" value="${profile.location || ''}" placeholder="e.g. Singapore, London, Dubai" />
+        </div>
+      </div>`;
+  }
+
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+let profileTempValues = {};
+
+function profileTempSet(key, val, el) {
+  profileTempValues[key] = val;
+  el.closest('.chip-grid').querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function profileToggleVibe(vibe, el) {
+  el.classList.toggle('selected');
+}
+
+function renderProfileMuses() {
+  const container = document.getElementById('profileMuseTags');
+  if (!container) return;
+  container.innerHTML = [...profile.muses].map((m, i) =>
+    `<span style="display:inline-flex;align-items:center;gap:6px;background:var(--linen);border:0.5px solid var(--dust);padding:4px 10px;font-size:12px;">
+      ${m} <button onclick="removeProfileMuse(${i})" style="background:none;border:none;cursor:pointer;color:var(--bark);font-size:14px;line-height:1;">×</button>
+    </span>`
+  ).join('');
+}
+
+function addProfileMuse() {
+  const input = document.getElementById('profileMuseInput');
+  const val = input.value.trim();
+  if (!val || profile.muses.includes(val)) { input.value = ''; return; }
+  profile.muses.push(val);
+  input.value = '';
+  renderProfileMuses();
+}
+
+function removeProfileMuse(i) {
+  profile.muses.splice(i, 1);
+  renderProfileMuses();
+}
+
+function updateProfileSizeOptions() {
+  const sys = document.getElementById('profileSizeSysEdit').value;
+  const sizeOpts = {
+    US: ['XXS','XS','S','M','L','XL','XXL','0','2','4','6','8','10','12','14','16'],
+    UK: ['4','6','8','10','12','14','16','18','20'],
+    EU: ['32','34','36','38','40','42','44','46'],
+    AU: ['4','6','8','10','12','14','16','18','20']
+  };
+  const sel = document.getElementById('profileSizeEdit');
+  sel.innerHTML = (sizeOpts[sys] || sizeOpts.US).map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+function saveProfileEdit() {
+  if (profileEditField === 'gender') {
+    if (profileTempValues.gender) profile.gender = profileTempValues.gender;
+
+  } else if (profileEditField === 'body') {
+    if (profileTempValues.body) profile.body = profileTempValues.body;
+
+  } else if (profileEditField === 'colour') {
+    if (profileTempValues.colourTone) {
+      profile.colourTone = profileTempValues.colourTone;
+      const palette = colourPalettes[profile.colourTone];
+      if (palette) profile.colourSeason = palette.season;
+    }
+
+  } else if (profileEditField === 'vibes') {
+    const selected = document.querySelectorAll('#profileEditBody .chip.selected');
+    const allVibes = [
+      'Classic & timeless','Elegant & refined','Timeless & understated','Preppy','Minimalist',
+      'Sporty & athleisure','Bohemian','Edgy & alternative','Romantic & feminine','Streetwear',
+      'Luxe & polished','Maximalist','Coastal & resort','Dark & moody','Cottagecore',
+      'Y2K & retro','Power dressing','Avant-garde'
+    ];
+    // Match selected chip labels back to full vibe values
+    const selectedLabels = Array.from(selected).map(b => b.textContent.trim());
+    profile.vibes = allVibes.filter(v => selectedLabels.includes(v.split(' & ')[0].split(' ')[0]));
+
+  } else if (profileEditField === 'muses') {
+    // muses are already updated in-place via add/remove
+
+  } else if (profileEditField === 'sizing') {
+    profile.sizeSystem = document.getElementById('profileSizeSysEdit').value;
+    profile.size = document.getElementById('profileSizeEdit').value;
+    profile.location = document.getElementById('profileLocationEdit').value.trim();
+  }
+
+  profileTempValues = {};
+  saveProfileToClerk();
+  closeProfileEdit();
+  openProfile(); // re-render the display values
+}
+
+function closeProfileEdit() {
+  document.getElementById('profileEditPanel').style.display = 'none';
+  profileEditField = null;
+  profileTempValues = {};
+}
+
 /* ── Contact form ── */
 async function submitContact() {
   const name = document.getElementById('contactName').value.trim();
@@ -4383,6 +4693,111 @@ init();
 
 
 <!-- ══ SCREEN: WISHLIST ══ -->
+
+<!-- ══ SCREEN: PROFILE ══ -->
+<div class="screen" id="screen-profile">
+  <div class="app-topbar">
+    <div class="app-logo-small">prêt-à-<em>fit</em></div>
+    <nav class="app-nav">
+      <button class="app-nav-link" onclick="goTo('screen-app')">← Back</button>
+      <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
+      <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
+    </nav>
+  </div>
+  <div class="app-body">
+    <div style="padding:1.5rem 0 0.5rem;">
+      <div class="screen-eyebrow">Your account</div>
+      <h1 class="editorial-heading" style="font-size:clamp(1.6rem,4vw,2.2rem);margin-bottom:0.25rem;">Your profile</h1>
+      <p style="font-size:13px;color:var(--charcoal);margin-bottom:2rem;">These details shape every recommendation. Update any section below.</p>
+    </div>
+
+    <!-- Account details -->
+    <div class="profile-section">
+      <div class="profile-section-heading">Account</div>
+      <div class="profile-row" id="profileAccountRow">
+        <div class="profile-row-label">Signed in as</div>
+        <div class="profile-row-value" id="profileEmail">—</div>
+        <button class="profile-row-action" onclick="handleSignOut()">Sign out</button>
+      </div>
+      <div class="profile-row" id="profileGuestRow" style="display:none;">
+        <div class="profile-row-label">Account</div>
+        <div class="profile-row-value">Guest — profile not saved</div>
+        <button class="profile-row-action" onclick="goTo('screen-auth')">Sign in</button>
+      </div>
+    </div>
+
+    <!-- Style details -->
+    <div class="profile-section">
+      <div class="profile-section-heading">Style profile</div>
+
+      <div class="profile-row">
+        <div class="profile-row-label">Gender</div>
+        <div class="profile-row-value" id="profileGender">—</div>
+        <button class="profile-row-action" onclick="editProfileField('gender')">Edit</button>
+      </div>
+
+      <div class="profile-row">
+        <div class="profile-row-label">Body type</div>
+        <div class="profile-row-value" id="profileBody">—</div>
+        <button class="profile-row-action" onclick="editProfileField('body')">Edit</button>
+      </div>
+
+      <div class="profile-row">
+        <div class="profile-row-label">Colour palette</div>
+        <div class="profile-row-value" id="profileColour">—</div>
+        <button class="profile-row-action" onclick="editProfileField('colour')">Edit</button>
+      </div>
+
+      <div class="profile-row">
+        <div class="profile-row-label">Style vibes</div>
+        <div class="profile-row-value" id="profileVibes">—</div>
+        <button class="profile-row-action" onclick="editProfileField('vibes')">Edit</button>
+      </div>
+
+      <div class="profile-row">
+        <div class="profile-row-label">Style muses</div>
+        <div class="profile-row-value" id="profileMuses">—</div>
+        <button class="profile-row-action" onclick="editProfileField('muses')">Edit</button>
+      </div>
+    </div>
+
+    <!-- Size & location -->
+    <div class="profile-section">
+      <div class="profile-section-heading">Size &amp; location</div>
+
+      <div class="profile-row">
+        <div class="profile-row-label">Size</div>
+        <div class="profile-row-value" id="profileSize">—</div>
+        <button class="profile-row-action" onclick="editProfileField('sizing')">Edit</button>
+      </div>
+
+      <div class="profile-row">
+        <div class="profile-row-label">Sizing system</div>
+        <div class="profile-row-value" id="profileSizeSystem">—</div>
+        <button class="profile-row-action" onclick="editProfileField('sizing')">Edit</button>
+      </div>
+
+      <div class="profile-row">
+        <div class="profile-row-label">Ships to</div>
+        <div class="profile-row-value" id="profileLocation">—</div>
+        <button class="profile-row-action" onclick="editProfileField('sizing')">Edit</button>
+      </div>
+    </div>
+
+    <!-- Inline edit panels (shown one at a time) -->
+    <div id="profileEditPanel" style="display:none;" class="profile-edit-panel">
+      <div class="profile-edit-heading" id="profileEditHeading"></div>
+      <div id="profileEditBody"></div>
+      <div class="profile-edit-actions">
+        <button class="btn-back" onclick="closeProfileEdit()">Cancel</button>
+        <button class="btn-next" onclick="saveProfileEdit()">Save changes</button>
+      </div>
+    </div>
+
+    <div style="height:3rem;"></div>
+  </div>
+</div>
+
 <div class="screen" id="screen-wishlist">
   <div class="app-topbar">
     <div class="app-logo-small">prêt-à-<em>fit</em></div>
