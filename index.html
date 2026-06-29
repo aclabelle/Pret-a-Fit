@@ -4085,10 +4085,26 @@ async function submitContact() {
   const subject = document.getElementById('contactSubject').value;
   const message = document.getElementById('contactMessage').value.trim();
   if (!name || !email || !message) { alert('Please fill in your name, email and message.'); return; }
-  const body = `Name: ${name}\nEmail: ${email}\nSubject: ${subject}\n\n${message}`;
-  window.location.href = `mailto:support@pret-a-fit.com?subject=Prêt-à-Fit: ${encodeURIComponent(subject || 'Message')}&body=${encodeURIComponent(body)}`;
-  document.getElementById('contactForm').style.display = 'none';
-  document.getElementById('contactThanks').style.display = 'block';
+
+  const btn = document.querySelector('#contactForm .btn-next');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    const response = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, subject, message })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Something went wrong');
+    document.getElementById('contactForm').style.display = 'none';
+    document.getElementById('contactThanks').style.display = 'block';
+  } catch(err) {
+    alert('Sorry, your message could not be sent — ' + err.message + '. You can also reach us at support@pret-a-fit.com');
+    btn.disabled = false;
+    btn.textContent = 'Send message';
+  }
 }
 
 /* ── Init ── */
