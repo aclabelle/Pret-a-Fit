@@ -1640,7 +1640,10 @@ select.text-input { cursor: pointer; }
   <div class="hero-content">
     <div class="hero-logo">prêt-à-<em>fit</em></div>
     <div class="hero-tagline">Style that fits. In every sense.</div>
-    <button class="btn-primary" onclick="startOnboarding()">Begin</button>
+    <button class="btn-primary" id="heroBeginBtn" onclick="startOnboarding()">Begin</button>
+    <div style="margin-top:1.5rem;">
+      <button id="heroSignInLink" onclick="goToSignIn('screen-app')" style="background:none;border:none;color:var(--dust);font-size:11px;letter-spacing:0.16em;text-transform:uppercase;cursor:pointer;opacity:0.8;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">Already have an account? Sign in</button>
+    </div>
   </div>
 </div>
 
@@ -3019,12 +3022,18 @@ function goToSignIn(returnTo) {
 }
 
 /* ── Enter the main app (or return screen) ── */
-function enterApp() {
+async function enterApp() {
   updateUserAvatar();
   const dest = authReturnTo || 'screen-app';
   authReturnTo = 'screen-app';
+  // Always reload profile from Clerk after sign-in so UI reflects logged-in state
+  if (clerkInstance && clerkInstance.user) {
+    await loadProfileFromClerk();
+  }
   if (dest === 'screen-profile') {
     openProfile();
+  } else if (dest === 'screen-wishlist') {
+    openWishlist();
   } else {
     goTo(dest);
   }
@@ -4400,9 +4409,11 @@ function clearAllSearches() {
 let profileEditField = null;
 
 function openProfile() {
-  // Populate values
-  const user = clerkInstance && clerkInstance.user;
-  const email = user ? (user.primaryEmailAddress?.emailAddress || user.emailAddresses?.[0]?.emailAddress || '') : '';
+  // Always re-read Clerk user — may have changed since page load
+  const user = (clerkInstance && clerkInstance.user) || null;
+  const email = user
+    ? (user.primaryEmailAddress?.emailAddress || user.emailAddresses?.[0]?.emailAddress || '')
+    : '';
 
   if (email) {
     document.getElementById('profileAccountRow').style.display = 'grid';
@@ -4671,21 +4682,20 @@ async function init() {
   const clerk = await initClerk();
   if (!clerk) return;
 
-  // If user is already signed in, load their profile on next visit
+  // If user is already signed in, restore session immediately
   if (clerk.user) {
     const hasProfile = await loadProfileFromClerk();
-    if (hasProfile) {
-      // Pre-populate the hero with a sign-in aware CTA
-      const heroBtn = document.querySelector('#screen-hero .btn-primary');
-      if (heroBtn) {
-        const firstName = clerk.user.firstName || 'back';
-        heroBtn.textContent = `Welcome back, ${firstName} — continue`;
-        heroBtn.onclick = () => {
-          updateUserAvatar();
-          goTo('screen-app');
-        };
-      }
+    updateUserAvatar();
+    // Update the hero CTA
+    const heroBtn = document.getElementById('heroBeginBtn');
+    const heroSignIn = document.getElementById('heroSignInLink');
+    if (heroBtn) {
+      const firstName = clerk.user.firstName || 'back';
+      heroBtn.textContent = `Welcome back, ${firstName} — continue`;
+      heroBtn.onclick = () => goTo('screen-app');
     }
+    // Hide the sign-in link — they are already signed in
+    if (heroSignIn) heroSignIn.style.display = 'none';
   }
 
   // Handle Google OAuth redirect back to the page
