@@ -2037,16 +2037,6 @@ select.text-input { cursor: pointer; }
 
     </div>
 
-    <!-- Self-select colour tones (shown inline when "I'll choose" is selected) -->
-    <div id="colourSelfSelect" style="display:none;width:100%;margin-bottom:1.5rem;margin-top:0.5rem;">
-      <div class="chip-grid">
-        <button class="chip" data-value="warm" onclick="selectSingle(this,'colourTone')">Warm tones</button>
-        <button class="chip" data-value="cool" onclick="selectSingle(this,'colourTone')">Cool tones</button>
-        <button class="chip" data-value="neutral" onclick="selectSingle(this,'colourTone')">Neutral — balanced</button>
-        <button class="chip" data-value="deep" onclick="selectSingle(this,'colourTone')">Deep &amp; rich</button>
-        <button class="chip" data-value="unsure" onclick="selectSingle(this,'colourTone')">Not sure</button>
-      </div>
-    </div>
 
     <div class="screen-nav">
       <button class="btn-back" onclick="goTo('screen-body')">← Back</button>
@@ -2059,6 +2049,54 @@ select.text-input { cursor: pointer; }
   <div class="progress-dots" id="dots-colour"></div>
 </div>
 
+<!-- ══ SCREEN 4M: COLOUR MANUAL PICK ══ -->
+<div class="screen" id="screen-colour-manual">
+  <div class="onboarding-wrap">
+    <div class="screen-eyebrow">Colour</div>
+    <h1 class="screen-heading">Your colour palette</h1>
+    <p class="screen-sub">Select the tone family that feels most like you — this shapes every colour recommendation you receive.</p>
+
+    <div class="choice-grid" style="grid-template-columns:1fr;">
+
+      <div class="choice-card" id="toneCardWarm" onclick="selectColourToneCard('warm',this)">
+        <div class="choice-card-label">Golden &amp; sun-kissed</div>
+        <div class="choice-card-title">Warm tones</div>
+        <div class="choice-card-desc">Your complexion has golden, peachy, or olive undertones. Earthy colours — camel, rust, warm whites, olive, and gold — all feel natural on you.</div>
+      </div>
+
+      <div class="choice-card" id="toneCardCool" onclick="selectColourToneCard('cool',this)">
+        <div class="choice-card-label">Rosy &amp; porcelain</div>
+        <div class="choice-card-title">Cool tones</div>
+        <div class="choice-card-desc">Your complexion has pink, rosy, or bluish undertones. Jewel tones — navy, emerald, berry, icy pastels, and silver — feel effortless on you.</div>
+      </div>
+
+      <div class="choice-card" id="toneCardNeutral" onclick="selectColourToneCard('neutral',this)">
+        <div class="choice-card-label">Balanced &amp; versatile</div>
+        <div class="choice-card-title">Neutral — balanced</div>
+        <div class="choice-card-desc">You sit between warm and cool — a rare gift. Soft neutrals, blush, sage, dusty rose, and warm greys all work on you, as do both gold and silver.</div>
+      </div>
+
+      <div class="choice-card" id="toneCardDeep" onclick="selectColourToneCard('deep',this)">
+        <div class="choice-card-label">Rich &amp; saturated</div>
+        <div class="choice-card-title">Deep &amp; rich</div>
+        <div class="choice-card-desc">Your complexion has depth and richness. Deep jewel tones, bold earth tones, and high-contrast combinations look striking and polished on you.</div>
+      </div>
+
+      <div class="choice-card" id="toneCardUnsure" onclick="selectColourToneCard('unsure',this)">
+        <div class="choice-card-label">Not sure yet</div>
+        <div class="choice-card-title">I'm not sure</div>
+        <div class="choice-card-desc">No problem — we'll use a wide palette and let the AI recommend broadly. You can always refine later.</div>
+      </div>
+
+    </div>
+
+    <div class="screen-nav">
+      <button class="btn-back" onclick="goTo('screen-colour')">← Back</button>
+      <button class="btn-next" id="colourManualNext" onclick="goTo('screen-style')" disabled>Continue</button>
+    </div>
+  </div>
+  <div class="progress-dots" id="dots-colour-manual"></div>
+</div>
 
 <!-- ══ SCREEN 4B: COLOUR QUIZ / PHOTO / CAMERA ══ -->
 <div class="screen" id="screen-colour-quiz">
@@ -2611,8 +2649,8 @@ const session = {
 };
 
 /* ── Screen navigation ── */
-const SCREENS = ['screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-quiz','screen-style','screen-muses','screen-sizing','screen-auth','screen-app','screen-wishlist','screen-profile'];
-const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-body-manual','screen-colour','screen-style','screen-muses','screen-sizing'];
+const SCREENS = ['screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-manual','screen-colour-quiz','screen-style','screen-muses','screen-sizing','screen-auth','screen-app','screen-wishlist','screen-profile'];
+const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-body-manual','screen-colour','screen-colour-manual','screen-style','screen-muses','screen-sizing'];
 const TOTAL_DOTS = ONBOARDING_SCREENS.length;
 
 function goTo(id) {
@@ -2661,7 +2699,6 @@ function selectSingle(el, key) {
   }
   if (key === 'body') document.getElementById('bodyNext').disabled = false;
   if (key === 'colourMethod') {
-    document.getElementById('colourSelfSelect').style.display = el.getAttribute('data-value') === 'self' ? 'block' : 'none';
     if (el.getAttribute('data-value') === 'quiz') goTo('screen-style');
   }
 }
@@ -2682,7 +2719,6 @@ function selectChoice(el, key, val) {
   el.classList.add('selected');
   profile[key] = val;
   if (key === 'colourMethod') {
-    document.getElementById('colourSelfSelect').style.display = val === 'self' ? 'block' : 'none';
   }
 }
 
@@ -3805,12 +3841,12 @@ function selectColourOption(method, cardEl) {
 
   if (method === 'self') {
     selectChoice(cardEl, 'colourMethod', 'self');
-    document.getElementById('colourSelfSelect').style.display = 'block';
+    // Restore previously selected tone chip if any
+    if (profile.colourTone) highlightColourToneCard(profile.colourTone);
+    goTo('screen-colour-manual');
     return;
   }
 
-  // Hide self-select if another option chosen
-  document.getElementById('colourSelfSelect').style.display = 'none';
 
   if (method === 'photo' || method === 'camera') {
     // Check subscriber status
@@ -3880,6 +3916,23 @@ function resetColourMethod() {
   goTo('screen-colour');
 }
 
+
+/* ── Colour manual tone card selection ── */
+function selectColourToneCard(tone, cardEl) {
+  document.querySelectorAll('#screen-colour-manual .choice-card').forEach(c => c.classList.remove('selected'));
+  if (cardEl) cardEl.classList.add('selected');
+  profile.colourTone = tone;
+  profile.colourMethod = 'self';
+  document.getElementById('colourManualNext').disabled = false;
+}
+
+function highlightColourToneCard(tone) {
+  const map = { warm: 'toneCardWarm', cool: 'toneCardCool', neutral: 'toneCardNeutral', deep: 'toneCardDeep', unsure: 'toneCardUnsure' };
+  document.querySelectorAll('#screen-colour-manual .choice-card').forEach(c => c.classList.remove('selected'));
+  const el = map[tone] ? document.getElementById(map[tone]) : null;
+  if (el) el.classList.add('selected');
+  document.getElementById('colourManualNext').disabled = false;
+}
 /* Kept for backward compat with selectColourMethod('questions') calls */
 function selectColourMethod(method) {
   openColourPath(method);
