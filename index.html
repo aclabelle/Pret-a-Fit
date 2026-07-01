@@ -3621,6 +3621,79 @@ function handleSubscribe() {
 /* ── Search ── */
 let allItems = [];
 
+/* ── URL verification ─────────────────────────────────────────────────────
+   After Claude returns product results, we quietly ask our server to check
+   each product URL is a real, working page. Dead links are dropped and we
+   fetch replacements automatically so the user only ever sees live products.
+   ──────────────────────────────────────────────────────────────────────── */
+async function verifyAndFill(items, targetCount, buildMoreFn, statusEl) {
+  const MAX_ROUNDS = 2;   // max replacement attempts
+  let good = [];
+  let tried = new Set(items.map(i => i.name));
+  let currentBatch = items;
+
+  for (let round = 0; round <= MAX_ROUNDS; round++) {
+    if (statusEl) statusEl.textContent = round === 0
+      ? 'Checking product links…'
+      : 'Replacing broken links…';
+
+    // Ask the server to check every URL in the current batch
+    let checkRes, checkData;
+    try {
+      checkRes = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          validateUrls: true,
+          urls: currentBatch.map(i => i.url)
+        })
+      });
+      checkData = await checkRes.json();
+    } catch(e) {
+      // If verification itself fails (e.g. network hiccup), just return what we have
+      return good.concat(currentBatch).slice(0, targetCount);
+    }
+
+    // Split the batch into live vs dead
+    const liveSet = new Set(
+      (checkData.results || []).filter(r => r.alive).map(r => r.url)
+    );
+    currentBatch.forEach(item => {
+      if (liveSet.has(item.url)) good.push(item);
+    });
+
+    // If we have enough good results, stop
+    if (good.length >= targetCount) break;
+
+    // If we've done all replacement rounds, stop
+    if (round === MAX_ROUNDS) break;
+
+    // How many more do we need?
+    const needed = targetCount - good.length;
+    const exclude = [...tried].map(n => n); // names already tried
+
+    // Ask Claude for replacement products
+    const { prompt, imageBase64, imageMediaType } = buildMoreFn(needed + 3, exclude);
+    let moreRes, moreData;
+    try {
+      const body = { prompt };
+      if (imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
+      moreRes = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      moreData = await moreRes.json();
+    } catch(e) { break; }
+
+    const extras = parseItems(moreData.result || '[]');
+    extras.forEach(i => tried.add(i.name));
+    currentBatch = extras; // verify these next round
+  }
+
+  return good.slice(0, targetCount);
+}
+
 async function findOutfits() {
   if (!session.occasionParent) { alert('Please select an occasion.'); return; }
   if (session.occasionParent === 'specific') {
@@ -3649,9 +3722,13 @@ async function findOutfits() {
 
   try {
     const isPhotoSearch = session.occasionParent === 'shoplook';
-    const { prompt, imageBase64, imageMediaType } = isPhotoSearch ? buildPhotoSearchPrompt(9) : buildPrompt(9);
+    const buildFn = isPhotoSearch ? buildPhotoSearchPrompt : buildPrompt;
+    const { prompt, imageBase64, imageMediaType } = buildFn(12); // ask for 12 so we have spares if some fail
     const body = { prompt };
     if (isPhotoSearch && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
+
+    // Step 1 — get results from Claude
+    area.innerHTML = `<div class="status-msg"><div class="spinner"></div>Finding your edit…</div>`;
     const response = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3659,7 +3736,14 @@ async function findOutfits() {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Search failed');
-    const items = parseItems(data.result);
+    const rawItems = parseItems(data.result);
+
+    // Step 2 — verify links and fetch replacements for any dead ones
+    const statusEl = document.createElement('p');
+    statusEl.className = 'status-msg';
+    area.innerHTML = '';
+    area.appendChild(statusEl);
+    const items = await verifyAndFill(rawItems, 9, buildFn, statusEl);
     allItems = items;
 
     // Count this search
@@ -3692,9 +3776,14 @@ async function loadMore() {
   try {
     const exclude = allItems.map(i => i.name);
     const isPhotoSearch = session.occasionParent === 'shoplook';
-    const { prompt, imageBase64, imageMediaType } = isPhotoSearch ? buildPhotoSearchPrompt(5, exclude) : buildPrompt(5, exclude);
+    const buildFn = isPhotoSearch ? buildPhotoSearchPrompt : buildPrompt;
+
+    // Ask for 8, so we have spares after verification
+    const { prompt, imageBase64, imageMediaType } = buildFn(8, exclude);
     const body = { prompt };
     if (isPhotoSearch && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
+
+    if (btn) btn.textContent = 'Finding more…';
     const response = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3702,7 +3791,11 @@ async function loadMore() {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Search failed');
-    const newItems = parseItems(data.result);
+    const rawNew = parseItems(data.result);
+
+    if (btn) btn.textContent = 'Checking links…';
+    const newItems = await verifyAndFill(rawNew, 5, (n, ex) => buildFn(n, [...exclude, ...ex]), null);
+
     const offset = allItems.length;
     allItems = allItems.concat(newItems);
     const grid = document.getElementById('productGrid');
