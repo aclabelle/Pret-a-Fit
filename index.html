@@ -2612,7 +2612,26 @@ select.text-input { cursor: pointer; }
     <!-- Occasion -->
     <div class="app-section">
       <div class="app-section-title">What are you shopping for?</div>
-      <div class="occasion-tier-grid" id="occasionParents"></div>
+      <!-- Tier 0: Occasion / Item / Look -->
+      <div class="occasion-tier-grid" id="occasionTier0">
+        <div class="occasion-parent" data-id="occasion" onclick="selectTier0('occasion', this)">
+          <div class="occasion-parent-name">Occasion</div>
+          <div class="occasion-parent-hint">I have something in mind</div>
+        </div>
+        <div class="occasion-parent" data-id="item" onclick="selectTier0('item', this)">
+          <div class="occasion-parent-name">Item</div>
+          <div class="occasion-parent-hint">I know what I'm looking for</div>
+        </div>
+        <div class="occasion-parent" data-id="look" onclick="selectTier0('look', this)">
+          <div class="occasion-parent-name">Look</div>
+          <div class="occasion-parent-hint">I saw something I love</div>
+        </div>
+      </div>
+      <!-- Tier 1: the 8 occasion categories (shown when Occasion is picked) -->
+      <div id="occasionTier1" style="display:none;margin-top:8px;">
+        <div class="occasion-tier-grid" id="occasionParents"></div>
+      </div>
+      <!-- Tier 2: sub-categories / text / photo (shown after tier 1 selection) -->
       <div id="occasionChildren" style="margin-top:8px;"></div>
     </div>
 
@@ -2920,7 +2939,10 @@ const occasions = [
 ];
 
 function buildOccasions() {
-  document.getElementById('occasionParents').innerHTML = occasions.map(o =>
+  // Only build the occasion category tiles (work, active, social etc.)
+  // 'specific' and 'shoplook' are now handled at tier-0 level
+  const occasionOnlyList = occasions.filter(o => o.id !== 'specific' && o.id !== 'shoplook');
+  document.getElementById('occasionParents').innerHTML = occasionOnlyList.map(o =>
     `<div class="occasion-parent" data-id="${o.id}" onclick="selectOccasionParent('${o.id}')">
       <div class="occasion-parent-name">${o.name}</div>
       <div class="occasion-parent-hint">${o.hint}</div>
@@ -2929,18 +2951,26 @@ function buildOccasions() {
 }
 buildOccasions();
 
-function selectOccasionParent(id) {
-  document.querySelectorAll('.occasion-parent').forEach(p => p.classList.remove('selected'));
-  document.querySelector(`.occasion-parent[data-id="${id}"]`).classList.add('selected');
-  session.occasionParent = id;
-  session.occasionChild = '';
-  const occ = occasions.find(o => o.id === id);
-  const childContainer = document.getElementById('occasionChildren');
+function selectTier0(type, el) {
+  // Highlight the tier-0 tile
+  document.querySelectorAll('#occasionTier0 .occasion-parent').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
 
-  if (id === 'specific') {
-    session.occasionChild = '';
-    childContainer.innerHTML = `
-      <div style="margin-top:12px;">
+  // Reset lower tiers
+  document.getElementById('occasionTier1').style.display = 'none';
+  document.getElementById('occasionChildren').innerHTML = '';
+  document.querySelectorAll('#occasionParents .occasion-parent').forEach(p => p.classList.remove('selected'));
+  session.occasionParent = '';
+  session.occasionChild = '';
+  session.specificItem = '';
+  session.shopLookPhoto = null;
+
+  if (type === 'occasion') {
+    document.getElementById('occasionTier1').style.display = 'block';
+  } else if (type === 'item') {
+    session.occasionParent = 'specific';
+    document.getElementById('occasionChildren').innerHTML = `
+      <div style="margin-top:4px;">
         <p style="font-size:12px;color:var(--charcoal);line-height:1.6;margin-bottom:10px;">
           Describe what you're looking for in as much detail as you like — fabric, colour, cut, occasion, anything.
         </p>
@@ -2949,15 +2979,11 @@ function selectOccasionParent(id) {
           oninput="session.specificItem = this.value.trim()"
           style="resize:vertical;margin-bottom:0;"></textarea>
       </div>`;
-    return;
-  }
-
-  if (id === 'shoplook') {
-    session.occasionChild = 'shop-a-look';
-    session.shopLookPhoto = null;
-    session.shopLookSearchOriginal = true; // default: search original
-    childContainer.innerHTML = `
-      <div style="margin-top:12px;">
+  } else if (type === 'look') {
+    session.occasionParent = 'shoplook';
+    session.shopLookSearchOriginal = true;
+    document.getElementById('occasionChildren').innerHTML = `
+      <div style="margin-top:4px;">
         <p style="font-size:12px;color:var(--charcoal);line-height:1.6;margin-bottom:10px;">
           Upload a photo from Instagram, Pinterest, a screenshot — anywhere. We'll identify the clothing and find similar items you can actually buy, filtered to your size, budget, and location.
         </p>
@@ -2983,11 +3009,18 @@ function selectOccasionParent(id) {
         </div>
         <div id="shopLookNudge" style="display:none;" class="shop-look-nudge"></div>
       </div>`;
-    return;
   }
+}
 
-  // Clear any specific item description when switching away
+function selectOccasionParent(id) {
+  // Only clear selection within the tier-1 grid (not tier-0 tiles)
+  document.querySelectorAll('#occasionParents .occasion-parent').forEach(p => p.classList.remove('selected'));
+  document.querySelector(`#occasionParents .occasion-parent[data-id="${id}"]`).classList.add('selected');
+  session.occasionParent = id;
+  session.occasionChild = '';
   session.specificItem = '';
+  const occ = occasions.find(o => o.id === id);
+  const childContainer = document.getElementById('occasionChildren');
 
   if (occ.children.length === 0) {
     session.occasionChild = 'surprise me — show a curated selection of beautiful things across any category';
