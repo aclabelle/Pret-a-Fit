@@ -880,6 +880,106 @@ select.text-input { cursor: pointer; }
   opacity: 0.7;
 }
 
+/* ── Shop a Look ── */
+.shop-look-upload-zone {
+  border: 0.5px solid var(--dust);
+  background: var(--mist);
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  margin-top: 12px;
+  position: relative;
+}
+.shop-look-upload-zone:hover { border-color: var(--bark); }
+.shop-look-upload-label {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bark);
+  margin-bottom: 6px;
+}
+.shop-look-upload-title {
+  font-family: Georgia, serif;
+  font-size: 15px;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.shop-look-upload-sub {
+  font-size: 11px;
+  color: var(--dust);
+  letter-spacing: 0.04em;
+}
+.shop-look-preview {
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  margin-bottom: 8px;
+  border: 0.5px solid var(--linen);
+}
+.shop-look-focus-field {
+  margin-top: 14px;
+}
+.shop-look-focus-field label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--charcoal);
+  display: block;
+  margin-bottom: 6px;
+}
+.shop-look-nudge {
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: var(--linen);
+  border: 0.5px solid var(--dust);
+  border-left: 2px solid var(--bark);
+}
+.shop-look-nudge-title {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bark);
+  margin-bottom: 6px;
+}
+.shop-look-nudge-text {
+  font-size: 13px;
+  color: var(--charcoal);
+  line-height: 1.65;
+  margin-bottom: 10px;
+}
+.shop-look-nudge-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nudge-btn-accept {
+  padding: 8px 18px;
+  border: 0.5px solid var(--bark);
+  background: var(--bark);
+  color: var(--parchment);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: background 0.15s;
+}
+.nudge-btn-accept:hover { background: var(--charcoal); border-color: var(--charcoal); }
+.nudge-btn-decline {
+  padding: 8px 18px;
+  border: 0.5px solid var(--dust);
+  background: transparent;
+  color: var(--charcoal);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: border-color 0.15s;
+}
+.nudge-btn-decline:hover { border-color: var(--charcoal); }
+
 /* Load more */
 .btn-load-more {
   padding: 14px 48px;
@@ -2815,7 +2915,8 @@ const occasions = [
   { id: 'vacation', name: 'Vacation', hint: 'Travel & getaways', children: ['Beach / resort','City break','Safari / adventure','Ski / cold weather'] },
   { id: 'life', name: 'Life moments', hint: 'Special occasions', children: ['Job interview','First date','Meeting the parents','Graduation','Baby shower'] },
   { id: 'browse', name: 'Just browsing', hint: 'Surprise me', children: [] },
-  { id: 'specific', name: 'Something specific', hint: 'Describe exactly what you want', children: [] }
+  { id: 'specific', name: 'Something specific', hint: 'Describe exactly what you want', children: [] },
+  { id: 'shoplook', name: 'Shop a look', hint: 'Upload a photo to find similar items', children: [] }
 ];
 
 function buildOccasions() {
@@ -2847,6 +2948,40 @@ function selectOccasionParent(id) {
           placeholder="e.g. A white linen button-down shirt with tortoise shell buttons, relaxed fit"
           oninput="session.specificItem = this.value.trim()"
           style="resize:vertical;margin-bottom:0;"></textarea>
+      </div>`;
+    return;
+  }
+
+  if (id === 'shoplook') {
+    session.occasionChild = 'shop-a-look';
+    session.shopLookPhoto = null;
+    session.shopLookSearchOriginal = true; // default: search original
+    childContainer.innerHTML = `
+      <div style="margin-top:12px;">
+        <p style="font-size:12px;color:var(--charcoal);line-height:1.6;margin-bottom:10px;">
+          Upload a photo from Instagram, Pinterest, a screenshot — anywhere. We'll identify the clothing and find similar items you can actually buy, filtered to your size, budget, and location.
+        </p>
+        <div class="shop-look-upload-zone" id="shopLookZone" onclick="document.getElementById('shopLookInput').click()">
+          <div id="shopLookDefault">
+            <div class="shop-look-upload-label">Tap to upload</div>
+            <div class="shop-look-upload-title">Choose a photo from your device</div>
+            <div class="shop-look-upload-sub">JPG or PNG · never stored · never shared</div>
+          </div>
+          <div id="shopLookPreviewWrap" style="display:none;">
+            <img id="shopLookPreview" class="shop-look-preview" src="" alt="Uploaded look" />
+            <div class="shop-look-upload-label">Photo selected — tap to change</div>
+          </div>
+        </div>
+        <input type="file" id="shopLookInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handleShopLookPhoto(this)" />
+        <div class="shop-look-focus-field" id="shopLookFocusWrap" style="display:none;">
+          <label>What caught your eye?</label>
+          <input class="text-input" type="text" id="shopLookFocus"
+            placeholder="e.g. the blazer, the whole outfit, the trousers"
+            style="margin:0;"
+            oninput="session.shopLookFocus = this.value.trim()" />
+          <div style="font-size:11px;color:var(--dust);margin-top:5px;line-height:1.5;">Optional — helps us focus if the photo has multiple items or people.</div>
+        </div>
+        <div id="shopLookNudge" style="display:none;" class="shop-look-nudge"></div>
       </div>`;
     return;
   }
@@ -3197,7 +3332,135 @@ function renderProducts(items, offset=0) {
 }
 
 /* ── Build prompt ── */
-function buildPrompt(count, exclude=[]) {
+/* ── Shop a Look ── */
+function handleShopLookPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    session.shopLookPhoto = dataUrl.split(',')[1];
+    session.shopLookMediaType = file.type || 'image/jpeg';
+    // Show preview
+    document.getElementById('shopLookDefault').style.display = 'none';
+    const prev = document.getElementById('shopLookPreviewWrap');
+    prev.style.display = 'block';
+    document.getElementById('shopLookPreview').src = dataUrl;
+    // Show focus field
+    document.getElementById('shopLookFocusWrap').style.display = 'block';
+    // Run quick AI analysis for nudge
+    analyseShopLookForNudge(dataUrl.split(',')[1], file.type || 'image/jpeg');
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyseShopLookForNudge(b64, mediaType) {
+  const nudgeEl = document.getElementById('shopLookNudge');
+  if (!nudgeEl) return;
+  nudgeEl.style.display = 'none';
+  // Only bother if we have body and colour profile
+  if (!profile.body && !profile.colourTone) return;
+
+  try {
+    const bodyNote = profile.body ? `Body type: ${profile.body}.` : '';
+    const colourNote = profile.colourTone ? `Colour palette: ${profile.colourTone} tones${profile.colourSeason ? ' (' + profile.colourSeason + ')' : ''}.` : '';
+
+    const res = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: `You are a personal stylist assistant. The user has uploaded a photo of a fashion look they want to shop.
+
+User profile:
+- ${bodyNote}
+- ${colourNote}
+
+Look at the clothing in the image. In 1-2 sentences, honestly assess: does this style (silhouette, cut, colour palette) generally flatter a ${profile.body || 'typical'} body type with ${profile.colourTone || 'neutral'} colour tones?
+
+Respond ONLY with a JSON object:
+{"flattering": true/false, "concern": "Brief honest reason if not flattering (max 20 words)", "alternative": "What to look for instead (max 15 words)"}
+
+If flattering is true, set concern and alternative to "".`,
+        imageBase64: b64,
+        imageMediaType: mediaType
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) return;
+    let parsed;
+    try { parsed = parseQuizJSON(data.result); } catch(e) { return; }
+
+    if (parsed && parsed.flattering === false && parsed.concern) {
+      nudgeEl.innerHTML = `
+        <div class="shop-look-nudge-title">A thought from your stylist</div>
+        <div class="shop-look-nudge-text">This is a beautiful look — though ${parsed.concern.toLowerCase()}. ${parsed.alternative ? 'You might get an even more flattering result searching for ' + parsed.alternative.toLowerCase() + '.' : ''}</div>
+        <div class="shop-look-nudge-actions">
+          <button class="nudge-btn-accept" onclick="setShopLookMode(true)">Find a flattering alternative</button>
+          <button class="nudge-btn-decline" onclick="setShopLookMode(false)">Search original look anyway</button>
+        </div>`;
+      nudgeEl.style.display = 'block';
+      // Default to original but let user choose
+      session.shopLookSearchOriginal = true;
+      session.shopLookAlternative = parsed.alternative || '';
+    }
+  } catch(e) {
+    // Nudge is optional — fail silently
+  }
+}
+
+function setShopLookMode(useAlternative) {
+  session.shopLookSearchOriginal = !useAlternative;
+  session.shopLookUseAlternative = useAlternative;
+  const nudgeEl = document.getElementById('shopLookNudge');
+  if (nudgeEl) {
+    const chosen = useAlternative ? 'Great — we\'ll find a similar style that works better for your shape.' : 'Got it — we\'ll search for items close to the original look.';
+    nudgeEl.innerHTML = `<div class="shop-look-nudge-text" style="margin:0;font-style:italic;color:var(--bark);">✓ ${chosen}</div>`;
+  }
+}
+
+function buildPhotoSearchPrompt(count, exclude=[]) {
+  const currency = document.getElementById('currency').value;
+  const priceMin = document.getElementById('priceMin').value;
+  const priceMax = document.getElementById('priceMax').value;
+  const syms = {USD:'$',GBP:'£',EUR:'€',SGD:'S$',AUD:'A$',CAD:'C$',JPY:'¥',HKD:'HK$'};
+  const sym = syms[currency] || currency;
+  const focusHint = session.shopLookFocus ? `The user wants to focus on: "${session.shopLookFocus}".` : 'Identify the main clothing item(s) visible.';
+  const vibeNote = profile.vibes.length ? `Style vibes: ${profile.vibes.join(', ')}.` : '';
+  const colourNote = profile.colourTone ? `Colour palette: ${profile.colourTone} tones${profile.colourSeason ? ' (' + profile.colourSeason + ')' : ''}.` : '';
+  const exclNote = session.exclusions.length ? `Exclude: ${session.exclusions.join(', ')}.` : '';
+  const localNote = session.localOnly ? 'Local retailers only.' : '';
+  const excludeItems = exclude.length ? `Do NOT repeat these items already shown: ${exclude.join(', ')}.` : '';
+  const alternativeNote = session.shopLookUseAlternative && session.shopLookAlternative
+    ? `IMPORTANT: The user prefers a flattering alternative for their ${profile.body} body type. Instead of the exact item shown, find similar items that are specifically flattering for ${profile.body}: ${session.shopLookAlternative}.`
+    : 'Find items that closely match what is visible in the photo.';
+
+  return {
+    sym, currency,
+    prompt: `Fashion search engine with image analysis. Return ONLY a JSON array of exactly ${count} items. First character must be [. No text before or after.
+
+The user has uploaded a photo of a fashion look they want to shop. ${focusHint}
+
+${alternativeNote}
+
+User profile:
+- Gender: ${profile.gender}
+- Body type: ${profile.body}
+- Size: ${profile.size} ${profile.sizeSystem}
+- Ships to: ${profile.location}
+- Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
+${vibeNote}${colourNote}${exclNote}${localNote}${excludeItems}
+
+First, identify the key clothing items in the photo. Then search for similar real products currently available to purchase. In whyItWorks, explain both how this matches the look in the photo AND how it flatters their body type.
+
+Use at most 3 web searches total.
+
+[{"retailer":"Name","name":"Product name","price":"${sym}XX","url":"https://specific-product-page","imageUrl":"https://cdn-image.jpg","whyItWorks":"How this matches the photo look and flatters ${profile.body || 'the user'}","sizeNote":"Size note","stylingTip":"Tip"}]`,
+    imageBase64: session.shopLookPhoto,
+    imageMediaType: session.shopLookMediaType || 'image/jpeg'
+  };
+}
+
+
   const currency = document.getElementById('currency').value;
   const priceMin = document.getElementById('priceMin').value;
   const priceMax = document.getElementById('priceMax').value;
@@ -3332,6 +3595,9 @@ async function findOutfits() {
     session.specificItem = desc;
     if (!desc) { alert('Please describe the item you\'re looking for.'); return; }
   }
+  if (session.occasionParent === 'shoplook') {
+    if (!session.shopLookPhoto) { alert('Please upload a photo first.'); return; }
+  }
   const priceMin = document.getElementById('priceMin').value;
   const priceMax = document.getElementById('priceMax').value;
   if (!priceMin || !priceMax) { alert('Please enter a price range.'); return; }
@@ -3349,11 +3615,14 @@ async function findOutfits() {
   area.innerHTML = `<div class="status-msg"><div class="spinner"></div>Finding your edit…</div>`;
 
   try {
-    const { prompt } = buildPrompt(9);
+    const isPhotoSearch = session.occasionParent === 'shoplook';
+    const { prompt, imageBase64, imageMediaType } = isPhotoSearch ? buildPhotoSearchPrompt(9) : buildPrompt(9);
+    const body = { prompt };
+    if (isPhotoSearch && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
     const response = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify(body)
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Search failed');
@@ -3366,8 +3635,12 @@ async function findOutfits() {
     // Auto-save this search to wishlist
     await saveSearchToWishlist(items);
 
+    const label = isPhotoSearch
+      ? items.length + ' similar items found'
+      : (session.occasionParent === 'specific' ? items.length + ' matches found' : items.length + ' picks for you');
+
     area.innerHTML = `
-      <div class="results-label">${session.occasionParent === 'specific' ? items.length + ' matches found' : items.length + ' picks for you'}</div>
+      <div class="results-label">${label}</div>
       <p class="image-disclaimer">Some images may not display due to individual retailer settings — click any card to view the item and its photo directly on the retailer's site.</p>
       <div class="product-grid" id="productGrid">${renderProducts(items)}</div>
       <div id="loadMoreWrap" style="text-align:center;margin-top:2.5rem;">
@@ -3385,11 +3658,14 @@ async function loadMore() {
   if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
   try {
     const exclude = allItems.map(i => i.name);
-    const { prompt } = buildPrompt(5, exclude);
+    const isPhotoSearch = session.occasionParent === 'shoplook';
+    const { prompt, imageBase64, imageMediaType } = isPhotoSearch ? buildPhotoSearchPrompt(5, exclude) : buildPrompt(5, exclude);
+    const body = { prompt };
+    if (isPhotoSearch && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
     const response = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify(body)
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Search failed');
