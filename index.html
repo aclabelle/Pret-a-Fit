@@ -2470,15 +2470,39 @@ select.text-input { cursor: pointer; }
     <div class="screen-nav">
       <button class="btn-back" onclick="goTo('screen-style')">← Back</button>
       <div style="display:flex;gap:12px;align-items:center;">
-        <button class="btn-skip" onclick="goTo('screen-sizing')">Skip</button>
-        <button class="btn-next" onclick="goTo('screen-sizing')">Continue</button>
+        <button class="btn-skip" onclick="goTo('screen-retailers')">Skip</button>
+        <button class="btn-next" onclick="goTo('screen-retailers')">Continue</button>
       </div>
     </div>
   </div>
   <div class="progress-dots" id="dots-muses"></div>
 </div>
 
-<!-- ══ SCREEN 7: SIZING ══ -->
+<!-- ══ SCREEN 7: FAVOURITE RETAILERS ══ -->
+<div class="screen" id="screen-retailers">
+  <div class="onboarding-wrap">
+    <div class="screen-eyebrow">Inspiration</div>
+    <h1 class="screen-heading">Where do you like to shop?</h1>
+    <p class="screen-sub">Tell us any retailers or websites you already love. We'll weight your results toward them — but we'll still surprise you with new brands worth knowing about.</p>
+    <div class="tag-row" id="retailerTags"></div>
+    <div class="add-row">
+      <input class="text-input" type="text" id="retailerInput" placeholder="e.g. Net-a-Porter, Reformation, SSENSE…" onkeydown="if(event.key==='Enter') addRetailer()" />
+      <button class="btn-add" onclick="addRetailer()">Add</button>
+    </div>
+    <div class="field-hint">Optional. This is a starting point, not a limit — we'll always mix in options beyond this list.</div>
+    <div class="quick-row" id="retailerQuickRow"></div>
+    <div class="screen-nav">
+      <button class="btn-back" onclick="goTo('screen-muses')">← Back</button>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <button class="btn-skip" onclick="goTo('screen-sizing')">Skip</button>
+        <button class="btn-next" onclick="goTo('screen-sizing')">Continue</button>
+      </div>
+    </div>
+  </div>
+  <div class="progress-dots" id="dots-retailers"></div>
+</div>
+
+<!-- ══ SCREEN 8: SIZING ══ -->
 <div class="screen" id="screen-sizing">
   <div class="onboarding-wrap">
     <div class="screen-eyebrow">Your details</div>
@@ -2504,7 +2528,7 @@ select.text-input { cursor: pointer; }
       </div>
     </div>
     <div class="screen-nav">
-      <button class="btn-back" onclick="goTo('screen-muses')">← Back</button>
+      <button class="btn-back" onclick="goTo('screen-retailers')">← Back</button>
       <button class="btn-next" id="sizingNext" onclick="completeOnboarding()">Enter Prêt-à-Fit →</button>
     </div>
   </div>
@@ -2758,7 +2782,7 @@ async function initClerk() {
 /* ── State ── */
 const profile = {
   gender: '', body: '', colourMethod: '', colourTone: '', colourSeason: '',
-  vibes: [], muses: [], sizeSystem: 'US', size: '', location: ''
+  vibes: [], muses: [], retailers: [], sizeSystem: 'US', size: '', location: ''
 };
 const session = {
   occasionParent: '', occasionChild: '', climate: '',
@@ -2768,8 +2792,8 @@ const session = {
 };
 
 /* ── Screen navigation ── */
-const SCREENS = ['screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-manual','screen-colour-quiz','screen-style','screen-muses','screen-sizing','screen-auth','screen-app','screen-wishlist','screen-profile'];
-const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-body-manual','screen-colour','screen-colour-manual','screen-style','screen-muses','screen-sizing'];
+const SCREENS = ['screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-manual','screen-colour-quiz','screen-style','screen-muses','screen-retailers','screen-sizing','screen-auth','screen-app','screen-wishlist','screen-profile'];
+const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-body-manual','screen-colour','screen-colour-manual','screen-style','screen-muses','screen-retailers','screen-sizing'];
 const TOTAL_DOTS = ONBOARDING_SCREENS.length;
 
 function goTo(id) {
@@ -2814,6 +2838,7 @@ function selectSingle(el, key) {
     document.getElementById('genderNext').disabled = false;
     updateBodyTypes();
     updateMuseQuick();
+    updateRetailerQuick();
     updateSizeOptions();
   }
   if (key === 'body') document.getElementById('bodyNext').disabled = false;
@@ -2901,6 +2926,32 @@ function removeMuse(i) { profile.muses.splice(i, 1); renderMuses(); }
 function renderMuses() {
   document.getElementById('museTags').innerHTML = profile.muses.map((m, i) =>
     `<div class="muse-tag">${m}<button onclick="removeMuse(${i})">×</button></div>`
+  ).join('');
+}
+
+/* ── Favourite retailers ── */
+const retailerQuickSets = {
+  women: ['Net-a-Porter','Mytheresa','Nordstrom','Matches Fashion','Farfetch','Revolve','SSENSE','Reformation','COS','& Other Stories','Shopbop','Zara'],
+  men: ['Mr Porter','SSENSE','Nordstrom','Farfetch','End Clothing','Todd Snyder','J.Crew','COS','Uniqlo','Zara'],
+  'non-binary': ['SSENSE','Farfetch','Nordstrom','COS','Uniqlo','Zara','ASOS','Depop']
+};
+
+function updateRetailerQuick() {
+  const set = retailerQuickSets[profile.gender] || retailerQuickSets.women;
+  document.getElementById('retailerQuickRow').innerHTML =
+    set.map(r => `<button class="quick-chip" onclick="quickRetailer('${r}')">${r}</button>`).join('');
+}
+
+function addRetailer() {
+  const i = document.getElementById('retailerInput'), t = i.value.trim();
+  if (!t || profile.retailers.includes(t)) { i.value = ''; return; }
+  profile.retailers.push(t); renderRetailers(); i.value = '';
+}
+function quickRetailer(v) { if (!profile.retailers.includes(v)) { profile.retailers.push(v); renderRetailers(); } }
+function removeRetailer(i) { profile.retailers.splice(i, 1); renderRetailers(); }
+function renderRetailers() {
+  document.getElementById('retailerTags').innerHTML = profile.retailers.map((r, i) =>
+    `<div class="muse-tag">${r}<button onclick="removeRetailer(${i})">×</button></div>`
   ).join('');
 }
 
@@ -3076,6 +3127,7 @@ async function saveProfileToClerk() {
           colourSeason: profile.colourSeason,
           vibes: profile.vibes,
           muses: profile.muses,
+          retailers: profile.retailers,
           sizeSystem: profile.sizeSystem,
           size: profile.size,
           location: profile.location
@@ -3502,6 +3554,7 @@ function buildPrompt(count, exclude=[]) {
   const occasion = session.occasionChild || session.occasionParent;
   const vibeNote = profile.vibes.length ? `Style vibes: ${profile.vibes.join(', ')}.` : '';
   const museNote = profile.muses.length ? `Style muses: ${profile.muses.join(', ')}.` : '';
+  const retailerNote = profile.retailers.length ? `User's favourite retailers/websites: ${profile.retailers.join(', ')}. Feel free to include items from these where a good match exists, but do NOT limit results to only these — include other well-matched retailers too so the user discovers new brands.` : '';
   const colourNote = profile.colourTone ? `Colour palette: ${profile.colourTone} tones${profile.colourSeason ? ' (' + profile.colourSeason + ')' : ''}. Prioritise colours that suit this palette.` : '';
   const climateNote = session.climate ? `Climate: ${session.climate}.` : '';
   const exclNote = session.exclusions.length ? `Exclude: ${session.exclusions.join(', ')}.` : '';
@@ -3528,9 +3581,11 @@ User profile:
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
-${vibeNote}${museNote}${colourNote}${climateNote}${exclNote}${localNote}${feedbackNote}${excludeItems}
+${vibeNote}${museNote}${retailerNote}${colourNote}${climateNote}${exclNote}${localNote}${feedbackNote}${excludeItems}
 
 Search for this specific item across well-known retailers. Match the description as closely as possible. If an exact match isn't available, find the closest alternative and note this in whyItWorks. For the whyItWorks field, explain how this item matches the description AND why it flatters their body type.
+
+URL rules — follow strictly: only use a product URL that appeared directly in your web search results. Never guess, construct, shorten, or modify a URL. The URL must point to a specific product page (not a homepage, category page, or search results page). If you cannot find a real, specific product-page URL for an item, do not include that item at all — search for a different one instead.
 
 Use at most 3 web searches total.
 
@@ -3546,9 +3601,11 @@ Find ${count} real clothing items:
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
-${vibeNote}${museNote}${colourNote}${climateNote}${exclNote}${localNote}${feedbackNote}${excludeItems}
+${vibeNote}${museNote}${retailerNote}${colourNote}${climateNote}${exclNote}${localNote}${feedbackNote}${excludeItems}
 
 Use at most 3 web searches total. Prioritise well-known retailers with international shipping.
+
+URL rules — follow strictly: only use a product URL that appeared directly in your web search results. Never guess, construct, shorten, or modify a URL. The URL must point to a specific product page (not a homepage, category page, or search results page). If you cannot find a real, specific product-page URL for an item, do not include that item at all — search for a different one instead.
 
 [{"retailer":"Name","name":"Product name","price":"${sym}XX","url":"https://specific-product-page","imageUrl":"https://cdn-image.jpg","whyItWorks":"Why flatters ${profile.body}","sizeNote":"Size note","stylingTip":"Tip"}]` };
 }
@@ -3627,7 +3684,7 @@ let allItems = [];
    fetch replacements automatically so the user only ever sees live products.
    ──────────────────────────────────────────────────────────────────────── */
 async function verifyAndFill(items, targetCount, buildMoreFn, statusEl) {
-  const MAX_ROUNDS = 2;   // max replacement attempts
+  const MAX_ROUNDS = 3;   // max replacement attempts
   let good = [];
   let tried = new Set(items.map(i => i.name));
   let currentBatch = items;
@@ -3673,7 +3730,7 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl) {
     const exclude = [...tried].map(n => n); // names already tried
 
     // Ask Claude for replacement products
-    const { prompt, imageBase64, imageMediaType } = buildMoreFn(needed + 3, exclude);
+    const { prompt, imageBase64, imageMediaType } = buildMoreFn(needed + 4, exclude);
     let moreRes, moreData;
     try {
       const body = { prompt };
@@ -3723,7 +3780,7 @@ async function findOutfits() {
   try {
     const isPhotoSearch = session.occasionParent === 'shoplook';
     const buildFn = isPhotoSearch ? buildPhotoSearchPrompt : buildPrompt;
-    const { prompt, imageBase64, imageMediaType } = buildFn(12); // ask for 12 so we have spares if some fail
+    const { prompt, imageBase64, imageMediaType } = buildFn(9); // ask for 9 so we have spares if some fail
     const body = { prompt };
     if (isPhotoSearch && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
 
@@ -3743,7 +3800,7 @@ async function findOutfits() {
     statusEl.className = 'status-msg';
     area.innerHTML = '';
     area.appendChild(statusEl);
-    const items = await verifyAndFill(rawItems, 9, buildFn, statusEl);
+    const items = await verifyAndFill(rawItems, 6, buildFn, statusEl);
     allItems = items;
 
     // Count this search
@@ -3759,6 +3816,7 @@ async function findOutfits() {
     area.innerHTML = `
       <div class="results-label">${label}</div>
       <p class="image-disclaimer">Some images may not display due to individual retailer settings — click any card to view the item and its photo directly on the retailer's site.</p>
+      <p class="image-disclaimer">Results are generated by AI and can occasionally be inaccurate — please forgive any broken links or mismatched details. We're continually working to refine the accuracy of these results.</p>
       <div class="product-grid" id="productGrid">${renderProducts(items)}</div>
       <div id="loadMoreWrap" style="text-align:center;margin-top:2.5rem;">
         <button class="btn-load-more" onclick="loadMore()">Discover more</button>
@@ -4902,6 +4960,9 @@ function openProfile() {
   // Muses
   document.getElementById('profileMuses').textContent = profile.muses.length ? profile.muses.join(', ') : '—';
 
+  // Favourite retailers
+  document.getElementById('profileRetailers').textContent = profile.retailers.length ? profile.retailers.join(', ') : '—';
+
   // Size
   document.getElementById('profileSize').textContent = profile.size || '—';
   document.getElementById('profileSizeSystem').textContent = profile.sizeSystem || '—';
@@ -4968,6 +5029,17 @@ function editProfileField(field) {
         <button class="btn-add" onclick="addProfileMuse()">Add</button>
       </div>`;
     renderProfileMuses();
+
+  } else if (field === 'retailers') {
+    heading.textContent = 'Change favourite retailers';
+    body.innerHTML = `
+      <div id="profileRetailerTags" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem;"></div>
+      <div style="display:flex;gap:8px;">
+        <input class="text-input" type="text" id="profileRetailerInput" placeholder="e.g. Net-a-Porter, SSENSE…" style="flex:1;" onkeydown="if(event.key==='Enter')addProfileRetailer()" />
+        <button class="btn-add" onclick="addProfileRetailer()">Add</button>
+      </div>
+      <p style="font-size:12px;color:var(--charcoal);margin-top:0.75rem;">This is a starting point, not a limit — we'll still surface other well-matched brands too.</p>`;
+    renderProfileRetailers();
 
   } else if (field === 'sizing') {
     heading.textContent = 'Change size & location';
@@ -5040,6 +5112,30 @@ function removeProfileMuse(i) {
   renderProfileMuses();
 }
 
+function renderProfileRetailers() {
+  const container = document.getElementById('profileRetailerTags');
+  if (!container) return;
+  container.innerHTML = [...profile.retailers].map((r, i) =>
+    `<span style="display:inline-flex;align-items:center;gap:6px;background:var(--linen);border:0.5px solid var(--dust);padding:4px 10px;font-size:12px;">
+      ${r} <button onclick="removeProfileRetailer(${i})" style="background:none;border:none;cursor:pointer;color:var(--bark);font-size:14px;line-height:1;">×</button>
+    </span>`
+  ).join('');
+}
+
+function addProfileRetailer() {
+  const input = document.getElementById('profileRetailerInput');
+  const val = input.value.trim();
+  if (!val || profile.retailers.includes(val)) { input.value = ''; return; }
+  profile.retailers.push(val);
+  input.value = '';
+  renderProfileRetailers();
+}
+
+function removeProfileRetailer(i) {
+  profile.retailers.splice(i, 1);
+  renderProfileRetailers();
+}
+
 function updateProfileSizeOptions() {
   const sys = document.getElementById('profileSizeSysEdit').value;
   const sizeOpts = {
@@ -5080,6 +5176,9 @@ function saveProfileEdit() {
 
   } else if (profileEditField === 'muses') {
     // muses are already updated in-place via add/remove
+
+  } else if (profileEditField === 'retailers') {
+    // retailers are already updated in-place via add/remove
 
   } else if (profileEditField === 'sizing') {
     profile.sizeSystem = document.getElementById('profileSizeSysEdit').value;
@@ -5234,6 +5333,12 @@ init();
         <div class="profile-row-label">Style muses</div>
         <div class="profile-row-value" id="profileMuses">—</div>
         <button class="profile-row-action" onclick="editProfileField('muses')">Edit</button>
+      </div>
+
+      <div class="profile-row">
+        <div class="profile-row-label">Favourite retailers</div>
+        <div class="profile-row-value" id="profileRetailers">—</div>
+        <button class="profile-row-action" onclick="editProfileField('retailers')">Edit</button>
       </div>
     </div>
 

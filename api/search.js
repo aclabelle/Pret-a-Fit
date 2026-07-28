@@ -1,3 +1,103 @@
+const BROWSER_HEADERS = {
+  // Mimic a real browser so retailers don't block the request
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,*/*'
+};
+
+// Phrases that show up on "soft 404" pages — pages that return a normal 200 OK
+// status but are actually a "we couldn't find that" or "item unavailable" page.
+const DEAD_PAGE_PHRASES = [
+  'page not found', "page you're looking for", '404 error', '404 not found',
+  'product not found', 'item not found', 'no longer available',
+  "we can't find that page", "we couldn't find that page", 'this page is not available',
+  "this page isn't available", 'sorry, this item', 'item is no longer available',
+  'product is no longer available', 'no longer sold', 'this product has been discontinued',
+  "oops! that page can't be found"
+];
+
+// If a URL redirects somewhere far shallower than where it started (e.g. a
+// specific product page bouncing to the site's homepage or top-level shop
+// page), that's a classic sign the original product no longer exists.
+function looksLikeHomepageRedirect(originalUrl, finalUrl) {
+  try {
+    const o = new URL(originalUrl);
+    const f = new URL(finalUrl);
+    if (o.hostname.replace(/^www\./, '') !== f.hostname.replace(/^www\./, '')) return true;
+    const oDepth = o.pathname.split('/').filter(Boolean).length;
+    const fDepth = f.pathname.split('/').filter(Boolean).length;
+    return oDepth > 1 && fDepth <= 1;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchWithTimeout(url, method) {
+  return fetch(url, {
+    method,
+    redirect: 'follow',
+    signal: AbortSignal.timeout(8000),
+    headers: BROWSER_HEADERS
+  });
+}
+
+async function checkUrl(url) {
+  try {
+    let r = await fetchWithTimeout(url, 'HEAD');
+
+    // A lot of retailers block or mishandle HEAD requests — if we get a
+    // status that looks like that rather than a real answer, retry with GET.
+    if ([405, 501, 403].includes(r.status)) {
+      r = await fetchWithTimeout(url, 'GET');
+    }
+
+    // Hard failure statuses — clearly dead.
+    if (r.status === 404 || r.status === 410) return { url, alive: false };
+
+    // 403/429/5xx — likely bot-blocking or a temporary hiccup, not a dead
+    // product. Keep it rather than risk hiding a perfectly good link.
+    if (r.status >= 400) return { url, alive: true };
+
+    // Landed on the homepage/top-level shop page instead of a product page —
+    // strong signal the specific product is gone. Confirm with a quick
+    // content check before condemning it, since some sites route this way
+    // intentionally without the product actually being unavailable.
+    if (looksLikeHomepageRedirect(url, r.url)) {
+      const bodyText = await safeReadText(r, url);
+      if (bodyText && DEAD_PAGE_PHRASES.some(p => bodyText.includes(p))) {
+        return { url, alive: false };
+      }
+      // Redirected but no clear "not found" language — treat as uncertain, keep it.
+      return { url, alive: true };
+    }
+
+    // Normal 200-series response on what looks like the right page. If we
+    // already have the HTML in hand (because we had to fall back to GET),
+    // do a cheap scan for soft-404 wording before trusting the status code.
+    if (r.status < 400 && r.bodyUsed === false && (r.headers.get('content-type') || '').includes('text/html')) {
+      const bodyText = await safeReadText(r, url);
+      if (bodyText && DEAD_PAGE_PHRASES.some(p => bodyText.includes(p))) {
+        return { url, alive: false };
+      }
+    }
+
+    return { url, alive: true };
+  } catch {
+    // Network timeout, DNS failure, etc. — uncertain, not necessarily dead.
+    return { url, alive: true };
+  }
+}
+
+// Reads a small slice of the response body as lowercase text, tolerating
+// responses that can't be read (e.g. a HEAD response has no body).
+async function safeReadText(response, url) {
+  try {
+    const full = await response.text();
+    return full.slice(0, 6000).toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -9,28 +109,7 @@ export default async function handler(req, res) {
   // The frontend sends a list of URLs and we check which ones are alive.
   if (validateUrls) {
     const urls = req.body.urls || [];
-    const results = await Promise.all(
-      urls.map(async (url) => {
-        try {
-          const r = await fetch(url, {
-            method: 'HEAD',
-            redirect: 'follow',
-            signal: AbortSignal.timeout(6000),
-            headers: {
-              // Mimic a real browser so retailers don't block the request
-              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-              'Accept': 'text/html,application/xhtml+xml,*/*'
-            }
-          });
-          // 200–399 = live. 404/410 = dead. 403/429/5xx = uncertain, keep it.
-          const alive = r.status < 400 || (r.status !== 404 && r.status !== 410);
-          return { url, alive };
-        } catch {
-          // Network timeout or DNS failure — treat as uncertain, keep it
-          return { url, alive: true };
-        }
-      })
-    );
+    const results = await Promise.all(urls.map(checkUrl));
     return res.status(200).json({ results });
   }
 
