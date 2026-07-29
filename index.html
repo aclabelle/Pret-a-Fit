@@ -2650,6 +2650,10 @@ select.text-input { cursor: pointer; }
           <div class="occasion-parent-name">Look</div>
           <div class="occasion-parent-hint">I saw something I love</div>
         </div>
+        <div class="occasion-parent" data-id="pairing" onclick="selectTier0('pairing', this)">
+          <div class="occasion-parent-name">Perfect pairing</div>
+          <div class="occasion-parent-hint">I want to match something I already own</div>
+        </div>
       </div>
       <!-- Tier 1: the 8 occasion categories (shown when Occasion is picked) -->
       <div id="occasionTier1" style="display:none;margin-top:8px;">
@@ -3015,6 +3019,8 @@ function selectTier0(type, el) {
   session.occasionChild = '';
   session.specificItem = '';
   session.shopLookPhoto = null;
+  session.pairingPhoto = null;
+  session.pairingCategory = '';
 
   if (type === 'occasion') {
     document.getElementById('occasionTier1').style.display = 'block';
@@ -3059,6 +3065,34 @@ function selectTier0(type, el) {
           <div style="font-size:11px;color:var(--dust);margin-top:5px;line-height:1.5;">Optional — helps us focus if the photo has multiple items or people.</div>
         </div>
         <div id="shopLookNudge" style="display:none;" class="shop-look-nudge"></div>
+      </div>`;
+  } else if (type === 'pairing') {
+    session.occasionParent = 'pairing';
+    const pairingCats = ['Top','Bottom','Outerwear','Shoes','Bag','Belt','Accessories','Anything'];
+    document.getElementById('occasionChildren').innerHTML = `
+      <div style="margin-top:4px;">
+        <p style="font-size:12px;color:var(--charcoal);line-height:1.6;margin-bottom:10px;">
+          Upload a photo of something you already own — a bag, a belt, a shirt, anything — and we'll find real pieces that pair well with it.
+        </p>
+        <div class="shop-look-upload-zone" id="pairingZone" onclick="document.getElementById('pairingInput').click()">
+          <div id="pairingDefault">
+            <div class="shop-look-upload-label">Tap to upload</div>
+            <div class="shop-look-upload-title">Choose a photo from your device</div>
+            <div class="shop-look-upload-sub">JPG or PNG · never stored · never shared</div>
+          </div>
+          <div id="pairingPreviewWrap" style="display:none;">
+            <img id="pairingPreview" class="shop-look-preview" src="" alt="Uploaded item" />
+            <div class="shop-look-upload-label">Photo selected — tap to change</div>
+          </div>
+        </div>
+        <input type="file" id="pairingInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handlePairingPhoto(this)" />
+        <div style="margin-top:14px;">
+          <label style="font-size:12px;color:var(--charcoal);display:block;margin-bottom:8px;">What are you looking to pair it with?</label>
+          <div class="chip-grid" id="pairingCatRow">
+            ${pairingCats.map(c => `<button class="chip" data-value="${c}" onclick="selectPairingCategory('${c}', this)">${c}</button>`).join('')}
+          </div>
+          <div style="font-size:11px;color:var(--dust);margin-top:5px;line-height:1.5;">Optional — leave unselected to see anything that works with it.</div>
+        </div>
       </div>`;
   }
 }
@@ -3439,6 +3473,33 @@ function handleShopLookPhoto(input) {
   reader.readAsDataURL(file);
 }
 
+function handlePairingPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    session.pairingPhoto = dataUrl.split(',')[1];
+    session.pairingMediaType = file.type || 'image/jpeg';
+    document.getElementById('pairingDefault').style.display = 'none';
+    const prev = document.getElementById('pairingPreviewWrap');
+    prev.style.display = 'block';
+    document.getElementById('pairingPreview').src = dataUrl;
+  };
+  reader.readAsDataURL(file);
+}
+
+function selectPairingCategory(value, el) {
+  const already = session.pairingCategory === value;
+  document.querySelectorAll('#pairingCatRow .chip').forEach(c => c.classList.remove('selected'));
+  if (already) {
+    session.pairingCategory = '';
+  } else {
+    session.pairingCategory = value;
+    el.classList.add('selected');
+  }
+}
+
 async function analyseShopLookForNudge(b64, mediaType) {
   const nudgeEl = document.getElementById('shopLookNudge');
   if (!nudgeEl) return;
@@ -3542,6 +3603,52 @@ Use at most 3 web searches total.
 [{"retailer":"Name","name":"Product name","price":"${sym}XX","url":"https://specific-product-page","imageUrl":"https://cdn-image.jpg","whyItWorks":"How this matches the photo look and flatters ${profile.body || 'the user'}","sizeNote":"Size note","stylingTip":"Tip"}]`,
     imageBase64: session.shopLookPhoto,
     imageMediaType: session.shopLookMediaType || 'image/jpeg'
+  };
+}
+
+function buildPairingPrompt(count, exclude=[]) {
+  const currency = document.getElementById('currency').value;
+  const priceMin = document.getElementById('priceMin').value;
+  const priceMax = document.getElementById('priceMax').value;
+  const syms = {USD:'$',GBP:'£',EUR:'€',SGD:'S$',AUD:'A$',CAD:'C$',JPY:'¥',HKD:'HK$'};
+  const sym = syms[currency] || currency;
+  const vibeNote = profile.vibes.length ? `Style vibes: ${profile.vibes.join(', ')}.` : '';
+  const museNote = profile.muses.length ? `Style muses: ${profile.muses.join(', ')}.` : '';
+  const retailerNote = profile.retailers.length ? `User's favourite retailers/websites: ${profile.retailers.join(', ')}. Feel free to include items from these where a good match exists, but do NOT limit results to only these.` : '';
+  const colourNote = profile.colourTone ? `Colour palette: ${profile.colourTone} tones${profile.colourSeason ? ' (' + profile.colourSeason + ')' : ''}.` : '';
+  const climateNote = session.climate ? `Climate: ${session.climate}.` : '';
+  const exclNote = session.exclusions.length ? `Exclude: ${session.exclusions.join(', ')}.` : '';
+  const localNote = session.localOnly ? 'Local retailers only.' : '';
+  const excludeItems = exclude.length ? `Do NOT repeat these items already shown: ${exclude.join(', ')}.` : '';
+  const categoryNote = session.pairingCategory && session.pairingCategory !== 'Anything'
+    ? `The user specifically wants ${session.pairingCategory.toLowerCase()} suggestions that pair with the item shown.`
+    : 'The user is open to any category of item that pairs well with the one shown.';
+
+  return {
+    sym, currency,
+    prompt: `Fashion search engine with image analysis. Return ONLY a JSON array of exactly ${count} items. First character must be [. No text before or after.
+
+The user has uploaded a photo of an item they already own — a piece of clothing or an accessory such as a bag, belt, or shoe. Do NOT search for the item itself or duplicates of it. Instead, identify its colour, fabric, silhouette and style, then find real, purchasable items that would look great paired WITH it — completing or complementing an outfit built around it.
+
+${categoryNote}
+
+User profile:
+- Gender: ${profile.gender}
+- Body type: ${profile.body}
+- Size: ${profile.size} ${profile.sizeSystem}
+- Ships to: ${profile.location}
+- Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
+${vibeNote}${museNote}${retailerNote}${colourNote}${climateNote}${exclNote}${localNote}${excludeItems}
+
+In whyItWorks, explain how this item pairs with the uploaded piece (colour, style, formality) AND how it flatters their body type.
+
+URL rules — follow strictly: only use a product URL that appeared directly in your web search results. Never guess, construct, shorten, or modify a URL. The URL must point to a specific product page, not a homepage, category page, or search results page. If you cannot find a real, specific product-page URL for an item, do not include that item at all — search for a different one instead.
+
+Use at most 3 web searches total.
+
+[{"retailer":"Name","name":"Product name","price":"${sym}XX","url":"https://specific-product-page","imageUrl":"https://cdn-image.jpg","whyItWorks":"How this pairs with the uploaded item and flatters ${profile.body || 'the user'}","sizeNote":"Size note","stylingTip":"Tip"}]`,
+    imageBase64: session.pairingPhoto,
+    imageMediaType: session.pairingMediaType || 'image/jpeg'
   };
 }
 
@@ -3761,6 +3868,9 @@ async function findOutfits() {
   if (session.occasionParent === 'shoplook') {
     if (!session.shopLookPhoto) { alert('Please upload a photo first.'); return; }
   }
+  if (session.occasionParent === 'pairing') {
+    if (!session.pairingPhoto) { alert('Please upload a photo of the item first.'); return; }
+  }
   const priceMin = document.getElementById('priceMin').value;
   const priceMax = document.getElementById('priceMax').value;
   if (!priceMin || !priceMax) { alert('Please enter a price range.'); return; }
@@ -3779,10 +3889,12 @@ async function findOutfits() {
 
   try {
     const isPhotoSearch = session.occasionParent === 'shoplook';
-    const buildFn = isPhotoSearch ? buildPhotoSearchPrompt : buildPrompt;
+    const isPairingSearch = session.occasionParent === 'pairing';
+    const usesImage = isPhotoSearch || isPairingSearch;
+    const buildFn = isPhotoSearch ? buildPhotoSearchPrompt : (isPairingSearch ? buildPairingPrompt : buildPrompt);
     const { prompt, imageBase64, imageMediaType } = buildFn(9); // ask for 9 so we have spares if some fail
     const body = { prompt };
-    if (isPhotoSearch && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
+    if (usesImage && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
 
     // Step 1 — get results from Claude
     area.innerHTML = `<div class="status-msg"><div class="spinner"></div>Finding your edit…</div>`;
@@ -3806,15 +3918,17 @@ async function findOutfits() {
     // Count this search
     await incrementSearchCount();
 
-    // Auto-save this search to wishlist
-    await saveSearchToWishlist(items);
-
     const label = isPhotoSearch
       ? items.length + ' similar items found'
-      : (session.occasionParent === 'specific' ? items.length + ' matches found' : items.length + ' picks for you');
+      : isPairingSearch
+        ? items.length + ' pieces that pair with it'
+        : (session.occasionParent === 'specific' ? items.length + ' matches found' : items.length + ' picks for you');
 
     area.innerHTML = `
-      <div class="results-label">${label}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:0.5px solid var(--linen);">
+        <div class="results-label" style="margin:0;padding:0;border:none;">${label}</div>
+        <button id="saveSearchBtn" onclick="saveThisSearch()" style="flex-shrink:0;font-size:11px;letter-spacing:0.03em;color:var(--bark);background:none;border:0.5px solid var(--dust);padding:6px 12px;cursor:pointer;">Save this search</button>
+      </div>
       <p class="image-disclaimer">Some images may not display due to individual retailer settings — click any card to view the item and its photo directly on the retailer's site.</p>
       <p class="image-disclaimer">Results are generated by AI and can occasionally be inaccurate — please forgive any broken links or mismatched details. We're continually working to refine the accuracy of these results.</p>
       <div class="product-grid" id="productGrid">${renderProducts(items)}</div>
@@ -3834,12 +3948,14 @@ async function loadMore() {
   try {
     const exclude = allItems.map(i => i.name);
     const isPhotoSearch = session.occasionParent === 'shoplook';
-    const buildFn = isPhotoSearch ? buildPhotoSearchPrompt : buildPrompt;
+    const isPairingSearch = session.occasionParent === 'pairing';
+    const usesImage = isPhotoSearch || isPairingSearch;
+    const buildFn = isPhotoSearch ? buildPhotoSearchPrompt : (isPairingSearch ? buildPairingPrompt : buildPrompt);
 
     // Ask for 8, so we have spares after verification
     const { prompt, imageBase64, imageMediaType } = buildFn(8, exclude);
     const body = { prompt };
-    if (isPhotoSearch && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
+    if (usesImage && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
 
     if (btn) btn.textContent = 'Finding more…';
     const response = await fetch('/api/search', {
@@ -4858,6 +4974,21 @@ async function saveSearchToWishlist(items) {
   wishlistSearches.push(search);
   if (wishlistSearches.length > 20) wishlistSearches = wishlistSearches.slice(-20);
   await saveWishlistToClerk();
+}
+
+async function saveThisSearch() {
+  if (!clerkInstance || !clerkInstance.user) {
+    goToSignIn();
+    return;
+  }
+  const btn = document.getElementById('saveSearchBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    await saveSearchToWishlist(allItems);
+    if (btn) { btn.textContent = 'Search saved ✓'; }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save this search'; }
+  }
 }
 
 // ── Re-run a past search ──
