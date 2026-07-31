@@ -1746,7 +1746,7 @@ select.text-input { cursor: pointer; }
     </div>
     <div id="waitlistThanks" style="display:none;">
       <p style="font-size:13px;color:var(--parchment);opacity:0.9;line-height:1.7;">
-        Thank you — an email has just opened for you. Please hit send to confirm your spot on the list.
+        Thank you — you're on the list. We'll be in touch as soon as we're ready to open the doors.
       </p>
     </div>
   </div>
@@ -5485,19 +5485,36 @@ async function init() {
 
 init();
 
-function joinWaitlist() {
+async function joinWaitlist() {
   const name = document.getElementById('waitlistName').value.trim();
   const email = document.getElementById('waitlistEmail').value.trim();
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!name) { alert('Please enter your name.'); return; }
   if (!emailPattern.test(email)) { alert('Please enter a valid email address.'); return; }
 
-  const subject = encodeURIComponent('Waitlist signup');
-  const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}`);
-  window.location.href = `mailto:support@pret-a-fit.com?subject=${subject}&body=${body}`;
+  const btn = document.getElementById('waitlistBtn');
+  btn.disabled = true;
+  btn.textContent = 'Joining…';
 
-  document.getElementById('waitlistForm').style.display = 'none';
-  document.getElementById('waitlistThanks').style.display = 'block';
+  try {
+    const response = await fetch('/api/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Something went wrong');
+
+    document.getElementById('waitlistForm').style.display = 'none';
+    document.getElementById('waitlistThanks').style.display = 'block';
+  } catch (err) {
+    // Fallback: open a pre-filled email if the backend request fails
+    const subject = encodeURIComponent('Waitlist signup');
+    const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}`);
+    window.location.href = `mailto:support@pret-a-fit.com?subject=${subject}&body=${body}`;
+    document.getElementById('waitlistForm').style.display = 'none';
+    document.getElementById('waitlistThanks').style.display = 'block';
+  }
 }
 </script>
 
