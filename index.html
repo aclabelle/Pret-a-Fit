@@ -518,6 +518,55 @@ select.text-input { cursor: pointer; }
   color: var(--dust);
   margin-top: 3px;
 }
+/* A selected top-level tile gets an ink edge so it stays obviously "the one
+   you picked" once the sub-options appear underneath it. */
+.occasion-parent.selected {
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+.occasion-parent.selected .occasion-parent-name { font-weight: 500; }
+
+/* ── Tier 1: occasion categories ──────────────────────────────────────────
+   These sit directly under the tier-0 tiles and used to share the exact same
+   class, so the two rows looked identical and read as one long list of
+   equal choices. They're now visually nested: indented behind a hairline
+   rule, lighter, smaller, and introduced by a label. */
+.occasion-tier1-wrap {
+  margin-top: 12px;
+  padding-left: 16px;
+  border-left: 0.5px solid var(--dust);
+}
+.occasion-tier1-label {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 10px;
+}
+.occasion-sub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 6px;
+}
+.occasion-sub {
+  border: 0.5px solid var(--linen);
+  background: transparent;
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.occasion-sub:hover { border-color: var(--bark); }
+.occasion-sub.selected { border-color: var(--ink); background: var(--linen); }
+.occasion-sub-name {
+  font-size: 11px;
+  color: var(--charcoal);
+  letter-spacing: 0.04em;
+}
+.occasion-sub.selected .occasion-sub-name { color: var(--ink); font-weight: 500; }
+.occasion-sub-hint {
+  font-size: 9px;
+  color: var(--dust);
+  margin-top: 2px;
+}
 
 .occasion-children {
   display: none;
@@ -1520,7 +1569,10 @@ select.text-input { cursor: pointer; }
 }
 .fitcheck-alt-btn {
   display: inline-block;
-  padding: 11px 28px;
+  padding: 11px 24px;
+  text-align: center;
+  line-height: 1.5;
+  max-width: 100%;
   background: none;
   border: 0.5px solid var(--ink);
   color: var(--ink);
@@ -1912,6 +1964,10 @@ select.text-input { cursor: pointer; }
         Thank you — you're on the list. We'll be in touch as soon as we're ready to open the doors.
       </p>
     </div>
+    <button onclick="openFaq('screen-comingsoon')"
+      style="margin-top:1.75rem;background:none;border:none;color:var(--parchment);opacity:0.6;font-size:11px;letter-spacing:0.06em;text-decoration:underline;cursor:pointer;font-family:system-ui,sans-serif;padding:0;">
+      Why a waitlist?
+    </button>
   </div>
 </div>
 
@@ -2859,6 +2915,7 @@ select.text-input { cursor: pointer; }
     <nav class="app-nav">
       <button class="app-nav-link" onclick="openWishlist()">Saved</button>
       <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
+      <button class="app-nav-link" onclick="openFaq('screen-app')">FAQ</button>
       <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
       <button class="app-nav-link" onclick="openProfile()">Edit profile</button>
       <div id="userAvatarWrap" style="display:none;">
@@ -2896,8 +2953,9 @@ select.text-input { cursor: pointer; }
         </div>
       </div>
       <!-- Tier 1: the 8 occasion categories (shown when Occasion is picked) -->
-      <div id="occasionTier1" style="display:none;margin-top:8px;">
-        <div class="occasion-tier-grid" id="occasionParents"></div>
+      <div id="occasionTier1" class="occasion-tier1-wrap" style="display:none;">
+        <div class="occasion-tier1-label">What kind of occasion?</div>
+        <div class="occasion-sub-grid" id="occasionParents"></div>
       </div>
       <!-- Tier 2: sub-categories / text / photo (shown after tier 1 selection) -->
       <div id="occasionChildren" style="margin-top:8px;"></div>
@@ -3035,8 +3093,26 @@ const session = {
   specificItem: ''
 };
 
+/* ── FAQ ──────────────────────────────────────────────────────────────────
+   Reachable from inside the app, and also from the "Coming soon" gate — the
+   "why a waitlist?" question is exactly what someone stuck at the gate wants
+   answered. When opened from the gate we hide the other nav links, so the
+   FAQ stays a dead end and there is still no route into the app. */
+let faqReturnScreen = 'screen-app';
+
+function openFaq(from) {
+  faqReturnScreen = from || 'screen-app';
+  const extra = document.getElementById('faqExtraNav');
+  if (extra) extra.style.display = (faqReturnScreen === 'screen-comingsoon') ? 'none' : '';
+  goTo('screen-faq');
+}
+
+function closeFaq() {
+  goTo(faqReturnScreen);
+}
+
 /* ── Screen navigation ── */
-const SCREENS = ['screen-comingsoon','screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-manual','screen-colour-quiz','screen-style','screen-muses','screen-retailers','screen-sizing','screen-auth','screen-app','screen-wishlist','screen-profile'];
+const SCREENS = ['screen-comingsoon','screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-manual','screen-colour-quiz','screen-style','screen-muses','screen-retailers','screen-sizing','screen-auth','screen-app','screen-wishlist','screen-profile','screen-faq'];
 const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-body-manual','screen-colour','screen-colour-manual','screen-style','screen-muses','screen-retailers','screen-sizing'];
 const TOTAL_DOTS = ONBOARDING_SCREENS.length;
 
@@ -3236,9 +3312,9 @@ function buildOccasions() {
   // 'specific' and 'shoplook' are now handled at tier-0 level
   const occasionOnlyList = occasions.filter(o => o.id !== 'specific' && o.id !== 'shoplook');
   document.getElementById('occasionParents').innerHTML = occasionOnlyList.map(o =>
-    `<div class="occasion-parent" data-id="${o.id}" onclick="selectOccasionParent('${o.id}')">
-      <div class="occasion-parent-name">${o.name}</div>
-      <div class="occasion-parent-hint">${o.hint}</div>
+    `<div class="occasion-sub" data-id="${o.id}" onclick="selectOccasionParent('${o.id}')">
+      <div class="occasion-sub-name">${o.name}</div>
+      <div class="occasion-sub-hint">${o.hint}</div>
     </div>`
   ).join('');
 }
@@ -3252,7 +3328,7 @@ function selectTier0(type, el) {
   // Reset lower tiers
   document.getElementById('occasionTier1').style.display = 'none';
   document.getElementById('occasionChildren').innerHTML = '';
-  document.querySelectorAll('#occasionParents .occasion-parent').forEach(p => p.classList.remove('selected'));
+  document.querySelectorAll('#occasionParents .occasion-sub').forEach(p => p.classList.remove('selected'));
   session.occasionParent = '';
   session.occasionChild = '';
   session.specificItem = '';
@@ -3383,8 +3459,8 @@ function selectTier0(type, el) {
 
 function selectOccasionParent(id) {
   // Only clear selection within the tier-1 grid (not tier-0 tiles)
-  document.querySelectorAll('#occasionParents .occasion-parent').forEach(p => p.classList.remove('selected'));
-  document.querySelector(`#occasionParents .occasion-parent[data-id="${id}"]`).classList.add('selected');
+  document.querySelectorAll('#occasionParents .occasion-sub').forEach(p => p.classList.remove('selected'));
+  document.querySelector(`#occasionParents .occasion-sub[data-id="${id}"]`).classList.add('selected');
   session.occasionParent = id;
   session.occasionChild = '';
   session.specificItem = '';
@@ -4061,7 +4137,7 @@ function renderFitCheck(r) {
     ? `<div class="fitcheck-alt">
          <div class="fitcheck-alt-label">What to look for instead</div>
          <p class="fitcheck-alt-text">${esc(alt)}</p>
-         <button class="fitcheck-alt-btn" onclick="searchBetterAlternative()">Find pieces like this</button>
+         <button class="fitcheck-alt-btn" onclick="searchBetterAlternative()">Find something similar that will suit me better</button>
        </div>`
     : '';
 
@@ -6340,6 +6416,7 @@ async function joinWaitlist() {
     <div class="app-logo-small">prêt-à-<em>fit</em></div>
     <nav class="app-nav">
       <button class="app-nav-link" onclick="goTo('screen-app')">← Back</button>
+      <button class="app-nav-link" onclick="openFaq('screen-app')">FAQ</button>
       <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
       <button class="app-nav-link" onclick="goTo('screen-privacy')">Privacy</button>
     </nav>
@@ -6385,6 +6462,7 @@ async function joinWaitlist() {
     <nav class="app-nav">
       <button class="app-nav-link" onclick="goTo('screen-app')">← Back</button>
       <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
+      <button class="app-nav-link" onclick="openFaq('screen-app')">FAQ</button>
       <button class="app-nav-link" onclick="goTo('screen-privacy')">Privacy</button>
     </nav>
   </div>
@@ -6524,6 +6602,83 @@ async function joinWaitlist() {
         pieces you've already found are still yours to browse.
       </p>
       <button class="pf-modal-btn" onclick="closeGateModal()">Back to my results</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCREEN: FAQ ══ -->
+<div class="screen" id="screen-faq">
+  <div class="app-topbar">
+    <div class="app-logo-small">prêt-à-<em>fit</em></div>
+    <nav class="app-nav" id="faqNav">
+      <button class="app-nav-link" onclick="closeFaq()">← Back</button>
+      <span id="faqExtraNav">
+        <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
+        <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
+        <button class="app-nav-link" onclick="goTo('screen-privacy')">Privacy</button>
+      </span>
+    </nav>
+  </div>
+  <div class="editorial-body">
+    <div class="editorial-wrap">
+
+      <div class="editorial-eyebrow">Questions</div>
+      <h1 class="editorial-heading">Before you<br>join us.</h1>
+
+      <div class="editorial-rule"></div>
+
+      <!-- ─────────────────────────────────────────────────────────────────
+           PRE-LAUNCH FAQs. These answer "why a waitlist and not an app?"
+           and should be REPLACED at launch with questions real users
+           actually ask (sizing, returns, retailers, billing, accuracy).
+           See the Backlog in the spec file.
+           ───────────────────────────────────────────────────────────── -->
+
+      <div class="privacy-section">
+        <div class="privacy-heading">Why is there a waitlist instead of the app?</div>
+        <p class="editorial-p">Because we would rather open the doors late than open them badly. Prêt-à-Fit searches live listings in real time, which means every recommendation has to be a real piece you can actually buy today. Getting that reliably right — the right size, the right shipping country, a link that still works when you tap it — is the hard part, and it is the part we are still finishing. The waitlist is simply how we tell you when it is genuinely ready.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">When will it open?</div>
+        <p class="editorial-p">We are not putting a date on it, because a date would tempt us to launch to the date rather than to the standard. What we can promise is that everyone on the waitlist hears first, by email, before anyone else.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">What actually is Prêt-à-Fit?</div>
+        <p class="editorial-p">A personal stylist that starts with your body rather than with a trend. You tell us your shape, your colouring, your budget, your size and where you live. We then find real, currently available clothing that suits <em>you</em> — and explain why each piece works, so you learn something rather than just buying something.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">What will it cost?</div>
+        <p class="editorial-p">There will be a free tier, and a subscription for unlimited use. We have not finalised the pricing, and we would rather tell you the real number once than a guess now. Nobody on the waitlist will be charged anything without choosing to subscribe first.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">Do you keep my photos?</div>
+        <p class="editorial-p">No. Photos you upload — whether for colour analysis or to check whether a piece suits you — are used to answer that one question and are never written to storage. They live only for the length of your visit. Our full privacy policy has the detail.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">What will you do with my email?</div>
+        <p class="editorial-p">Tell you when we launch. That is the whole list. We do not sell data, we do not pass your address to retailers or advertisers, and there is no newsletter you have been quietly signed up to. If you change your mind, reply to any email from us and we will remove you.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">How do you decide what suits someone?</div>
+        <p class="editorial-p">Your body type and colour palette come first, then your budget, size, occasion and taste are layered on top. Every recommendation comes with the reasoning attached — how the cut works with your proportions, how the colour sits against your palette. You are always free to disagree with us; your eye matters more than our opinion.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">Will it tell me not to buy something?</div>
+        <p class="editorial-p">Yes, and that is deliberate. If a piece is not going to work for you, we would rather say so before you spend money than after — better for your wardrobe, and better for the quantity of clothing that gets shipped back and forth for no reason.</p>
+      </div>
+
+      <div class="privacy-section">
+        <div class="privacy-heading">Something else?</div>
+        <p class="editorial-p">Write to us at <a href="mailto:support@pret-a-fit.com" style="color:var(--bark);text-decoration:none;">support@pret-a-fit.com</a>. A person reads every message.</p>
+      </div>
+
     </div>
   </div>
 </div>
