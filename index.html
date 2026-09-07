@@ -3333,9 +3333,21 @@ function selectTier0(type, el) {
   session.occasionChild = '';
   session.specificItem = '';
   session.shopLookPhoto = null;
+  session.shopLookFocus = '';
+  session.shopLookUseAlternative = false;
+  session.shopLookAlternative = '';
   session.pairingPhoto = null;
   session.pairingCategory = '';
   session.fitCheckPhoto = null;
+  session.fitCheckContext = '';
+  session.fitCheckAlternative = '';
+
+  // Clear whatever the last mode left on screen. Without this, a fit check
+  // verdict (or an old product grid) stays sitting under the button while
+  // the user sets up a completely different search.
+  const resultsArea = document.getElementById('resultsArea');
+  if (resultsArea) resultsArea.innerHTML = '';
+  allItems = [];
 
   // Fit check hides the shopping-only controls; every other mode needs them back
   setShoppingControlsVisible(type !== 'fitcheck');
