@@ -1444,6 +1444,169 @@ select.text-input { cursor: pointer; }
   margin-bottom: 1rem;
 }
 .paywall-btn:hover { background: var(--bark); }
+
+/* ── Fit check verdict card ─────────────────────────────────────────────── */
+.fitcheck-card {
+  margin: 1.5rem 0 1rem;
+  padding: 2rem 1.75rem;
+  background: var(--mist);
+  border: 0.5px solid var(--dust);
+}
+.fitcheck-verdict {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding-bottom: 0.9rem;
+  margin-bottom: 1.1rem;
+  border-bottom: 0.5px solid var(--linen);
+}
+.fitcheck-yes   { color: #4A6B4F; }
+.fitcheck-maybe { color: var(--bark); }
+.fitcheck-no    { color: #8B3A2F; }
+.fitcheck-item {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 0.6rem;
+}
+.fitcheck-headline {
+  font-family: Georgia, serif;
+  font-size: 1.15rem;
+  line-height: 1.55;
+  color: var(--ink);
+  margin-bottom: 1.5rem;
+}
+.fitcheck-row { margin-bottom: 1.25rem; }
+.fitcheck-row p {
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--charcoal);
+  margin: 0;
+}
+.fitcheck-label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 0.45rem;
+}
+.fitcheck-tips {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--charcoal);
+}
+.fitcheck-tips li { margin-bottom: 0.35rem; }
+.fitcheck-alt {
+  margin-top: 1.5rem;
+  padding-top: 1.4rem;
+  border-top: 0.5px solid var(--linen);
+}
+.fitcheck-alt-label {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 0.5rem;
+}
+.fitcheck-alt-text {
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--charcoal);
+  margin-bottom: 1rem;
+}
+.fitcheck-alt-btn {
+  display: inline-block;
+  padding: 11px 28px;
+  background: none;
+  border: 0.5px solid var(--ink);
+  color: var(--ink);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: background 0.15s, color 0.15s;
+}
+.fitcheck-alt-btn:hover { background: var(--ink); color: var(--parchment); }
+
+/* ── Gate modal (Discover more → waitlist / sign-up) ────────────────────── */
+.pf-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 23, 18, 0.55);
+  z-index: 900;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+.pf-modal-overlay.open { display: flex; }
+.pf-modal {
+  background: var(--parchment);
+  border: 0.5px solid var(--dust);
+  max-width: 420px;
+  width: 100%;
+  padding: 2.5rem 2rem 2rem;
+  text-align: center;
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.pf-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: var(--dust);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-family: Georgia, serif;
+}
+.pf-modal-close:hover { color: var(--ink); }
+.pf-modal .text-input { background: var(--mist); text-align: left; }
+.pf-modal-btn {
+  display: block;
+  width: 100%;
+  padding: 13px 20px;
+  margin-top: 0.5rem;
+  background: var(--ink);
+  color: var(--parchment);
+  border: none;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: background 0.15s;
+}
+.pf-modal-btn:hover { background: var(--bark); }
+.pf-modal-btn:disabled { opacity: 0.5; cursor: default; }
+.pf-modal-dismiss {
+  margin-top: 1rem;
+  background: none;
+  border: none;
+  color: var(--dust);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  text-decoration: underline;
+  padding: 0;
+}
+.pf-modal-dismiss:hover { color: var(--charcoal); }
+.pf-modal-error {
+  font-size: 12px;
+  color: #8B3A2F;
+  margin-top: 0.75rem;
+  min-height: 1em;
+}
 .paywall-signin {
   font-size: 11px;
   color: var(--dust);
@@ -2727,6 +2890,10 @@ select.text-input { cursor: pointer; }
           <div class="occasion-parent-name">Perfect pairing</div>
           <div class="occasion-parent-hint">I want to match something I already own</div>
         </div>
+        <div class="occasion-parent" data-id="fitcheck" onclick="selectTier0('fitcheck', this)">
+          <div class="occasion-parent-name">Fit check</div>
+          <div class="occasion-parent-hint">I'm about to buy something</div>
+        </div>
       </div>
       <!-- Tier 1: the 8 occasion categories (shown when Occasion is picked) -->
       <div id="occasionTier1" style="display:none;margin-top:8px;">
@@ -2737,7 +2904,7 @@ select.text-input { cursor: pointer; }
     </div>
 
     <!-- Climate -->
-    <div class="app-section">
+    <div class="app-section" id="sectionClimate">
       <div class="app-section-title">Climate</div>
       <div class="climate-row">
         <button class="climate-chip" data-value="warm climate" onclick="selectClimate(this)">☀ Warm</button>
@@ -2747,7 +2914,7 @@ select.text-input { cursor: pointer; }
     </div>
 
     <!-- Budget -->
-    <div class="app-section">
+    <div class="app-section" id="sectionBudget">
       <div class="app-section-title">Budget</div>
       <div class="form-grid">
         <div class="field">
@@ -2775,7 +2942,7 @@ select.text-input { cursor: pointer; }
     </div>
 
     <!-- Exclusions -->
-    <div class="app-section">
+    <div class="app-section" id="sectionAvoid">
       <div class="app-section-title">Things to avoid</div>
       <p style="font-size:12px;color:var(--charcoal);line-height:1.6;margin-bottom:1rem;">Tell us what you'd rather not see in your results — colours, patterns, silhouettes, anything. Click below to add common exclusions, or type your own.</p>
       <div class="tag-row" id="exclusionTags"></div>
@@ -2939,8 +3106,6 @@ function selectChoice(el, key, val) {
   document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
   profile[key] = val;
-  if (key === 'colourMethod') {
-  }
 }
 
 /* ── Body types ── */
@@ -3008,7 +3173,7 @@ function renderMuses() {
 
 /* ── Favourite retailers ── */
 const retailerQuickSets = {
-  women: ['Net-a-Porter','Mytheresa','Nordstrom','Matches Fashion','Farfetch','Revolve','SSENSE','Reformation','COS','& Other Stories','Shopbop','Zara'],
+  women: ['Net-a-Porter','Mytheresa','Nordstrom','Selfridges','Farfetch','Revolve','SSENSE','Reformation','COS','& Other Stories','Shopbop','Zara'],
   men: ['Mr Porter','SSENSE','Nordstrom','Farfetch','End Clothing','Todd Snyder','J.Crew','COS','Uniqlo','Zara'],
   'non-binary': ['SSENSE','Farfetch','Nordstrom','COS','Uniqlo','Zara','ASOS','Depop']
 };
@@ -3094,6 +3259,12 @@ function selectTier0(type, el) {
   session.shopLookPhoto = null;
   session.pairingPhoto = null;
   session.pairingCategory = '';
+  session.fitCheckPhoto = null;
+
+  // Fit check hides the shopping-only controls; every other mode needs them back
+  setShoppingControlsVisible(type !== 'fitcheck');
+  const searchBtn = document.getElementById('searchBtn');
+  if (searchBtn) searchBtn.textContent = type === 'fitcheck' ? 'Check this piece' : 'Find my outfits';
 
   if (type === 'occasion') {
     document.getElementById('occasionTier1').style.display = 'block';
@@ -3138,6 +3309,46 @@ function selectTier0(type, el) {
           <div style="font-size:11px;color:var(--dust);margin-top:5px;line-height:1.5;">Optional — helps us focus if the photo has multiple items or people.</div>
         </div>
         <div id="shopLookNudge" style="display:none;" class="shop-look-nudge"></div>
+      </div>`;
+  } else if (type === 'fitcheck') {
+    session.occasionParent = 'fitcheck';
+    const missing = [];
+    if (!profile.body) missing.push('body type');
+    if (!profile.colourTone) missing.push('colour palette');
+    const missingNote = missing.length
+      ? `<div style="font-size:11px;color:var(--bark);margin-top:10px;line-height:1.6;">
+           We'll give you a fuller answer once you've set your ${missing.join(' and ')} —
+           <button onclick="goTo('screen-gender')" style="background:none;border:none;color:var(--bark);text-decoration:underline;cursor:pointer;font-size:11px;padding:0;font-family:system-ui,sans-serif;">add it here</button>.
+         </div>`
+      : '';
+    document.getElementById('occasionChildren').innerHTML = `
+      <div style="margin-top:4px;">
+        <p style="font-size:12px;color:var(--charcoal);line-height:1.6;margin-bottom:10px;">
+          About to buy something? Upload a photo of the piece — a product shot, a screenshot from the
+          site, or a flat lay — and we'll tell you honestly whether it suits your shape and colouring
+          before you spend anything.
+        </p>
+        <div class="shop-look-upload-zone" id="fitCheckZone" onclick="document.getElementById('fitCheckInput').click()">
+          <div id="fitCheckDefault">
+            <div class="shop-look-upload-label">Tap to upload</div>
+            <div class="shop-look-upload-title">Choose a photo of the item</div>
+            <div class="shop-look-upload-sub">JPG or PNG · never stored · never shared</div>
+          </div>
+          <div id="fitCheckPreviewWrap" style="display:none;">
+            <img id="fitCheckPreview" class="shop-look-preview" src="" alt="Item being considered" />
+            <div class="shop-look-upload-label">Photo selected — tap to change</div>
+          </div>
+        </div>
+        <input type="file" id="fitCheckInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handleFitCheckPhoto(this)" />
+        <div style="margin-top:14px;">
+          <label style="font-size:12px;color:var(--charcoal);display:block;margin-bottom:8px;">Anything we should know about it?</label>
+          <input class="text-input" type="text" id="fitCheckContext"
+            placeholder="e.g. it's for a wedding, it's linen, it's final sale"
+            style="margin:0;"
+            oninput="session.fitCheckContext = this.value.trim()" />
+          <div style="font-size:11px;color:var(--dust);margin-top:5px;line-height:1.5;">Optional — helps us judge it in context.</div>
+        </div>
+        ${missingNote}
       </div>`;
   } else if (type === 'pairing') {
     session.occasionParent = 'pairing';
@@ -3226,6 +3437,10 @@ async function saveProfileToClerk() {
   try {
     await clerkInstance.user.update({
       unsafeMetadata: {
+        // Carry over everything already stored (wishlist, saved searches,
+        // search count, subscription status). Without this line, saving the
+        // profile would wipe all of it.
+        ...clerkInstance.user.unsafeMetadata,
         pretafit_profile: {
           gender: profile.gender,
           body: profile.body,
@@ -3427,6 +3642,12 @@ function handleUserMenu() {
   }
 }
 
+/* Sign out from the Profile screen. This was being called by the "Sign out"
+   button but never existed, so the button did nothing. */
+function handleSignOut() {
+  handleUserMenu();
+}
+
 /* ── Exclusions ── */
 function toggleLocal() {
   session.localOnly = !session.localOnly;
@@ -3446,7 +3667,10 @@ function renderExclusions() {
 }
 
 /* ── Feedback ── */
-function giveFeedback(idx, type, itemName) {
+function giveFeedback(idx, type) {
+  // Look the name up from the results rather than baking it into the button's
+  // HTML — names containing quotes used to break the button entirely.
+  const itemName = (allItems[idx] && allItems[idx].name) || '';
   const up = document.getElementById(`up${idx}`), down = document.getElementById(`down${idx}`);
   const thanks = document.getElementById(`thanks${idx}`);
   up.classList.remove('active-up'); down.classList.remove('active-down');
@@ -3469,28 +3693,59 @@ function toggleDetails(id, btn) {
   btn.textContent = el.classList.contains('open') ? '− Less' : '+ Why this works for you';
 }
 
-/* ── Image proxy ── */
+/* Makes any text from the AI safe to drop into the page. Product names
+   containing quotes, & or < used to break the card's HTML. */
+function esc(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/* ── Image proxy ──
+   Try the retailer's own image first. If it fails, retry once through the
+   weserv proxy. If that fails too, hide the image and show the linen
+   placeholder instead. The "step" flag is what stops the old behaviour of
+   retrying the same failed proxy URL over and over in a loop. */
 function makeImgHtml(item, i) {
   if (!item.imageUrl) {
     return elegantPlaceholder(item.retailer);
   }
-  const proxy = `https://images.weserv.nl/?url=${encodeURIComponent(item.imageUrl)}&w=600&output=jpg`;
-  return `<img src="${item.imageUrl}"
-    alt="${item.name}"
-    onerror="this.src='${proxy}'"
+  const proxy = esc(`https://images.weserv.nl/?url=${encodeURIComponent(item.imageUrl)}&w=600&output=jpg`);
+  return `<img src="${esc(item.imageUrl)}"
+    alt="${esc(item.name)}"
+    data-step="0"
+    onerror="handleImgError(this,'${proxy}','ph${i}')"
     onload="this.style.opacity=1"
     style="opacity:0;transition:opacity 0.3s;">
   <div class="img-placeholder elegant-placeholder" id="ph${i}" style="display:none">
     <div class="ph-inner">
-      <div class="ph-retailer">${item.retailer}</div>
-      <div class="ph-name">${item.name}</div>
+      <div class="ph-retailer">${esc(item.retailer)}</div>
+      <div class="ph-name">${esc(item.name)}</div>
     </div>
   </div>`;
 }
 
+function handleImgError(img, proxyUrl, placeholderId) {
+  const step = img.getAttribute('data-step');
+  if (step === '0') {
+    // First failure — try the proxy once.
+    img.setAttribute('data-step', '1');
+    img.src = proxyUrl;
+    return;
+  }
+  // Proxy failed too — give up and show the placeholder.
+  img.onerror = null;
+  img.style.display = 'none';
+  const ph = document.getElementById(placeholderId);
+  if (ph) ph.style.display = 'flex';
+}
+
 function elegantPlaceholder(retailer) {
   return `<div class="img-placeholder elegant-placeholder">
-    <div class="ph-inner"><div class="ph-retailer">${retailer}</div></div>
+    <div class="ph-inner"><div class="ph-retailer">${esc(retailer)}</div></div>
   </div>`;
 }
 
@@ -3498,24 +3753,23 @@ function elegantPlaceholder(retailer) {
 function renderProducts(items, offset=0) {
   return items.map((item, i) => {
     const idx = offset + i;
-    const n = item.name.replace(/'/g,"\\'");
     return `<div class="product-card">
-      <a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+      <a href="${esc(item.url)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
         <div class="product-image-wrap">${makeImgHtml(item, idx)}</div>
-        <div class="product-retailer">${item.retailer}</div>
-        <div class="product-name">${item.name}</div>
-        <div class="product-price">${item.price}</div>
+        <div class="product-retailer">${esc(item.retailer)}</div>
+        <div class="product-name">${esc(item.name)}</div>
+        <div class="product-price">${esc(item.price)}</div>
       </a>
       <button class="product-details-toggle" onclick="toggleDetails('d${idx}',this)">+ Why this works for you</button>
       <div class="product-details" id="d${idx}">
-        ${item.whyItWorks?`<div class="product-detail-row"><span class="product-detail-label">Why it works</span>${item.whyItWorks}</div>`:''}
-        ${item.sizeNote?`<div class="product-detail-row"><span class="product-detail-label">Size note</span>${item.sizeNote}</div>`:''}
-        ${item.stylingTip?`<div class="product-detail-row"><span class="product-detail-label">Styling tip</span>${item.stylingTip}</div>`:''}
+        ${item.whyItWorks?`<div class="product-detail-row"><span class="product-detail-label">Why it works</span>${esc(item.whyItWorks)}</div>`:''}
+        ${item.sizeNote?`<div class="product-detail-row"><span class="product-detail-label">Size note</span>${esc(item.sizeNote)}</div>`:''}
+        ${item.stylingTip?`<div class="product-detail-row"><span class="product-detail-label">Styling tip</span>${esc(item.stylingTip)}</div>`:''}
       </div>
       <div class="feedback-row">
         <span class="feedback-label">Was this right for you?</span>
-        <button class="feedback-btn" id="up${idx}" onclick="giveFeedback(${idx},'up','${n}')" title="Yes">👍</button>
-        <button class="feedback-btn" id="down${idx}" onclick="giveFeedback(${idx},'down','${n}')" title="No">👎</button>
+        <button class="feedback-btn" id="up${idx}" onclick="giveFeedback(${idx},'up')" title="Yes">👍</button>
+        <button class="feedback-btn" id="down${idx}" onclick="giveFeedback(${idx},'down')" title="No">👎</button>
         <button class="wishlist-save-btn" id="save${idx}" onclick="toggleWishlistItem(${idx})" title="Save to wishlist">♡</button>
       </div>
       <div class="feedback-thanks" id="thanks${idx}"></div>
@@ -3637,6 +3891,214 @@ function setShopLookMode(useAlternative) {
   }
 }
 
+/* Turns the thumbs up/down taps from this session into a line for the prompt.
+   Shared by all four search modes so feedback works everywhere, not just some. */
+function buildFeedbackNote() {
+  const liked = session.feedback.filter(f => f.type === 'up').map(f => f.itemName);
+  const disliked = session.feedback.filter(f => f.type === 'down').map(f => f.itemName);
+  return [
+    liked.length ? `User liked: ${liked.join(', ')}.` : '',
+    disliked.length ? `User disliked: ${disliked.join(', ')}. Avoid similar.` : ''
+  ].filter(Boolean).join(' ');
+}
+
+/* Drops any empty notes and puts a space between the rest, so the prompt reads
+   "Style vibes: Classic. Style muses: Zendaya." rather than running together. */
+function joinNotes(...notes) {
+  return notes.filter(Boolean).join(' ');
+}
+
+/* ── Fit check ────────────────────────────────────────────────────────────
+   Not a product search. The user uploads a piece they're considering buying
+   and we give a verdict on whether it suits their shape and colouring, to
+   head off a regretful purchase (and the return that follows).
+
+   No web_search is needed, so this costs a fraction of a normal search —
+   that's why it's free rather than counted against the search limit.
+   ──────────────────────────────────────────────────────────────────────── */
+const FIT_CHECK_LIMIT = 3;   // free fit checks per browser tab
+
+function setShoppingControlsVisible(visible) {
+  ['sectionClimate', 'sectionBudget', 'sectionAvoid'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = visible ? '' : 'none';
+  });
+}
+
+function handleFitCheckPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    session.fitCheckPhoto = dataUrl.split(',')[1];
+    session.fitCheckMediaType = file.type || 'image/jpeg';
+    document.getElementById('fitCheckDefault').style.display = 'none';
+    document.getElementById('fitCheckPreviewWrap').style.display = 'block';
+    document.getElementById('fitCheckPreview').src = dataUrl;
+  };
+  reader.readAsDataURL(file);
+}
+
+function getFitCheckCount() {
+  try { return parseInt(sessionStorage.getItem('pf_fitchecks') || '0', 10) || 0; }
+  catch(e) { return session.fitCheckCount || 0; }
+}
+
+function incrementFitCheckCount() {
+  const next = getFitCheckCount() + 1;
+  session.fitCheckCount = next;
+  try { sessionStorage.setItem('pf_fitchecks', String(next)); } catch(e) {}
+}
+
+function buildFitCheckPrompt() {
+  const genderCtx = profile.gender === 'men'
+    ? 'The user is a man. Use menswear styling language. Never reference womenswear.'
+    : profile.gender === 'non-binary'
+    ? 'The user is non-binary. Use gender-neutral styling language — focus on silhouette and proportion without gendering garments.'
+    : 'The user is a woman. Use womenswear styling language.';
+
+  const bodyLine = profile.body
+    ? `Body type: ${profile.body}.`
+    : 'Body type: not provided — base your fit comments on general proportion advice and say plainly that a body type would sharpen the answer.';
+  const colourLine = profile.colourTone
+    ? `Colour palette: ${profile.colourTone} tones${profile.colourSeason ? ' (' + profile.colourSeason + ')' : ''}.`
+    : 'Colour palette: not provided — comment on the colour in general terms and say plainly that a colour analysis would sharpen the answer.';
+
+  const notes = joinNotes(
+    profile.vibes.length ? `Style vibes: ${profile.vibes.join(', ')}.` : '',
+    profile.muses.length ? `Style muses: ${profile.muses.join(', ')}.` : '',
+    profile.size ? `Usual size: ${profile.size} ${profile.sizeSystem}.` : '',
+    session.fitCheckContext ? `Context from the user: "${session.fitCheckContext}".` : ''
+  );
+
+  return `You are a warm, honest personal stylist. The user is about to buy the garment or accessory in this photo and wants to know whether it will actually suit them BEFORE they spend money on it. Your job is to prevent a purchase they would regret and return.
+
+${genderCtx}
+
+About the user:
+${bodyLine}
+${colourLine}
+${notes}
+
+Look carefully at the item in the photo. Identify what it is, its colour, fabric, cut and silhouette. Then judge honestly whether it suits this particular person.
+
+Be genuinely honest — a soft "yes" to everything makes this feature worthless and leads to returns. If it is not right for them, say so clearly and kindly, and explain exactly why in terms of cut, proportion or colour. Never criticise the user's body: the garment is what is being judged, never the person wearing it. Talk about what the piece does or doesn't do for their proportions, not about flaws.
+
+Set "verdict" to one of:
+- "yes" — genuinely flattering for their shape and colouring, buy it
+- "maybe" — could work, but only with a specific adjustment (styling, a different colourway, tailoring, sizing)
+- "no" — likely to be returned or left unworn
+
+Fields:
+- "itemName": what the piece is, briefly (e.g. "Oversized double-breasted wool blazer")
+- "headline": one warm sentence giving the verdict in plain language
+- "bodyFit": 2 sentences on how the cut and silhouette work with their proportions
+- "colourFit": 1-2 sentences on how the colour works with their palette
+- "stylingTips": array of 2-3 short, concrete tips to make it work best (or to salvage it)
+- "betterAlternative": if the verdict is "maybe" or "no", a short description of what to look for instead, written so it could be typed straight into a shop search (e.g. "single-breasted wool blazer with a defined waist in camel"). If the verdict is "yes", use an empty string.
+
+Do not use web search. Do not look anything up. Judge only from the photo and the profile above.
+
+Respond ONLY with valid JSON, no markdown and no preamble:
+{"itemName":"...","verdict":"yes","headline":"...","bodyFit":"...","colourFit":"...","stylingTips":["...","..."],"betterAlternative":""}`;
+}
+
+async function runFitCheck() {
+  if (!session.fitCheckPhoto) { alert('Please upload a photo of the item first.'); return; }
+
+  // Free, but capped — after the cap, the same pop-up as "Discover more"
+  if (!isSubscriber() && getFitCheckCount() >= FIT_CHECK_LIMIT) {
+    openGateModal();
+    return;
+  }
+
+  const btn = document.getElementById('searchBtn');
+  const area = document.getElementById('resultsArea');
+  btn.disabled = true;
+  area.innerHTML = `<div class="status-msg"><div class="spinner"></div>Looking at it properly…</div>`;
+
+  try {
+    const response = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: buildFitCheckPrompt(),
+        imageBase64: session.fitCheckPhoto,
+        imageMediaType: session.fitCheckMediaType || 'image/jpeg',
+        mode: 'fitcheck'   // tells api/search: no web search, bigger token budget
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Fit check failed');
+    const r = parseQuizJSON(data.result);
+    incrementFitCheckCount();
+    renderFitCheck(r);
+  } catch(err) {
+    area.innerHTML = `<div class="error-msg">We couldn't read that one — please try a clearer photo of the item. (${esc(err.message)})</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderFitCheck(r) {
+  const area = document.getElementById('resultsArea');
+  const verdict = (r.verdict || 'maybe').toLowerCase();
+  const label = verdict === 'yes' ? 'Yes — this one\u2019s for you'
+              : verdict === 'no'  ? 'Probably not this one'
+              : 'Worth a second thought';
+
+  const tips = Array.isArray(r.stylingTips) ? r.stylingTips : [];
+  const tipsHtml = tips.length
+    ? `<div class="fitcheck-row">
+         <span class="fitcheck-label">How to make it work</span>
+         <ul class="fitcheck-tips">${tips.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+       </div>`
+    : '';
+
+  const alt = (r.betterAlternative || '').trim();
+  const altHtml = alt
+    ? `<div class="fitcheck-alt">
+         <div class="fitcheck-alt-label">What to look for instead</div>
+         <p class="fitcheck-alt-text">${esc(alt)}</p>
+         <button class="fitcheck-alt-btn" onclick="searchBetterAlternative()">Find pieces like this</button>
+       </div>`
+    : '';
+
+  session.fitCheckAlternative = alt;
+
+  const remaining = Math.max(0, FIT_CHECK_LIMIT - getFitCheckCount());
+  const remainingNote = isSubscriber() ? '' :
+    `<p class="image-disclaimer" style="text-align:center;">${remaining} free fit ${remaining === 1 ? 'check' : 'checks'} left in this session.</p>`;
+
+  area.innerHTML = `
+    <div class="fitcheck-card">
+      <div class="fitcheck-verdict fitcheck-${esc(verdict)}">${esc(label)}</div>
+      ${r.itemName ? `<div class="fitcheck-item">${esc(r.itemName)}</div>` : ''}
+      <p class="fitcheck-headline">${esc(r.headline || '')}</p>
+      ${r.bodyFit ? `<div class="fitcheck-row"><span class="fitcheck-label">Cut &amp; proportion</span><p>${esc(r.bodyFit)}</p></div>` : ''}
+      ${r.colourFit ? `<div class="fitcheck-row"><span class="fitcheck-label">Colour</span><p>${esc(r.colourFit)}</p></div>` : ''}
+      ${tipsHtml}
+      ${altHtml}
+    </div>
+    <p class="image-disclaimer">This is one stylist's honest opinion based on a photo — trust your own eye too. We can't judge fabric weight or true colour from an image.</p>
+    ${remainingNote}`;
+}
+
+/* Sends the suggested alternative into the normal Item search. This is a real,
+   paid search, so it goes through the usual limit and paywall. */
+function searchBetterAlternative() {
+  const alt = session.fitCheckAlternative;
+  if (!alt) return;
+  const tile = document.querySelector('#occasionTier0 .occasion-parent[data-id="item"]');
+  if (tile) selectTier0('item', tile);
+  session.specificItem = alt;
+  const input = document.getElementById('specificItemInput');
+  if (input) input.value = alt;
+  document.getElementById('resultsArea').innerHTML = '';
+  window.scrollTo(0, 0);
+}
+
 function buildPhotoSearchPrompt(count, exclude=[]) {
   const currency = document.getElementById('currency').value;
   const priceMin = document.getElementById('priceMin').value;
@@ -3645,10 +4107,15 @@ function buildPhotoSearchPrompt(count, exclude=[]) {
   const sym = syms[currency] || currency;
   const focusHint = session.shopLookFocus ? `The user wants to focus on: "${session.shopLookFocus}".` : 'Identify the main clothing item(s) visible.';
   const vibeNote = profile.vibes.length ? `Style vibes: ${profile.vibes.join(', ')}.` : '';
+  const museNote = profile.muses.length ? `Style muses: ${profile.muses.join(', ')}.` : '';
+  const retailerNote = profile.retailers.length ? `User's favourite retailers/websites: ${profile.retailers.join(', ')}. Feel free to include items from these where a good match exists, but do NOT limit results to only these — include other well-matched retailers too so the user discovers new brands.` : '';
   const colourNote = profile.colourTone ? `Colour palette: ${profile.colourTone} tones${profile.colourSeason ? ' (' + profile.colourSeason + ')' : ''}.` : '';
+  const climateNote = session.climate ? `Climate: ${session.climate}.` : '';
   const exclNote = session.exclusions.length ? `Exclude: ${session.exclusions.join(', ')}.` : '';
   const localNote = session.localOnly ? 'Local retailers only.' : '';
   const excludeItems = exclude.length ? `Do NOT repeat these items already shown: ${exclude.join(', ')}.` : '';
+  const feedbackNote = buildFeedbackNote();
+  const notes = joinNotes(vibeNote, museNote, retailerNote, colourNote, climateNote, exclNote, localNote, feedbackNote, excludeItems);
   const alternativeNote = session.shopLookUseAlternative && session.shopLookAlternative
     ? `IMPORTANT: The user prefers a flattering alternative for their ${profile.body} body type. Instead of the exact item shown, find similar items that are specifically flattering for ${profile.body}: ${session.shopLookAlternative}.`
     : 'Find items that closely match what is visible in the photo.';
@@ -3667,9 +4134,11 @@ User profile:
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
-${vibeNote}${colourNote}${exclNote}${localNote}${excludeItems}
+${notes}
 
 First, identify the key clothing items in the photo. Then search for similar real products currently available to purchase. In whyItWorks, explain both how this matches the look in the photo AND how it flatters their body type.
+
+URL rules — follow strictly: only use a product URL that appeared directly in your web search results. Never guess, construct, shorten, or modify a URL. The URL must point to a specific product page, not a homepage, category page, or search results page. If you cannot find a real, specific product-page URL for an item, do not include that item at all — search for a different one instead.
 
 Use at most 3 web searches total.
 
@@ -3693,6 +4162,8 @@ function buildPairingPrompt(count, exclude=[]) {
   const exclNote = session.exclusions.length ? `Exclude: ${session.exclusions.join(', ')}.` : '';
   const localNote = session.localOnly ? 'Local retailers only.' : '';
   const excludeItems = exclude.length ? `Do NOT repeat these items already shown: ${exclude.join(', ')}.` : '';
+  const feedbackNote = buildFeedbackNote();
+  const notes = joinNotes(vibeNote, museNote, retailerNote, colourNote, climateNote, exclNote, localNote, feedbackNote, excludeItems);
   const categoryNote = session.pairingCategory && session.pairingCategory !== 'Anything'
     ? `The user specifically wants ${session.pairingCategory.toLowerCase()} suggestions that pair with the item shown.`
     : 'The user is open to any category of item that pairs well with the one shown.';
@@ -3711,7 +4182,7 @@ User profile:
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
-${vibeNote}${museNote}${retailerNote}${colourNote}${climateNote}${exclNote}${localNote}${excludeItems}
+${notes}
 
 In whyItWorks, explain how this item pairs with the uploaded piece (colour, style, formality) AND how it flatters their body type.
 
@@ -3740,12 +4211,8 @@ function buildPrompt(count, exclude=[]) {
   const exclNote = session.exclusions.length ? `Exclude: ${session.exclusions.join(', ')}.` : '';
   const localNote = session.localOnly ? 'Local retailers only.' : '';
   const excludeItems = exclude.length ? `Do NOT repeat these items already shown: ${exclude.join(', ')}.` : '';
-  const liked = session.feedback.filter(f=>f.type==='up').map(f=>f.itemName);
-  const disliked = session.feedback.filter(f=>f.type==='down').map(f=>f.itemName);
-  const feedbackNote = [
-    liked.length ? `User liked: ${liked.join(', ')}.` : '',
-    disliked.length ? `User disliked: ${disliked.join(', ')}. Avoid similar.` : ''
-  ].filter(Boolean).join(' ');
+  const feedbackNote = buildFeedbackNote();
+  const notes = joinNotes(vibeNote, museNote, retailerNote, colourNote, climateNote, exclNote, localNote, feedbackNote, excludeItems);
 
   // Specific item search mode
   if (session.occasionParent === 'specific' && session.specificItem) {
@@ -3761,7 +4228,7 @@ User profile:
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
-${vibeNote}${museNote}${retailerNote}${colourNote}${climateNote}${exclNote}${localNote}${feedbackNote}${excludeItems}
+${notes}
 
 Search for this specific item across well-known retailers. Match the description as closely as possible. If an exact match isn't available, find the closest alternative and note this in whyItWorks. For the whyItWorks field, explain how this item matches the description AND why it flatters their body type.
 
@@ -3781,7 +4248,7 @@ Find ${count} real clothing items:
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
-${vibeNote}${museNote}${retailerNote}${colourNote}${climateNote}${exclNote}${localNote}${feedbackNote}${excludeItems}
+${notes}
 
 Use at most 3 web searches total. Prioritise well-known retailers with international shipping.
 
@@ -3867,17 +4334,20 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl) {
   const MAX_ROUNDS = 3;   // max replacement attempts
   let good = [];
   let tried = new Set(items.map(i => i.name));
-  let currentBatch = items;
+  let seenUrls = new Set();          // stops the same product appearing twice
+  let currentBatch = dedupeItems(items, seenUrls);
 
   for (let round = 0; round <= MAX_ROUNDS; round++) {
     if (statusEl) statusEl.textContent = round === 0
       ? 'Checking product links…'
       : 'Replacing broken links…';
 
+    if (!currentBatch.length) break;
+
     // Ask the server to check every URL in the current batch
-    let checkRes, checkData;
+    let checkData;
     try {
-      checkRes = await fetch('/api/search', {
+      const checkRes = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3887,13 +4357,20 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl) {
       });
       checkData = await checkRes.json();
     } catch(e) {
-      // If verification itself fails (e.g. network hiccup), just return what we have
+      checkData = null;
+    }
+
+    // If the checker itself is broken (network error, or the server replied
+    // with something other than a list of results), we cannot tell live links
+    // from dead ones. Showing the unchecked items is far better than showing
+    // the user nothing at all — the on-screen disclaimer covers bad links.
+    if (!checkData || !Array.isArray(checkData.results)) {
       return good.concat(currentBatch).slice(0, targetCount);
     }
 
     // Split the batch into live vs dead
     const liveSet = new Set(
-      (checkData.results || []).filter(r => r.alive).map(r => r.url)
+      checkData.results.filter(r => r.alive).map(r => r.url)
     );
     currentBatch.forEach(item => {
       if (liveSet.has(item.url)) good.push(item);
@@ -3907,32 +4384,55 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl) {
 
     // How many more do we need?
     const needed = targetCount - good.length;
-    const exclude = [...tried].map(n => n); // names already tried
+    const exclude = [...tried];   // names already tried
 
     // Ask Claude for replacement products
-    const { prompt, imageBase64, imageMediaType } = buildMoreFn(needed + 4, exclude);
-    let moreRes, moreData;
+    let extras = [];
     try {
-      const body = { prompt };
+      const { prompt, imageBase64, imageMediaType } = buildMoreFn(needed + 4, exclude);
+      const body = { prompt, mode: 'search' };
       if (imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
-      moreRes = await fetch('/api/search', {
+      const moreRes = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      moreData = await moreRes.json();
-    } catch(e) { break; }
+      const moreData = await moreRes.json();
+      // parseItems throws if Claude replies with something that isn't a list.
+      // That must not throw away the good results we already have.
+      extras = parseItems(moreData.result || '[]');
+    } catch(e) {
+      break;
+    }
 
-    const extras = parseItems(moreData.result || '[]');
-    extras.forEach(i => tried.add(i.name));
-    currentBatch = extras; // verify these next round
+    if (!extras.length) break;
+    extras.forEach(i => { if (i && i.name) tried.add(i.name); });
+    currentBatch = dedupeItems(extras, seenUrls); // verify these next round
   }
 
   return good.slice(0, targetCount);
 }
 
+/* Drops anything malformed, and anything whose product page we've already
+   used in this search — the AI sometimes returns the same product under a
+   slightly different name, which used to slip past the name-only check. */
+function dedupeItems(items, seenUrls) {
+  if (!Array.isArray(items)) return [];
+  const out = [];
+  items.forEach(item => {
+    if (!item || !item.url || !item.name) return;
+    const key = String(item.url).split('#')[0].replace(/\/$/, '').toLowerCase();
+    if (seenUrls.has(key)) return;
+    seenUrls.add(key);
+    out.push(item);
+  });
+  return out;
+}
+
 async function findOutfits() {
   if (!session.occasionParent) { alert('Please select an occasion.'); return; }
+  // Fit check isn't a product search — it has its own flow and no price range
+  if (session.occasionParent === 'fitcheck') { return runFitCheck(); }
   if (session.occasionParent === 'specific') {
     const desc = document.getElementById('specificItemInput') ? document.getElementById('specificItemInput').value.trim() : session.specificItem;
     session.specificItem = desc;
@@ -3955,6 +4455,11 @@ async function findOutfits() {
   }
 
   allItems = [];
+  // Feedback is stored against the card position (0, 1, 2…). A new search
+  // reuses those positions, so old thumbs up/down entries would get mixed in
+  // with the new ones. Clear them as each new search begins; feedback still
+  // carries through "Discover more" within the same set of results.
+  session.feedback = [];
   const btn = document.getElementById('searchBtn');
   btn.disabled = true;
   const area = document.getElementById('resultsArea');
@@ -3966,7 +4471,7 @@ async function findOutfits() {
     const usesImage = isPhotoSearch || isPairingSearch;
     const buildFn = isPhotoSearch ? buildPhotoSearchPrompt : (isPairingSearch ? buildPairingPrompt : buildPrompt);
     const { prompt, imageBase64, imageMediaType } = buildFn(9); // ask for 9 so we have spares if some fail
-    const body = { prompt };
+    const body = { prompt, mode: 'search' };
     if (usesImage && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
 
     // Step 1 — get results from Claude
@@ -3987,6 +4492,20 @@ async function findOutfits() {
     area.appendChild(statusEl);
     const items = await verifyAndFill(rawItems, 6, buildFn, statusEl);
     allItems = items;
+
+    // If nothing survived, don't charge the user their free search for an
+    // empty screen — show a real message and let them try again.
+    if (!items.length) {
+      area.innerHTML = `
+        <div class="status-msg" style="text-align:center;line-height:1.7;">
+          We couldn't find pieces we were confident in for this search.<br>
+          This usually means the items we found were already sold out.<br>
+          <span style="display:block;margin-top:0.75rem;font-size:12px;color:var(--dust);">
+            Try widening your budget, changing the occasion, or removing an exclusion.
+          </span>
+        </div>`;
+      return;
+    }
 
     // Count this search
     await incrementSearchCount();
@@ -4015,7 +4534,135 @@ async function findOutfits() {
   }
 }
 
+/* ── Discover more gate ─────────────────────────────────────────
+   Free users tapping "Discover more" get a pop-up instead of another search.
+   Each "Discover more" costs a real AI search, so this stops free users
+   running up unlimited cost.
+
+   Set DISCOVER_MORE_GATE to:
+     'waitlist' — collect name + email (use this until Stripe is connected)
+     'signup'   — push people to create an account / subscribe instead
+   Subscribers are never shown this pop-up either way.
+   ─────────────────────────────────────────────────────────── */
+const DISCOVER_MORE_GATE = 'waitlist';   // 'waitlist' | 'signup'
+
+function openGateModal() {
+  const modal = document.getElementById('gateModal');
+  const isLoggedIn = !!(clerkInstance && clerkInstance.user);
+
+  // Always reset to the form view in case it was left on "thank you"
+  document.getElementById('gateFormWrap').style.display = 'block';
+  document.getElementById('gateThanksWrap').style.display = 'none';
+  document.getElementById('gateError').textContent = '';
+
+  const fields = document.getElementById('gateWaitlistFields');
+  const btn = document.getElementById('gateBtn');
+  const sub = document.getElementById('gateSub');
+  const eyebrow = document.getElementById('gateEyebrow');
+  const heading = document.getElementById('gateHeading');
+
+  if (DISCOVER_MORE_GATE === 'signup') {
+    eyebrow.textContent = 'More where that came from';
+    heading.innerHTML = 'Want to see<br>the full edit?';
+    sub.textContent = 'Discovering more pieces is part of a Prêt-à-Fit subscription — unlimited searches, saved looks, and your full style profile.';
+    fields.style.display = 'none';
+    btn.textContent = isLoggedIn ? 'Subscribe to continue' : 'Sign up to continue';
+    btn.disabled = false;
+  } else {
+    eyebrow.textContent = 'More where that came from';
+    heading.innerHTML = 'Want to see<br>the full edit?';
+    sub.textContent = isLoggedIn
+      ? "We're opening up unlimited styling very soon. Confirm your details and we'll let you know the moment it's ready."
+      : "We're opening up unlimited styling very soon. Leave your details and we'll let you know the moment it's ready.";
+    fields.style.display = 'block';
+    btn.textContent = 'Join the waitlist';
+    btn.disabled = false;
+
+    // Pre-fill from the signed-in account so it's one tap
+    const nameEl = document.getElementById('gateName');
+    const emailEl = document.getElementById('gateEmail');
+    if (isLoggedIn) {
+      const u = clerkInstance.user;
+      if (!nameEl.value) {
+        nameEl.value = [u.firstName, u.lastName].filter(Boolean).join(' ')
+          || u.username || '';
+      }
+      if (!emailEl.value) {
+        emailEl.value = u.primaryEmailAddress?.emailAddress || '';
+      }
+    }
+  }
+
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeGateModal() {
+  document.getElementById('gateModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Escape key closes the pop-up
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('gateModal');
+    if (modal && modal.classList.contains('open')) closeGateModal();
+  }
+});
+
+async function submitGate() {
+  // Sign-up mode: send them to the auth screen instead of collecting an email
+  if (DISCOVER_MORE_GATE === 'signup') {
+    closeGateModal();
+    if (clerkInstance && clerkInstance.user) { handleSubscribe(); }
+    else { goToSignIn('screen-app'); }
+    return;
+  }
+
+  const name = document.getElementById('gateName').value.trim();
+  const email = document.getElementById('gateEmail').value.trim();
+  const errEl = document.getElementById('gateError');
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  errEl.textContent = '';
+  if (!name) { errEl.textContent = 'Please enter your name.'; return; }
+  if (!emailPattern.test(email)) { errEl.textContent = 'Please enter a valid email address.'; return; }
+
+  const btn = document.getElementById('gateBtn');
+  btn.disabled = true;
+  btn.textContent = 'Joining…';
+
+  try {
+    const response = await fetch('/api/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, source: 'Discover more' })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Something went wrong');
+    showGateThanks();
+  } catch (err) {
+    // Same fallback as the coming-soon form — never lose a signup silently
+    const subject = encodeURIComponent('Waitlist signup (Discover more)');
+    const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}\nSource: Discover more`);
+    window.location.href = `mailto:support@pret-a-fit.com?subject=${subject}&body=${body}`;
+    showGateThanks();
+  }
+}
+
+function showGateThanks() {
+  document.getElementById('gateFormWrap').style.display = 'none';
+  document.getElementById('gateThanksWrap').style.display = 'block';
+}
+
 async function loadMore() {
+  // Every "Discover more" is a real, paid AI search. Free users get the
+  // pop-up instead — no search is run and nothing is charged.
+  if (!isSubscriber()) {
+    openGateModal();
+    return;
+  }
+
   const btn = document.querySelector('.btn-load-more');
   if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
   try {
@@ -4027,7 +4674,7 @@ async function loadMore() {
 
     // Ask for 8, so we have spares after verification
     const { prompt, imageBase64, imageMediaType } = buildFn(8, exclude);
-    const body = { prompt };
+    const body = { prompt, mode: 'search' };
     if (usesImage && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
 
     if (btn) btn.textContent = 'Finding more…';
@@ -4930,13 +5577,12 @@ function renderWishlistItems() {
   }
   empty.style.display = 'none';
   grid.innerHTML = wishlistItems.map((item, i) => {
-    const n = (item.name || '').replace(/'/g, "\'");
     return '<div class="product-card">' +
-      '<a href="' + item.url + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">' +
+      '<a href="' + esc(item.url) + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">' +
         '<div class="product-image-wrap">' + makeImgHtml(item, 'w' + i) + '</div>' +
-        '<div class="product-retailer">' + (item.retailer || '') + '</div>' +
-        '<div class="product-name">' + (item.name || '') + '</div>' +
-        '<div class="product-price">' + (item.price || '') + '</div>' +
+        '<div class="product-retailer">' + esc(item.retailer || '') + '</div>' +
+        '<div class="product-name">' + esc(item.name || '') + '</div>' +
+        '<div class="product-price">' + esc(item.price || '') + '</div>' +
       '</a>' +
       '<div class="feedback-row" style="margin-top:auto;">' +
         '<span class="feedback-label">Saved ' + formatSavedDate(item.savedAt) + '</span>' +
@@ -5443,11 +6089,12 @@ async function init() {
     setTimeout(() => document.getElementById('screen-comingsoon').classList.add('visible'), 50);
     return; // nothing else runs — no Clerk, no search access, nothing beyond this screen
   }
-  if (COMING_SOON_MODE && previewBypass) {
-    // Swap straight to the real hero for preview visits
-    document.getElementById('screen-comingsoon').classList.remove('active');
-    document.getElementById('screen-hero').classList.add('active');
-  }
+  // Whenever the gate is NOT showing — either it's switched off entirely, or
+  // this is a ?preview=1 visit — hand control over to the real hero screen.
+  // (The coming-soon screen is marked "active" in the HTML, so it has to be
+  // switched off here or nothing else can ever become visible.)
+  document.getElementById('screen-comingsoon').classList.remove('active', 'visible');
+  document.getElementById('screen-hero').classList.add('active');
 
   // Show hero
   setTimeout(() => document.getElementById('screen-hero').classList.add('visible'), 50);
@@ -5518,8 +6165,6 @@ async function joinWaitlist() {
 }
 </script>
 
-
-<!-- ══ SCREEN: WISHLIST ══ -->
 
 <!-- ══ SCREEN: PROFILE ══ -->
 <div class="screen" id="screen-profile">
@@ -5847,5 +6492,41 @@ async function joinWaitlist() {
     </div>
   </div>
 </div>
+
+<!-- ══ MODAL: DISCOVER MORE GATE ══ -->
+<!-- Shown when a free user taps "Discover more". While DISCOVER_MORE_GATE is
+     'waitlist' this collects an email; switch it to 'signup' once Stripe is
+     live to push people to create an account instead. -->
+<div class="pf-modal-overlay" id="gateModal" onclick="if(event.target===this)closeGateModal()">
+  <div class="pf-modal" role="dialog" aria-modal="true" aria-labelledby="gateHeading">
+    <button class="pf-modal-close" onclick="closeGateModal()" aria-label="Close">&times;</button>
+
+    <div id="gateFormWrap">
+      <div class="paywall-eyebrow" id="gateEyebrow">More where that came from</div>
+      <h2 class="paywall-heading" id="gateHeading">Want to see<br>the full edit?</h2>
+      <p class="paywall-sub" id="gateSub" style="margin-bottom:1.5rem;"></p>
+
+      <div id="gateWaitlistFields">
+        <input class="text-input" type="text" id="gateName" placeholder="Your name" autocomplete="name" />
+        <input class="text-input" type="email" id="gateEmail" placeholder="Your email" autocomplete="email" />
+      </div>
+
+      <button class="pf-modal-btn" id="gateBtn" onclick="submitGate()">Join the waitlist</button>
+      <div class="pf-modal-error" id="gateError"></div>
+      <button class="pf-modal-dismiss" onclick="closeGateModal()">Not right now</button>
+    </div>
+
+    <div id="gateThanksWrap" style="display:none;">
+      <div class="paywall-eyebrow">Thank you</div>
+      <h2 class="paywall-heading">You're on the list</h2>
+      <p class="paywall-sub" style="margin-bottom:1.5rem;">
+        We'll be in touch the moment unlimited styling opens up. Until then, the
+        pieces you've already found are still yours to browse.
+      </p>
+      <button class="pf-modal-btn" onclick="closeGateModal()">Back to my results</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
