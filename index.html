@@ -2816,7 +2816,9 @@ select.text-input { cursor: pointer; }
       </div>
       <div class="field" style="grid-column:1/-1;">
         <label>Shipping location</label>
-        <input class="text-input" type="text" id="locationInput" placeholder="e.g. Singapore, London, Dubai" />
+        <input class="text-input" type="text" id="locationInput" placeholder="e.g. London, Dubai, São Paulo — anywhere" />
+        <div class="field-hint">Any city or country in the world — we use this to find retailers that actually ship to you.</div>
+        <div class="quick-row" id="locationQuickRow"></div>
       </div>
     </div>
     <div class="screen-nav">
@@ -3260,6 +3262,32 @@ function updateRetailerQuick() {
     set.map(r => `<button class="quick-chip" onclick="quickRetailer('${r}')">${r}</button>`).join('');
 }
 
+/* Example cities for the shipping location field. These are prompts, not a
+   limit — the field accepts any city or country. Chosen to span regions so
+   it reads as international at a glance rather than centred on one market. */
+const LOCATION_QUICK = [
+  // The six requested, first
+  'New York', 'London', 'Paris', 'Toronto', 'Sydney', 'Dubai',
+  // Then enough spread that the list reads as genuinely global rather than
+  // Western-plus-Dubai: East Asia, South Asia, South America, Africa.
+  'Tokyo', 'Hong Kong', 'Milan', 'Mumbai', 'São Paulo', 'Johannesburg'
+];
+
+function renderLocationQuick(inputId, rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  row.innerHTML = LOCATION_QUICK.map(c =>
+    `<button class="quick-chip" onclick="quickLocation('${c}','${inputId}')">${c}</button>`
+  ).join('');
+}
+
+// Unlike retailers (a list), shipping location is a single value — tapping a
+// chip replaces whatever is in the box rather than appending to it.
+function quickLocation(value, inputId) {
+  const input = document.getElementById(inputId);
+  if (input) { input.value = value; input.focus(); }
+}
+
 function addRetailer() {
   const i = document.getElementById('retailerInput'), t = i.value.trim();
   if (!t || profile.retailers.includes(t)) { i.value = ''; return; }
@@ -3294,6 +3322,7 @@ function updateSizeOptions() {
 }
 document.getElementById('sizeSystem').addEventListener('change', updateSizeOptions);
 updateSizeOptions();
+renderLocationQuick('locationInput', 'locationQuickRow');
 
 /* ── Occasions ── */
 const occasions = [
@@ -6005,10 +6034,13 @@ function editProfileField(field) {
         </div>
         <div class="field" style="grid-column:1/-1;">
           <label>Shipping location</label>
-          <input class="text-input" type="text" id="profileLocationEdit" value="${profile.location || ''}" placeholder="e.g. Singapore, London, Dubai" />
+          <input class="text-input" type="text" id="profileLocationEdit" value="${profile.location || ''}" placeholder="e.g. London, Dubai, São Paulo — anywhere" />
+          <div class="quick-row" id="profileLocationQuickRow"></div>
         </div>
       </div>`;
   }
+
+  renderLocationQuick('profileLocationEdit', 'profileLocationQuickRow');
 
   panel.style.display = 'block';
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
