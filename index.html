@@ -2815,6 +2815,11 @@ select.text-input { cursor: pointer; }
         <select class="text-input" id="sizeValue"></select>
       </div>
       <div class="field" style="grid-column:1/-1;">
+        <label>Height <span style="color:var(--dust);font-weight:400;">(optional)</span></label>
+        <div class="chip-grid" id="heightRow"></div>
+        <div class="field-hint">Changes where hems, inseams and sleeves actually land — and tells us whether to look at petite or tall ranges.</div>
+      </div>
+      <div class="field" style="grid-column:1/-1;">
         <label>Shipping location</label>
         <input class="text-input" type="text" id="locationInput" placeholder="e.g. London, Dubai, São Paulo — anywhere" />
         <div class="field-hint">Any city or country in the world — we use this to find retailers that actually ship to you.</div>
@@ -3086,7 +3091,7 @@ async function initClerk() {
 /* ── State ── */
 const profile = {
   gender: '', body: '', colourMethod: '', colourTone: '', colourSeason: '',
-  vibes: [], muses: [], retailers: [], sizeSystem: 'US', size: '', location: ''
+  vibes: [], muses: [], retailers: [], sizeSystem: 'US', size: '', location: '', height: ''
 };
 const session = {
   occasionParent: '', occasionChild: '', climate: '',
@@ -3113,6 +3118,58 @@ function closeFaq() {
   goTo(faqReturnScreen);
 }
 
+/* ── Height ───────────────────────────────────────────────────────────────
+   Stored as a band ('shorter' | 'average' | 'taller') rather than a number:
+   one tap instead of typing, no feet-vs-centimetres mess, and it maps onto
+   the petite / regular / tall ranges retailers actually sell.
+
+   The bands are gender-relative on purpose — 5'8" is tall for a woman and
+   average for a man, so fixed labels would read as wrong to half of users. */
+const HEIGHT_BANDS = {
+  women: [
+    { value: 'shorter', label: 'Petite',  sub: "under 5'4\" · 163cm" },
+    { value: 'average', label: 'Average', sub: "5'4\"–5'8\" · 163–173cm" },
+    { value: 'taller',  label: 'Tall',    sub: "over 5'8\" · 173cm" }
+  ],
+  men: [
+    { value: 'shorter', label: 'Shorter', sub: "under 5'8\" · 173cm" },
+    { value: 'average', label: 'Average', sub: "5'8\"–6'0\" · 173–183cm" },
+    { value: 'taller',  label: 'Tall',    sub: "over 6'0\" · 183cm" }
+  ],
+  'non-binary': [
+    { value: 'shorter', label: 'Shorter', sub: "under 5'6\" · 168cm" },
+    { value: 'average', label: 'Average', sub: "5'6\"–5'10\" · 168–178cm" },
+    { value: 'taller',  label: 'Taller',  sub: "over 5'10\" · 178cm" }
+  ]
+};
+
+function getHeightBands() {
+  return HEIGHT_BANDS[profile.gender] || HEIGHT_BANDS['non-binary'];
+}
+
+function renderHeightOptions(rowId) {
+  const row = document.getElementById(rowId || 'heightRow');
+  if (!row) return;
+  row.innerHTML = getHeightBands().map(b =>
+    `<button class="chip${profile.height === b.value ? ' selected' : ''}" data-value="${b.value}" onclick="selectSingle(this,'height')">${b.label}<span style="display:block;font-size:9px;color:var(--dust);letter-spacing:0.04em;margin-top:2px;">${b.sub}</span></button>`
+  ).join('');
+}
+
+/* The line handed to the AI. Spells out what the band means in practice so
+   the model acts on it rather than just acknowledging it. */
+function heightNote() {
+  if (!profile.height) return 'Height: not specified — stick to standard lengths and do not assume petite or tall ranges.';
+  const band = getHeightBands().find(b => b.value === profile.height);
+  const range = band ? band.sub.replace(' · ', ' / ') : '';
+  if (profile.height === 'shorter') {
+    return `Height: ${range}. Prefer petite / short ranges where a retailer offers them. Check inseam, hem and sleeve lengths — avoid pieces whose proportions would overwhelm a shorter frame (very long jackets, oversized volume, maxi lengths that would drag). Mention length in sizeNote where it matters.`;
+  }
+  if (profile.height === 'taller') {
+    return `Height: ${range}. Prefer tall / long ranges where a retailer offers them. Check that inseams, sleeves and hems are long enough — avoid pieces that would read as cropped or short when they aren't meant to. Mention length in sizeNote where it matters.`;
+  }
+  return `Height: ${range}. Standard lengths should generally work.`;
+}
+
 /* ── Screen navigation ── */
 const SCREENS = ['screen-comingsoon','screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-manual','screen-colour-quiz','screen-style','screen-muses','screen-retailers','screen-sizing','screen-auth','screen-app','screen-wishlist','screen-profile','screen-faq'];
 const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-body-manual','screen-colour','screen-colour-manual','screen-style','screen-muses','screen-retailers','screen-sizing'];
@@ -3130,6 +3187,8 @@ function goTo(id) {
 
 function showScreen(id) {
   const el = document.getElementById(id);
+  // Height bands depend on the gender chosen earlier, so build them on entry
+  if (id === 'screen-sizing') renderHeightOptions('heightRow');
   el.classList.add('active');
   setTimeout(() => el.classList.add('visible'), 20);
   updateDots(id);
@@ -3569,7 +3628,8 @@ async function saveProfileToClerk() {
           retailers: profile.retailers,
           sizeSystem: profile.sizeSystem,
           size: profile.size,
-          location: profile.location
+          location: profile.location,
+          height: profile.height
         }
       }
     });
@@ -4078,6 +4138,7 @@ function buildFitCheckPrompt() {
   const bodyLine = profile.body
     ? `Body type: ${profile.body}.`
     : 'Body type: not provided — base your fit comments on general proportion advice and say plainly that a body type would sharpen the answer.';
+  const heightLine = heightNote();
   const colourLine = profile.colourTone
     ? `Colour palette: ${profile.colourTone} tones${profile.colourSeason ? ' (' + profile.colourSeason + ')' : ''}.`
     : 'Colour palette: not provided — comment on the colour in general terms and say plainly that a colour analysis would sharpen the answer.';
@@ -4095,10 +4156,13 @@ ${genderCtx}
 
 About the user:
 ${bodyLine}
+${heightLine}
 ${colourLine}
 ${notes}
 
 Look carefully at the item in the photo. Identify what it is, its colour, fabric, cut and silhouette. Then judge honestly whether it suits this particular person.
+
+Pay attention to length and proportion against their height: where a hem, inseam or sleeve will actually land on them is one of the most common reasons a piece gets returned.
 
 Be genuinely honest — a soft "yes" to everything makes this feature worthless and leads to returns. If it is not right for them, say so clearly and kindly, and explain exactly why in terms of cut, proportion or colour. Never criticise the user's body: the garment is what is being judged, never the person wearing it. Talk about what the piece does or doesn't do for their proportions, not about flaws.
 
@@ -4248,6 +4312,7 @@ ${alternativeNote}
 User profile:
 - Gender: ${profile.gender}
 - Body type: ${profile.body}
+- ${heightNote()}
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
@@ -4296,6 +4361,7 @@ ${categoryNote}
 User profile:
 - Gender: ${profile.gender}
 - Body type: ${profile.body}
+- ${heightNote()}
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
@@ -4342,6 +4408,7 @@ The user is searching for a specific item they have described. Find ${count} rea
 User profile:
 - Gender: ${profile.gender}
 - Body: ${profile.body}
+- ${heightNote()}
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
@@ -4361,6 +4428,7 @@ Use at most 3 web searches total.
 Find ${count} real clothing items:
 - Gender: ${profile.gender}
 - Body: ${profile.body}
+- ${heightNote()}
 - Occasion: ${occasion}
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
@@ -5934,6 +6002,8 @@ function openProfile() {
   document.getElementById('profileSize').textContent = profile.size || '—';
   document.getElementById('profileSizeSystem').textContent = profile.sizeSystem || '—';
   document.getElementById('profileLocation').textContent = profile.location || '—';
+  const hBand = getHeightBands().find(b => b.value === profile.height);
+  document.getElementById('profileHeight').textContent = hBand ? `${hBand.label} (${hBand.sub})` : '—';
 
   // Hide any open edit panel
   closeProfileEdit();
@@ -6035,12 +6105,17 @@ function editProfileField(field) {
         <div class="field" style="grid-column:1/-1;">
           <label>Shipping location</label>
           <input class="text-input" type="text" id="profileLocationEdit" value="${profile.location || ''}" placeholder="e.g. London, Dubai, São Paulo — anywhere" />
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>Height <span style="color:var(--dust);font-weight:400;">(optional)</span></label>
+          <div class="chip-grid" id="profileHeightRow"></div>
           <div class="quick-row" id="profileLocationQuickRow"></div>
         </div>
       </div>`;
   }
 
   renderLocationQuick('profileLocationEdit', 'profileLocationQuickRow');
+  renderHeightOptions('profileHeightRow');
 
   panel.style.display = 'block';
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -6154,6 +6229,7 @@ function saveProfileEdit() {
     profile.sizeSystem = document.getElementById('profileSizeSysEdit').value;
     profile.size = document.getElementById('profileSizeEdit').value;
     profile.location = document.getElementById('profileLocationEdit').value.trim();
+    // profile.height is set directly by selectSingle() when a band is tapped
   }
 
   profileTempValues = {};
@@ -6376,6 +6452,11 @@ async function joinWaitlist() {
       </div>
 
       <div class="profile-row">
+        <div class="profile-row-label">Height</div>
+        <div class="profile-row-value" id="profileHeight">—</div>
+        <button class="profile-row-action" onclick="editProfileField('sizing')">Edit</button>
+      </div>
+      <div class="profile-row">
         <div class="profile-row-label">Ships to</div>
         <div class="profile-row-value" id="profileLocation">—</div>
         <button class="profile-row-action" onclick="editProfileField('sizing')">Edit</button>
@@ -6578,7 +6659,7 @@ async function joinWaitlist() {
 
       <div class="privacy-section">
         <div class="privacy-heading">What we collect</div>
-        <p class="editorial-p">When you use Prêt-à-Fit, you provide us with style preferences — your body type, sizing, location, occasion, colour preferences and style inspirations. This information is used solely to generate clothing recommendations for you. We also collect your email address if you create an account or contact us.</p>
+        <p class="editorial-p">When you use Prêt-à-Fit, you provide us with style preferences — your body type, height range, sizing, location, occasion, colour preferences and style inspirations. This information is used solely to generate clothing recommendations for you. We also collect your email address if you create an account or contact us.</p>
       </div>
 
       <div class="privacy-section">
