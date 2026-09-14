@@ -1889,6 +1889,139 @@ select.text-input { cursor: pointer; }
   border-top: 0.5px solid var(--linen);
 }
 
+/* ── Shopping guide (profile) ────────────────────────────────────────────── */
+.guide-body { padding: 1.25rem 1rem 1.5rem; }
+.guide-intro {
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--charcoal);
+  margin: 0 0 1.25rem;
+}
+.guide-headline {
+  font-family: Georgia, serif;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: var(--ink);
+  margin: 0 0 1.75rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 0.5px solid var(--linen);
+}
+.guide-block { margin-bottom: 1.6rem; }
+.guide-block:last-child { margin-bottom: 0; }
+.guide-label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 0.55rem;
+}
+.guide-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--charcoal);
+}
+.guide-list li { margin-bottom: 0.45rem; }
+.guide-list li:last-child { margin-bottom: 0; }
+.guide-colours {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.guide-colours li {
+  padding: 0.55rem 0;
+  border-bottom: 0.5px solid var(--linen);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--charcoal);
+}
+.guide-colours li:last-child { border-bottom: none; }
+.guide-colour-name {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 0.2rem;
+}
+.guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 0.5px solid var(--linen);
+}
+.guide-btn {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--parchment);
+  background: var(--ink);
+  border: 0.5px solid var(--ink);
+  padding: 9px 18px;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: background 0.15s;
+}
+.guide-btn:hover { background: var(--bark); border-color: var(--bark); }
+.guide-btn:disabled { background: var(--dust); border-color: var(--dust); cursor: not-allowed; }
+.guide-btn-quiet {
+  color: var(--bark);
+  background: none;
+  border: 0.5px solid var(--dust);
+}
+.guide-btn-quiet:hover { background: var(--linen); color: var(--ink); }
+.guide-note {
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--dust);
+  margin: 1.25rem 0 0;
+}
+.guide-stale {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--bark);
+  background: var(--linen);
+  border: 0.5px solid var(--dust);
+  padding: 0.75rem 0.9rem;
+  margin: 0 0 1.5rem;
+}
+.guide-locked-eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bark);
+  margin-bottom: 0.75rem;
+}
+.guide-locked-heading {
+  font-family: Georgia, serif;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: var(--ink);
+  margin: 0 0 0.75rem;
+  font-weight: 400;
+}
+.guide-locked-list {
+  margin: 0 0 1.5rem;
+  padding-left: 1.1rem;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--charcoal);
+}
+.guide-inline-link {
+  background: none;
+  border: none;
+  color: var(--bark);
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+  text-decoration: underline;
+  padding: 0;
+}
+
 </style>
 </head>
 <body>
@@ -3813,6 +3946,11 @@ function handleUserMenu() {
   const confirmed = confirm('Sign out of Prêt-à-Fit?');
   if (confirmed) {
     clerkInstance.signOut().then(() => {
+      // Signing out doesn't reload the page, so anything cached in memory
+      // survives it. The shopping guide is personal, so it must be dropped —
+      // otherwise the next person to sign in on this device would briefly see
+      // the previous user's guide on the Profile screen.
+      shoppingGuide = null;
       document.getElementById('userAvatarWrap').style.display = 'none';
       goTo('screen-hero');
     });
@@ -6005,6 +6143,10 @@ function openProfile() {
   const hBand = getHeightBands().find(b => b.value === profile.height);
   document.getElementById('profileHeight').textContent = hBand ? `${hBand.label} (${hBand.sub})` : '—';
 
+  // Shopping guide — draws the locked / empty / written state as appropriate.
+  // Never generates on its own: that costs money, so it waits to be asked.
+  renderShoppingGuide();
+
   // Hide any open edit panel
   closeProfileEdit();
   goTo('screen-profile');
@@ -6273,6 +6415,386 @@ async function submitContact() {
   }
 }
 
+/* ── Shopping guide ───────────────────────────────────────────────────────
+   A subscriber-only section on the Profile screen: a personal cheat sheet for
+   shopping IN PERSON, where there is no search box and no AI to lean on. It
+   turns the profile (body type, colour palette, height, style vibes) into
+   plain rules the user can carry into a shop — what silhouettes to reach for,
+   what colours to hold up to their face, what to actually check in the
+   fitting-room mirror.
+
+   Three deliberate decisions:
+
+   1. GENERATED ONCE, THEN CACHED. The advice only changes when the profile
+      changes, so there is no reason to pay for it on every visit. It is saved
+      to Clerk alongside the profile, with a "signature" of the profile fields
+      it was built from. If the user later edits their body type or height,
+      the signature no longer matches and we show a "your profile has changed"
+      notice with a refresh button — rather than silently regenerating (which
+      would spend money without being asked) or silently going stale.
+
+   2. IT SENDS mode: 'guide'. Per the spec, any prompt without an explicit
+      mode falls into the 500-token quiz branch and gets cut off mid-sentence.
+      api/search.js has a matching 'guide' branch: no web search, and 2000
+      tokens, which is the most of any non-search mode because this is the
+      longest structured reply the endpoint produces. If the backend hasn't
+      been deployed yet, the call below retries once as 'fitcheck' so the
+      feature still works while the two files are out of step.
+
+   3. COPY TO TEXT. The whole point is to be useful away from the app, so the
+      guide can be copied out in one tap and pasted into a notes app.
+   ──────────────────────────────────────────────────────────────────────── */
+
+// Subscribers only, per the plan. Because Stripe isn't connected yet,
+// isSubscriber() always returns false — so ?preview=1 also unlocks it, which
+// lets you test the feature on the live site before payments exist. Real
+// visitors never have ?preview=1 on their URL.
+const SHOPPING_GUIDE_SUBSCRIBER_ONLY = true;
+
+let shoppingGuide = null;      // { signature, generatedAt, data }
+let guideLoading = false;
+
+function isPreviewVisit() {
+  try { return new URLSearchParams(location.search).get('preview') === '1'; }
+  catch(e) { return false; }
+}
+
+function guideUnlocked() {
+  if (!SHOPPING_GUIDE_SUBSCRIBER_ONLY) return true;
+  return isSubscriber() || isPreviewVisit();
+}
+
+/* A fingerprint of the profile fields the advice actually depends on. Size,
+   location and favourite retailers are left out on purpose — none of them
+   change what silhouettes or colours suit someone, so editing them shouldn't
+   mark a perfectly good guide as out of date. */
+function guideSignature() {
+  return [
+    profile.gender,
+    profile.body,
+    profile.colourTone,
+    profile.colourSeason,
+    profile.height,
+    [...profile.vibes].sort().join('|'),
+    [...profile.muses].sort().join('|')
+  ].join('~');
+}
+
+/* The guide needs something to work from. Body type and colour palette are
+   the two that carry most of the advice; we ask for at least one. */
+function guideHasEnoughProfile() {
+  return !!(profile.body || profile.colourTone || profile.colourSeason);
+}
+
+async function saveGuideToClerk() {
+  if (!clerkInstance || !clerkInstance.user) return;
+  try {
+    await clerkInstance.user.update({
+      unsafeMetadata: {
+        // Spread first — without this, saving the guide would wipe the
+        // profile, wishlist, saved searches and search count.
+        ...clerkInstance.user.unsafeMetadata,
+        pretafit_guide: shoppingGuide
+      }
+    });
+  } catch(e) {
+    console.warn('Could not save shopping guide to Clerk:', e);
+  }
+}
+
+function loadGuideFromClerk() {
+  if (shoppingGuide) return;
+  try {
+    const saved = clerkInstance && clerkInstance.user
+      && clerkInstance.user.unsafeMetadata?.pretafit_guide;
+    if (saved && saved.data) shoppingGuide = saved;
+  } catch(e) {}
+}
+
+function buildShoppingGuidePrompt() {
+  const genderCtx = profile.gender === 'men'
+    ? 'The user is a man. Use menswear language and menswear garment names throughout. Never reference womenswear.'
+    : profile.gender === 'non-binary'
+    ? 'The user is non-binary. Use gender-neutral language — talk about silhouette, proportion and fit without gendering garments.'
+    : 'The user is a woman. Use womenswear language and womenswear garment names throughout.';
+
+  const bodyLine = profile.body
+    ? `Body type: ${profile.body}.`
+    : 'Body type: not provided — keep the cut and silhouette advice general, and say in the headline that adding a body type would sharpen it.';
+
+  const colourLine = (profile.colourSeason || profile.colourTone)
+    ? `Colour palette: ${profile.colourTone ? profile.colourTone + ' tones' : ''}${profile.colourSeason ? (profile.colourTone ? ' (' + profile.colourSeason + ')' : profile.colourSeason) : ''}.`
+    : 'Colour palette: not provided — keep colour advice general and say in the headline that a colour analysis would sharpen it.';
+
+  const notes = joinNotes(
+    profile.vibes.length ? `Style vibes: ${profile.vibes.join(', ')}.` : '',
+    profile.muses.length ? `Style muses: ${profile.muses.join(', ')}. Let these shape the tone of the advice, not override what genuinely suits them.` : '',
+    profile.size ? `Usual size: ${profile.size} ${profile.sizeSystem}.` : ''
+  );
+
+  return `You are a warm, experienced personal stylist writing a short reference guide for one specific client.  They are about to go shopping IN A PHYSICAL SHOP, where there is no filter, no search box and no one to ask.  Your guide is what they will pull up on their phone in front of a rail of clothes.
+
+${genderCtx}
+
+About the client:
+${bodyLine}
+${heightNote()}
+${colourLine}${notes ? '\n' + notes : ''}
+
+Write advice that is genuinely specific and actionable.  Every line should be something they could apply while holding an actual garment: name real cuts, rises, necklines, hem positions, sleeve lengths, fabric weights and pattern scales.  Say WHY in terms of what the garment does for their proportions.
+
+Critical rules:
+- NEVER criticise or imply a flaw in the client's body.  You are describing what garments do, never what is wrong with a person.  Write "a high rise sets the waist where it reads most balanced on you", never "hides" or "disguises" or "flatters your problem area".
+- Be concrete and committal, not hedging.  "Reach for a wide leg with a high rise and a full-length hem" is useful; "many shapes can work" is not.
+- Be brief.  Every item is one or two sentences maximum.
+- Use the client's height in the length advice specifically — where a hem, rise, inseam or sleeve lands is the single most useful thing to know when shopping without being able to search.
+- Canadian spelling throughout (colour, favourite, centre).
+
+Fields:
+- "headline": two warm sentences summarising the single most useful thing for them to remember while shopping.
+- "silhouettes": array of 4 cuts and shapes to reach for, each naming the garment and why it works.
+- "proportions": array of 3 rules about length, rise and proportion, tied specifically to their height.
+- "colours": array of 6 objects, each {"name": "colour name", "note": "one short line on where to wear it or why it works"}.  Use recognisable colour names a shop assistant would know.
+- "coloursCareful": array of 2-3 colours that are harder for them to wear, each with a very short reason and, where possible, how to still wear it (e.g. away from the face, as a lower half).
+- "fabricsPatterns": array of 3 lines on fabric weight, drape and pattern scale — including whether bold or small-scale patterns work better at their height, and how to judge stiffness and drape by hand on the rail.
+- "fittingRoom": array of 4 specific things to check in the mirror before buying — the checks most likely to catch a piece that will be returned.
+- "signaturePieces": array of 5 short shopping-list items, each one the ideal version of a wardrobe staple for them (e.g. "high-rise wide-leg trouser in camel, full length").
+- "labelTip": one sentence on what to look for on the label or size tag given their height and usual size.
+
+Do not use web search.  Do not look anything up.  Write only from the profile above.
+
+Respond ONLY with valid JSON, no markdown and no preamble:
+{"headline":"...","silhouettes":["..."],"proportions":["..."],"colours":[{"name":"...","note":"..."}],"coloursCareful":["..."],"fabricsPatterns":["..."],"fittingRoom":["..."],"signaturePieces":["..."],"labelTip":"..."}`;
+}
+
+async function generateShoppingGuide() {
+  if (guideLoading) return;
+  if (!guideUnlocked()) { renderShoppingGuide(); return; }
+  if (!guideHasEnoughProfile()) { renderShoppingGuide(); return; }
+
+  guideLoading = true;
+  const body = document.getElementById('profileGuideBody');
+  if (body) {
+    body.innerHTML = `<div class="status-msg"><div class="spinner"></div>Writing your guide — this takes a moment…</div>`;
+  }
+
+  try {
+    // Deploy-order safety net. The guide asks api/search.js for 'guide' mode
+    // (2000 tokens). If index.html has gone live but search.js hasn't yet,
+    // 'guide' is unrecognised there and falls through to the 500-token quiz
+    // branch, where the reply is cut off and the server returns an error. So
+    // on failure we retry once as 'fitcheck', which every deployed version of
+    // the backend understands, at a tighter 1500 tokens. Slightly less
+    // headroom, but it works — rather than the feature simply being broken
+    // for however long the two files are out of step.
+    let data = null;
+    let lastError = null;
+
+    for (const attemptMode of ['guide', 'fitcheck']) {
+      try {
+        const response = await fetch('/api/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: buildShoppingGuidePrompt(), mode: attemptMode })
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'Could not build your guide');
+        data = payload;
+        break;
+      } catch(e) {
+        lastError = e;
+      }
+    }
+    if (!data) throw lastError || new Error('Could not build your guide');
+
+    shoppingGuide = {
+      signature: guideSignature(),
+      generatedAt: new Date().toISOString(),
+      data: parseQuizJSON(data.result)
+    };
+    guideLoading = false;
+    renderShoppingGuide();
+    saveGuideToClerk();   // fire and forget; guests simply keep it for the session
+  } catch(err) {
+    guideLoading = false;
+    if (body) {
+      body.innerHTML = `
+        <p class="guide-intro">We couldn't build your guide just then — ${esc(err.message)}</p>
+        <div class="guide-actions">
+          <button class="guide-btn" onclick="generateShoppingGuide()">Try again</button>
+        </div>`;
+    }
+  }
+}
+
+function renderShoppingGuide() {
+  const body = document.getElementById('profileGuideBody');
+  if (!body) return;
+
+  loadGuideFromClerk();
+
+  // 1. Locked — non-subscriber. Show what it is, so it reads as something
+  //    worth having rather than a wall.
+  if (!guideUnlocked()) {
+    body.innerHTML = `
+      <div class="guide-locked-eyebrow">Subscriber feature</div>
+      <h3 class="guide-locked-heading">Your personal shopping guide</h3>
+      <p class="guide-intro">For the times you're in a real shop, with no search box and no one to ask.  A short reference built from your own profile:</p>
+      <ul class="guide-locked-list">
+        <li>The cuts and silhouettes to reach for, and why</li>
+        <li>Your six best colours — and the ones to keep away from your face</li>
+        <li>Where hems, rises and sleeves should land at your height</li>
+        <li>Whether bold or small-scale patterns suit your proportions</li>
+        <li>Four things to check in the fitting-room mirror before you buy</li>
+      </ul>
+      <div class="guide-actions">
+        <button class="guide-btn" onclick="handleSubscribe()">Subscribe to unlock</button>
+      </div>`;
+    return;
+  }
+
+  // 2. Unlocked, but not enough profile to say anything useful.
+  if (!guideHasEnoughProfile()) {
+    body.innerHTML = `
+      <p class="guide-intro">Your shopping guide is built from your body type and colour palette — add at least one of those and we can write it.</p>
+      <div class="guide-actions">
+        <button class="guide-btn guide-btn-quiet" onclick="editProfileField('body')">Add body type</button>
+        <button class="guide-btn guide-btn-quiet" onclick="editProfileField('colour')">Add colour palette</button>
+      </div>`;
+    return;
+  }
+
+  // 3. Unlocked, nothing generated yet.
+  if (!shoppingGuide || !shoppingGuide.data) {
+    body.innerHTML = `
+      <p class="guide-intro">A short reference for shopping in person — the cuts, colours, lengths and patterns that work for you, and what to check in the fitting room before you buy.  Built from your profile, and yours to keep on your phone.</p>
+      <div class="guide-actions">
+        <button class="guide-btn" onclick="generateShoppingGuide()">Create my shopping guide</button>
+      </div>`;
+    return;
+  }
+
+  // 4. We have a guide. Flag it if the profile has moved on since.
+  const g = shoppingGuide.data;
+  const stale = shoppingGuide.signature !== guideSignature();
+
+  const staleHtml = stale
+    ? `<p class="guide-stale">You've changed your profile since this was written, so some of it may no longer fit.  Refresh it below when you're ready.</p>`
+    : '';
+
+  const listBlock = (label, items) => {
+    const arr = Array.isArray(items) ? items.filter(Boolean) : [];
+    if (!arr.length) return '';
+    return `<div class="guide-block">
+        <span class="guide-label">${esc(label)}</span>
+        <ul class="guide-list">${arr.map(i => `<li>${esc(i)}</li>`).join('')}</ul>
+      </div>`;
+  };
+
+  const colours = Array.isArray(g.colours) ? g.colours.filter(c => c && c.name) : [];
+  const coloursHtml = colours.length
+    ? `<div class="guide-block">
+         <span class="guide-label">Your colours</span>
+         <ul class="guide-colours">${colours.map(c =>
+           `<li><span class="guide-colour-name">${esc(c.name)}</span>${esc(c.note || '')}</li>`
+         ).join('')}</ul>
+       </div>`
+    : '';
+
+  const labelHtml = g.labelTip
+    ? `<div class="guide-block">
+         <span class="guide-label">On the label</span>
+         <ul class="guide-list"><li>${esc(g.labelTip)}</li></ul>
+       </div>`
+    : '';
+
+  const when = shoppingGuide.generatedAt
+    ? new Date(shoppingGuide.generatedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+
+  body.innerHTML = `
+    ${staleHtml}
+    ${g.headline ? `<p class="guide-headline">${esc(g.headline)}</p>` : ''}
+    ${listBlock('Reach for', g.silhouettes)}
+    ${listBlock('Length & proportion', g.proportions)}
+    ${coloursHtml}
+    ${listBlock('Wear with care', g.coloursCareful)}
+    ${listBlock('Fabric & pattern', g.fabricsPatterns)}
+    ${listBlock('In the fitting room', g.fittingRoom)}
+    ${listBlock('Worth looking for', g.signaturePieces)}
+    ${labelHtml}
+    <div class="guide-actions">
+      <button class="guide-btn guide-btn-quiet" id="guideCopyBtn" onclick="copyShoppingGuide()">Copy to my notes</button>
+      <button class="guide-btn guide-btn-quiet" onclick="generateShoppingGuide()">${stale ? 'Refresh my guide' : 'Write it again'}</button>
+    </div>
+    <p class="guide-note">${when ? 'Written ' + esc(when) + '.  ' : ''}This is one stylist's read on your profile — trust your own eye in the mirror too.  Rules are a starting point, not a cage.</p>`;
+}
+
+/* Plain-text version, for pasting into a notes app — the guide is meant to be
+   used away from the app, standing in front of a rail. */
+function shoppingGuideAsText() {
+  if (!shoppingGuide || !shoppingGuide.data) return '';
+  const g = shoppingGuide.data;
+  const lines = ['PRÊT-À-FIT — YOUR SHOPPING GUIDE', ''];
+  if (g.headline) { lines.push(g.headline, ''); }
+
+  const section = (title, items) => {
+    const arr = Array.isArray(items) ? items.filter(Boolean) : [];
+    if (!arr.length) return;
+    lines.push(title.toUpperCase());
+    arr.forEach(i => lines.push('- ' + i));
+    lines.push('');
+  };
+
+  section('Reach for', g.silhouettes);
+  section('Length & proportion', g.proportions);
+  const colours = Array.isArray(g.colours) ? g.colours.filter(c => c && c.name) : [];
+  if (colours.length) {
+    lines.push('YOUR COLOURS');
+    colours.forEach(c => lines.push('- ' + c.name + (c.note ? ' — ' + c.note : '')));
+    lines.push('');
+  }
+  section('Wear with care', g.coloursCareful);
+  section('Fabric & pattern', g.fabricsPatterns);
+  section('In the fitting room', g.fittingRoom);
+  section('Worth looking for', g.signaturePieces);
+  if (g.labelTip) { lines.push('ON THE LABEL', '- ' + g.labelTip, ''); }
+
+  return lines.join('\n').trim();
+}
+
+async function copyShoppingGuide() {
+  const text = shoppingGuideAsText();
+  if (!text) return;
+  const btn = document.getElementById('guideCopyBtn');
+  const done = () => {
+    if (!btn) return;
+    btn.textContent = 'Copied ✓';
+    setTimeout(() => { btn.textContent = 'Copy to my notes'; }, 2200);
+  };
+  try {
+    await navigator.clipboard.writeText(text);
+    done();
+  } catch(e) {
+    // Older browsers, and any page not served over https, block the clipboard
+    // API — fall back to the old select-and-copy trick.
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done();
+    } catch(e2) {
+      alert('Your browser blocked copying — you can select the guide and copy it by hand.');
+    }
+  }
+}
+
 /* ── Init ── */
 
 // TEMPORARY LAUNCH GATE
@@ -6461,6 +6983,13 @@ async function joinWaitlist() {
         <div class="profile-row-value" id="profileLocation">—</div>
         <button class="profile-row-action" onclick="editProfileField('sizing')">Edit</button>
       </div>
+    </div>
+
+    <!-- Shopping guide — subscriber-only.  Built from the profile above, for
+         use in a physical shop.  Contents rendered by renderShoppingGuide(). -->
+    <div class="profile-section" id="profileGuideSection">
+      <div class="profile-section-heading">Shopping in person</div>
+      <div class="guide-body" id="profileGuideBody"></div>
     </div>
 
     <!-- Inline edit panels (shown one at a time) -->

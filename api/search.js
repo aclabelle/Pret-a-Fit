@@ -1,11 +1,17 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    Prêt-à-Fit — /api/search
 
-   Handles three different jobs, told apart by the "mode" the frontend sends:
+   Handles four different jobs, told apart by the "mode" the frontend sends:
      'search'   — product search (uses web_search, needs lots of tokens)
      'fitcheck' — verdict on one garment (no web search, medium tokens)
+     'guide'    — personal shopping guide (no web search, most tokens of the
+                  non-search modes; it's the longest structured reply here)
      'quiz'     — short body/colour analysis (no web search, few tokens)
    Plus a separate "validateUrls" mode used by the link checker.
+
+   Anything with no recognised mode falls through to 'quiz' and its 500-token
+   limit, which will cut a long reply off mid-sentence. Any NEW prompt type
+   must therefore send its own mode and get its own branch below.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Abuse / cost protection ──────────────────────────────────────────────
@@ -214,6 +220,7 @@ export default async function handler(req, res) {
   const resolvedMode = mode || (looksLikeSearch ? 'search' : 'quiz');
   const isOutfitSearch = resolvedMode === 'search';
   const isFitCheck = resolvedMode === 'fitcheck';
+  const isGuide = resolvedMode === 'guide';
 
   let messageContent;
   if (imageBase64 && image2Base64) {
@@ -254,6 +261,15 @@ IMAGES:
 - The "imageUrl" must be a direct CDN image URL ending in .jpg, .jpeg, .png, or .webp. No redirect URLs, no tracking URLs.
 
 Respond with a raw JSON array only. No markdown, no preamble, no explanation.`;
+  } else if (isGuide) {
+    // The shopping guide is the longest reply this endpoint produces: nine
+    // fields, around thirty separate items. It borrowed the fit check's 1500
+    // tokens at first, which usually fit but left no headroom — and because
+    // a truncated reply is turned into a hard error below, running over means
+    // the whole guide fails rather than arriving slightly short. 2000 gives
+    // comfortable room. Still no web search, so it stays cheap.
+    requestBody.max_tokens = 2000;
+    requestBody.system = 'You are a warm, experienced personal stylist writing a concise reference guide for one client to use while shopping in a physical shop. Be specific and committal rather than hedging, and keep every item to one or two sentences. You must respond with valid JSON only — no preamble, no explanation, no markdown, no code fences. Your entire response must be a single JSON object starting with { and ending with }. Never criticise the client or imply a flaw in their body; describe only what garments do for their proportions.';
   } else if (isFitCheck) {
     // A fit check writes several paragraphs of assessment, so 500 tokens
     // (the quiz limit) would cut the reply off mid-sentence and produce
