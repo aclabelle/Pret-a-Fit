@@ -269,7 +269,7 @@ Respond with a raw JSON array only. No markdown, no preamble, no explanation.`;
     // the whole guide fails rather than arriving slightly short. 2000 gives
     // comfortable room. Still no web search, so it stays cheap.
     requestBody.max_tokens = 2000;
-    requestBody.system = 'You are a warm, experienced personal stylist writing a concise reference guide for one client to use while shopping in a physical shop. Be specific and committal rather than hedging, and keep every item to one or two sentences. You must respond with valid JSON only — no preamble, no explanation, no markdown, no code fences. Your entire response must be a single JSON object starting with { and ending with }. Never criticise the client or imply a flaw in their body; describe only what garments do for their proportions.';
+    requestBody.system = 'You are a warm, experienced personal stylist writing a concise reference guide for one client to use while shopping in a physical shop. It is read one-handed on a phone, so respect the word caps in the prompt — but never pad to reach one, and never drop the reason a garment works in order to meet one. Be specific and committal rather than hedging. You must respond with valid JSON only — no preamble, no explanation, no markdown, no code fences. Your entire response must be a single JSON object starting with { and ending with }. Never criticise the client or imply a flaw in their body; describe only what garments do for their proportions.';
   } else if (isFitCheck) {
     // A fit check writes several paragraphs of assessment, so 500 tokens
     // (the quiz limit) would cut the reply off mid-sentence and produce
