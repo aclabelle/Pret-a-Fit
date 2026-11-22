@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pricing · Pr&ecirc;t-&agrave;-Fit</title>
+<meta name="description" content="What Pr&ecirc;t-&agrave;-Fit costs: a free tier, and two subscriptions that differ only in how many searches you get.">
+<style>
+:root {
+  --ink:#1C1712; --parchment:#F5F0E8; --linen:#EDE6D6; --bark:#8B6F47;
+  --dust:#C4A882; --charcoal:#3D3530; --mist:#F9F6F0;
+}
+* { box-sizing:border-box; }
+html { -webkit-text-size-adjust:100%; }
+body {
+  margin:0; background:var(--parchment); color:var(--ink);
+  font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:15px; line-height:1.6;
+}
+a { color:var(--bark); }
+.topbar {
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+  gap:0.75rem 1.25rem; padding:1.1rem 1.5rem;
+  border-bottom:0.5px solid var(--linen); background:var(--mist);
+}
+.logo { font-family:Georgia,serif; font-size:15px; letter-spacing:0.02em; color:var(--ink); text-decoration:none; }
+.logo em { font-style:italic; }
+.nav { display:flex; flex-wrap:wrap; gap:1.1rem; }
+.nav a {
+  font-size:10px; letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--bark); text-decoration:none;
+}
+.nav a:hover { color:var(--ink); }
+.nav a[aria-current="page"] { color:var(--ink); }
+.wrap { max-width:760px; margin:0 auto; padding:3rem 1.5rem 4.5rem; }
+.wrap.wide { max-width:1000px; }
+.eyebrow { font-size:10px; letter-spacing:0.22em; text-transform:uppercase; color:var(--bark); margin-bottom:0.9rem; }
+h1 {
+  font-family:Georgia,serif; font-weight:400; font-size:clamp(1.9rem,5.5vw,2.7rem);
+  line-height:1.2; margin:0 0 1.1rem;
+}
+.lede { font-size:15px; line-height:1.75; color:var(--charcoal); margin:0 0 0.9rem; }
+.stamp { font-size:11px; color:var(--dust); margin:0 0 2.5rem; }
+.sec { margin-bottom:2.25rem; }
+.sec h2 {
+  font-family:Georgia,serif; font-weight:400; font-size:1.15rem; line-height:1.4;
+  margin:0 0 0.6rem; color:var(--ink);
+}
+.sec p { font-size:14px; line-height:1.8; color:var(--charcoal); margin:0 0 0.9rem; }
+.sec p:last-child { margin-bottom:0; }
+hr { border:none; border-top:0.5px solid var(--linen); margin:2.5rem 0; }
+footer {
+  border-top:0.5px solid var(--linen); background:var(--mist);
+  padding:2rem 1.5rem 2.5rem;
+}
+.foot-in { max-width:760px; margin:0 auto; font-size:11px; line-height:1.9; color:var(--bark); }
+.foot-links { display:flex; flex-wrap:wrap; gap:1.1rem; margin-bottom:1.1rem; }
+.foot-links a { font-size:10px; letter-spacing:0.16em; text-transform:uppercase; text-decoration:none; }
+/* ── Pricing grid ── */
+.tiers { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:1px;
+  background:var(--linen); border:0.5px solid var(--linen); margin-bottom:2.5rem; }
+.tier { background:var(--mist); padding:1.6rem 1.3rem 1.8rem; display:flex; flex-direction:column; }
+.tier.featured { background:#fff; }
+.tier-name { font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--bark); margin-bottom:0.9rem; }
+.tier-price { font-family:Georgia,serif; font-size:2.3rem; line-height:1; color:var(--ink); }
+.tier-price span { font-family:system-ui,sans-serif; font-size:0.85rem; color:var(--charcoal); letter-spacing:0.02em; }
+.tier-tag { font-size:12.5px; line-height:1.6; color:var(--charcoal); margin:0.7rem 0 1.3rem; }
+.feats { list-style:none; margin:0 0 1.3rem; padding:0; flex:1; }
+.feats li {
+  font-size:13px; line-height:1.55; color:var(--charcoal);
+  padding:0.42rem 0 0.42rem 1.45rem; position:relative; border-bottom:0.5px solid var(--linen);
+}
+.feats li:last-child { border-bottom:none; }
+.feats li::before { position:absolute; left:0; top:0.42rem; font-size:12px; }
+.feats li.yes::before { content:"\2713"; color:var(--bark); }
+.feats li.no { opacity:0.45; }
+.feats li.no::before { content:"\2014"; color:var(--dust); }
+.tier-cta { font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--bark); }
+.tier.featured .tier-cta { color:var(--ink); }
+.note {
+  background:var(--linen); border-left:3px solid var(--bark);
+  padding:1rem 1.1rem; font-size:13px; line-height:1.75; color:var(--charcoal);
+  margin-bottom:2.5rem;
+}
+.note strong { color:var(--ink); }
+@media (max-width:520px) { .wrap { padding:2.25rem 1.25rem 3.5rem; } .topbar { padding:1rem 1.25rem; } }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="logo" href="/">pr&ecirc;t-&agrave;-<em>fit</em></a>
+    <nav class="nav">
+      <a href="pricing.html" aria-current="page">Pricing</a>
+      <a href="terms.html">Terms</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="refunds.html">Refunds</a>
+    </nav>
+  </div>
+  <div class="wrap wide">
+    <div class="eyebrow">Pricing</div>
+    <h1>Pay for what you'll&nbsp;use.</h1>
+    <p class="lede">Start free and see whether the recommendations are any good before you spend anything. Every paid plan includes every feature — the only difference is how many searches you get.</p>
+    <p class="stamp">All prices in US dollars. Last updated: November 2026</p>
+
+    <div class="tiers">
+      <div class="tier">
+        <div class="tier-name">Free</div>
+        <div class="tier-price">$0<span></span></div>
+        <p class="tier-tag">See whether it works for you.</p>
+        <ul class="feats">
+          <li class="yes">1 search</li>
+          <li class="yes">3 fit checks</li>
+          <li class="yes">Body type &amp; colour quizzes</li>
+          <li class="no">Photo-based analysis</li>
+          <li class="no">Shopping guide</li>
+        </ul>
+        <div class="tier-cta">No card required</div>
+      </div>
+      <div class="tier featured">
+        <div class="tier-name">Standard</div>
+        <div class="tier-price">$12<span>/month</span></div>
+        <p class="tier-tag">For dressing yourself properly.</p>
+        <ul class="feats">
+          <li class="yes">20 searches a month</li>
+          <li class="yes">Unlimited fit checks</li>
+          <li class="yes">Body type &amp; colour quizzes</li>
+          <li class="yes">Photo-based analysis</li>
+          <li class="yes">Shopping guide</li>
+        </ul>
+        <div class="tier-cta">Most people want this</div>
+      </div>
+      <div class="tier">
+        <div class="tier-name">Premium</div>
+        <div class="tier-price">$29<span>/month</span></div>
+        <p class="tier-tag">For a wardrobe in progress.</p>
+        <ul class="feats">
+          <li class="yes">50 searches a month</li>
+          <li class="yes">Unlimited fit checks</li>
+          <li class="yes">Body type &amp; colour quizzes</li>
+          <li class="yes">Photo-based analysis</li>
+          <li class="yes">Shopping guide</li>
+        </ul>
+        <div class="tier-cta">For heavier use</div>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Why searches are counted and nothing else is.</strong> A search runs a live AI query across real retailer listings, and that costs us real money every time. Fit checks, colour analysis and your shopping guide cost us almost nothing, so they are not rationed. We would rather be straightforward about that than pretend the limits are arbitrary.
+    </div>
+
+      <div class="sec">
+        <h2>What counts as a search</h2>
+        <p>One search is one set of recommendations: you tell us the occasion, the weather and your budget, and we come back with pieces that suit your shape, your colouring and your height. Looking again at results you have already been given, saving them, or reading your shopping guide does not count.</p>
+      </div>
+      <div class="sec">
+        <h2>When the month resets</h2>
+        <p>Your allowance resets on the same date each month, the day your subscription renews. Unused searches do not roll over.</p>
+      </div>
+      <div class="sec">
+        <h2>If you run out</h2>
+        <p>Nothing breaks and nothing is charged automatically. You keep everything you have already been given and can still use fit checks, your profile and your shopping guide. You can move up a plan whenever you like, or wait for the reset.</p>
+      </div>
+      <div class="sec">
+        <h2>Changing or cancelling</h2>
+        <p>Move between plans whenever you want. Moving up takes effect straight away; moving down takes effect at your next renewal, so you keep what you have paid for.</p>
+        <p>You can cancel at any time from your account, in a couple of taps. See our <a href="refunds.html">refunds and cancellation policy</a> for when we give money back — the short version is fourteen days, no hard feelings.</p>
+      </div>
+      <div class="sec">
+        <h2>Tax</h2>
+        <p>Where tax applies where you live, it is shown before you pay and included in the total at checkout.</p>
+      </div>
+  </div>
+
+  <footer>
+    <div class="foot-in">
+      <div class="foot-links">
+        <a href="pricing.html" aria-current="page">Pricing</a>
+      <a href="terms.html">Terms</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="refunds.html">Refunds</a>
+      </div>
+      Pret-a-Fit L.L.C-FZ &middot; Licence 2656027.01<br>
+      Meydan Grandstand, 6th floor, Meydan Road, Nad Al Sheba, Dubai, U.A.E.<br>
+      <a href="mailto:support@pret-a-fit.com">support@pret-a-fit.com</a>
+    </div>
+  </footer>
+</body>
+</html>

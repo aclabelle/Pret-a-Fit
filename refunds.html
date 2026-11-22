@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Refunds &amp; cancellation · Pr&ecirc;t-&agrave;-Fit</title>
+<meta name="description" content="When we give your money back, how to cancel, and your rights where you live.">
+<style>
+:root {
+  --ink:#1C1712; --parchment:#F5F0E8; --linen:#EDE6D6; --bark:#8B6F47;
+  --dust:#C4A882; --charcoal:#3D3530; --mist:#F9F6F0;
+}
+* { box-sizing:border-box; }
+html { -webkit-text-size-adjust:100%; }
+body {
+  margin:0; background:var(--parchment); color:var(--ink);
+  font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:15px; line-height:1.6;
+}
+a { color:var(--bark); }
+.topbar {
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+  gap:0.75rem 1.25rem; padding:1.1rem 1.5rem;
+  border-bottom:0.5px solid var(--linen); background:var(--mist);
+}
+.logo { font-family:Georgia,serif; font-size:15px; letter-spacing:0.02em; color:var(--ink); text-decoration:none; }
+.logo em { font-style:italic; }
+.nav { display:flex; flex-wrap:wrap; gap:1.1rem; }
+.nav a {
+  font-size:10px; letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--bark); text-decoration:none;
+}
+.nav a:hover { color:var(--ink); }
+.nav a[aria-current="page"] { color:var(--ink); }
+.wrap { max-width:760px; margin:0 auto; padding:3rem 1.5rem 4.5rem; }
+.wrap.wide { max-width:1000px; }
+.eyebrow { font-size:10px; letter-spacing:0.22em; text-transform:uppercase; color:var(--bark); margin-bottom:0.9rem; }
+h1 {
+  font-family:Georgia,serif; font-weight:400; font-size:clamp(1.9rem,5.5vw,2.7rem);
+  line-height:1.2; margin:0 0 1.1rem;
+}
+.lede { font-size:15px; line-height:1.75; color:var(--charcoal); margin:0 0 0.9rem; }
+.stamp { font-size:11px; color:var(--dust); margin:0 0 2.5rem; }
+.sec { margin-bottom:2.25rem; }
+.sec h2 {
+  font-family:Georgia,serif; font-weight:400; font-size:1.15rem; line-height:1.4;
+  margin:0 0 0.6rem; color:var(--ink);
+}
+.sec p { font-size:14px; line-height:1.8; color:var(--charcoal); margin:0 0 0.9rem; }
+.sec p:last-child { margin-bottom:0; }
+hr { border:none; border-top:0.5px solid var(--linen); margin:2.5rem 0; }
+footer {
+  border-top:0.5px solid var(--linen); background:var(--mist);
+  padding:2rem 1.5rem 2.5rem;
+}
+.foot-in { max-width:760px; margin:0 auto; font-size:11px; line-height:1.9; color:var(--bark); }
+.foot-links { display:flex; flex-wrap:wrap; gap:1.1rem; margin-bottom:1.1rem; }
+.foot-links a { font-size:10px; letter-spacing:0.16em; text-transform:uppercase; text-decoration:none; }
+/* ── Pricing grid ── */
+.tiers { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:1px;
+  background:var(--linen); border:0.5px solid var(--linen); margin-bottom:2.5rem; }
+.tier { background:var(--mist); padding:1.6rem 1.3rem 1.8rem; display:flex; flex-direction:column; }
+.tier.featured { background:#fff; }
+.tier-name { font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--bark); margin-bottom:0.9rem; }
+.tier-price { font-family:Georgia,serif; font-size:2.3rem; line-height:1; color:var(--ink); }
+.tier-price span { font-family:system-ui,sans-serif; font-size:0.85rem; color:var(--charcoal); letter-spacing:0.02em; }
+.tier-tag { font-size:12.5px; line-height:1.6; color:var(--charcoal); margin:0.7rem 0 1.3rem; }
+.feats { list-style:none; margin:0 0 1.3rem; padding:0; flex:1; }
+.feats li {
+  font-size:13px; line-height:1.55; color:var(--charcoal);
+  padding:0.42rem 0 0.42rem 1.45rem; position:relative; border-bottom:0.5px solid var(--linen);
+}
+.feats li:last-child { border-bottom:none; }
+.feats li::before { position:absolute; left:0; top:0.42rem; font-size:12px; }
+.feats li.yes::before { content:"\2713"; color:var(--bark); }
+.feats li.no { opacity:0.45; }
+.feats li.no::before { content:"\2014"; color:var(--dust); }
+.tier-cta { font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--bark); }
+.tier.featured .tier-cta { color:var(--ink); }
+.note {
+  background:var(--linen); border-left:3px solid var(--bark);
+  padding:1rem 1.1rem; font-size:13px; line-height:1.75; color:var(--charcoal);
+  margin-bottom:2.5rem;
+}
+.note strong { color:var(--ink); }
+@media (max-width:520px) { .wrap { padding:2.25rem 1.25rem 3.5rem; } .topbar { padding:1rem 1.25rem; } }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="logo" href="/">pr&ecirc;t-&agrave;-<em>fit</em></a>
+    <nav class="nav">
+      <a href="pricing.html">Pricing</a>
+      <a href="terms.html">Terms</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="refunds.html" aria-current="page">Refunds</a>
+    </nav>
+  </div>
+  <div class="wrap">
+    <div class="eyebrow">Refunds &amp; cancellation</div>
+    <h1>If it isn't right,<br>tell us.</h1>
+    <p class="lede">We would rather give you your money back than keep a subscriber who isn't getting anything from this. Here is exactly how that works, in plain language.</p>
+    <p class="stamp">Last updated: November 2026</p>
+
+      <div class="sec">
+        <h2>Try it before you pay</h2>
+        <p>Every visitor gets a complimentary search and three free fit checks without entering a card. We would much rather you used those first and decided from there. Nobody should be buying this blind, and most refund requests exist because somebody had to. Our <a href="pricing.html">pricing page</a> sets out what each plan includes.</p>
+      </div>
+      <div class="sec">
+        <h2>Your first fourteen days</h2>
+        <p>If you change your mind within fourteen days of your first payment, write to us and we will refund you in full &mdash; provided you have run five searches or fewer. No explanation needed and no hard feelings.</p>
+        <p>If you have run more than five searches in that time, we will refund the unused remainder of the month rather than the whole of it. We are not being difficult: every search is a live AI query that costs us real money to run, and a full refund after heavy use would mean the searches cost us more than you paid. Five is deliberately generous &mdash; it is five times what a free visitor gets.</p>
+      </div>
+      <div class="sec">
+        <h2>After fourteen days</h2>
+        <p>You can cancel whenever you like, and you keep access until the end of the period you have already paid for. We do not refund part-months after the first fourteen days, and we do not charge you again once you have cancelled.</p>
+      </div>
+      <div class="sec">
+        <h2>Things we always refund</h2>
+        <p>Charged twice for the same month, charged after you cancelled, charged the wrong amount, or the service was unavailable for a sustained period &mdash; all refunded in full, whenever they happen and whether or not you are inside the first fourteen days. If we got the billing wrong, that is ours to put right.</p>
+      </div>
+      <div class="sec">
+        <h2>A renewal you didn't expect</h2>
+        <p>If a subscription renewed and you had meant to cancel, write to us. If you haven't used the new period, we will almost always refund it. We would rather do that than have you feel caught out &mdash; and we send a reminder before every renewal precisely so this doesn't happen.</p>
+      </div>
+      <div class="sec">
+        <h2>Changing plans</h2>
+        <p>Moving up a plan takes effect straight away and you pay the difference for the rest of the month. Moving down takes effect at your next renewal, so you keep what you have already paid for rather than losing it.</p>
+      </div>
+      <div class="sec">
+        <h2>What we don't refund</h2>
+        <p>We can't refund a month you have used extensively and then decided wasn't to your taste, and we can't refund anything you bought from a retailer &mdash; those purchases are between you and them, under their own returns policy. We also can't refund on the basis that a recommendation didn't suit you: the advice is honest, considered and sometimes wrong, which is why we tell you to trust your own eye in the mirror.</p>
+      </div>
+      <div class="sec">
+        <h2>How to cancel</h2>
+        <p>You can cancel at any time from your account, in a couple of taps, without writing to anyone or explaining yourself. If you would rather just email us, <a href="mailto:support@pret-a-fit.com">support@pret-a-fit.com</a> works too and we will do it for you.</p>
+      </div>
+      <div class="sec">
+        <h2>How refunds reach you</h2>
+        <p>Refunds go back to the card you paid with &mdash; we cannot send them anywhere else. We action them within three working days of agreeing one, and your bank usually takes another five to ten to show it.</p>
+      </div>
+      <div class="sec">
+        <h2>Your rights where you live</h2>
+        <p>Nothing here takes away a right you have under the consumer law of your own country. If you live somewhere that gives you a stronger cancellation right than this policy does &mdash; much of the UK and Europe does, for instance &mdash; that right stands, and you are welcome to rely on it instead. If the two ever conflict, whichever is better for you is the one that applies.</p>
+      </div>
+      <div class="sec">
+        <h2>If you're unhappy with our answer</h2>
+        <p>Tell us, and a person will look at it again properly. We are a very small company and there is no refund department to escalate through &mdash; but there is somebody who reads every message and would rather fix something than argue about it.</p>
+      </div>
+  </div>
+
+  <footer>
+    <div class="foot-in">
+      <div class="foot-links">
+        <a href="pricing.html">Pricing</a>
+      <a href="terms.html">Terms</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="refunds.html" aria-current="page">Refunds</a>
+      </div>
+      Pret-a-Fit L.L.C-FZ &middot; Licence 2656027.01<br>
+      Meydan Grandstand, 6th floor, Meydan Road, Nad Al Sheba, Dubai, U.A.E.<br>
+      <a href="mailto:support@pret-a-fit.com">support@pret-a-fit.com</a>
+    </div>
+  </footer>
+</body>
+</html>

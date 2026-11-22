@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy · Pr&ecirc;t-&agrave;-Fit</title>
+<meta name="description" content="What we collect, what we do with it, and what we never do.">
+<style>
+:root {
+  --ink:#1C1712; --parchment:#F5F0E8; --linen:#EDE6D6; --bark:#8B6F47;
+  --dust:#C4A882; --charcoal:#3D3530; --mist:#F9F6F0;
+}
+* { box-sizing:border-box; }
+html { -webkit-text-size-adjust:100%; }
+body {
+  margin:0; background:var(--parchment); color:var(--ink);
+  font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:15px; line-height:1.6;
+}
+a { color:var(--bark); }
+.topbar {
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+  gap:0.75rem 1.25rem; padding:1.1rem 1.5rem;
+  border-bottom:0.5px solid var(--linen); background:var(--mist);
+}
+.logo { font-family:Georgia,serif; font-size:15px; letter-spacing:0.02em; color:var(--ink); text-decoration:none; }
+.logo em { font-style:italic; }
+.nav { display:flex; flex-wrap:wrap; gap:1.1rem; }
+.nav a {
+  font-size:10px; letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--bark); text-decoration:none;
+}
+.nav a:hover { color:var(--ink); }
+.nav a[aria-current="page"] { color:var(--ink); }
+.wrap { max-width:760px; margin:0 auto; padding:3rem 1.5rem 4.5rem; }
+.wrap.wide { max-width:1000px; }
+.eyebrow { font-size:10px; letter-spacing:0.22em; text-transform:uppercase; color:var(--bark); margin-bottom:0.9rem; }
+h1 {
+  font-family:Georgia,serif; font-weight:400; font-size:clamp(1.9rem,5.5vw,2.7rem);
+  line-height:1.2; margin:0 0 1.1rem;
+}
+.lede { font-size:15px; line-height:1.75; color:var(--charcoal); margin:0 0 0.9rem; }
+.stamp { font-size:11px; color:var(--dust); margin:0 0 2.5rem; }
+.sec { margin-bottom:2.25rem; }
+.sec h2 {
+  font-family:Georgia,serif; font-weight:400; font-size:1.15rem; line-height:1.4;
+  margin:0 0 0.6rem; color:var(--ink);
+}
+.sec p { font-size:14px; line-height:1.8; color:var(--charcoal); margin:0 0 0.9rem; }
+.sec p:last-child { margin-bottom:0; }
+hr { border:none; border-top:0.5px solid var(--linen); margin:2.5rem 0; }
+footer {
+  border-top:0.5px solid var(--linen); background:var(--mist);
+  padding:2rem 1.5rem 2.5rem;
+}
+.foot-in { max-width:760px; margin:0 auto; font-size:11px; line-height:1.9; color:var(--bark); }
+.foot-links { display:flex; flex-wrap:wrap; gap:1.1rem; margin-bottom:1.1rem; }
+.foot-links a { font-size:10px; letter-spacing:0.16em; text-transform:uppercase; text-decoration:none; }
+/* ── Pricing grid ── */
+.tiers { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:1px;
+  background:var(--linen); border:0.5px solid var(--linen); margin-bottom:2.5rem; }
+.tier { background:var(--mist); padding:1.6rem 1.3rem 1.8rem; display:flex; flex-direction:column; }
+.tier.featured { background:#fff; }
+.tier-name { font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--bark); margin-bottom:0.9rem; }
+.tier-price { font-family:Georgia,serif; font-size:2.3rem; line-height:1; color:var(--ink); }
+.tier-price span { font-family:system-ui,sans-serif; font-size:0.85rem; color:var(--charcoal); letter-spacing:0.02em; }
+.tier-tag { font-size:12.5px; line-height:1.6; color:var(--charcoal); margin:0.7rem 0 1.3rem; }
+.feats { list-style:none; margin:0 0 1.3rem; padding:0; flex:1; }
+.feats li {
+  font-size:13px; line-height:1.55; color:var(--charcoal);
+  padding:0.42rem 0 0.42rem 1.45rem; position:relative; border-bottom:0.5px solid var(--linen);
+}
+.feats li:last-child { border-bottom:none; }
+.feats li::before { position:absolute; left:0; top:0.42rem; font-size:12px; }
+.feats li.yes::before { content:"\2713"; color:var(--bark); }
+.feats li.no { opacity:0.45; }
+.feats li.no::before { content:"\2014"; color:var(--dust); }
+.tier-cta { font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--bark); }
+.tier.featured .tier-cta { color:var(--ink); }
+.note {
+  background:var(--linen); border-left:3px solid var(--bark);
+  padding:1rem 1.1rem; font-size:13px; line-height:1.75; color:var(--charcoal);
+  margin-bottom:2.5rem;
+}
+.note strong { color:var(--ink); }
+@media (max-width:520px) { .wrap { padding:2.25rem 1.25rem 3.5rem; } .topbar { padding:1rem 1.25rem; } }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="logo" href="/">pr&ecirc;t-&agrave;-<em>fit</em></a>
+    <nav class="nav">
+      <a href="pricing.html">Pricing</a>
+      <a href="terms.html">Terms</a>
+      <a href="privacy.html" aria-current="page">Privacy</a>
+      <a href="refunds.html">Refunds</a>
+    </nav>
+  </div>
+  <div class="wrap">
+    <div class="eyebrow">Privacy policy</div>
+    <h1>Your privacy,<br>plainly stated.</h1>
+    <p class="lede">We believe privacy policies should be readable. Here is ours, written in plain language.</p>
+    <p class="stamp">Last updated: November 2026</p>
+
+      <div class="sec">
+        <h2>What we collect</h2>
+        <p>When you use Prêt-à-Fit, you provide us with style preferences — your body type, height range, sizing, location, occasion, colour preferences and style inspirations. This information is used solely to generate clothing recommendations for you. We also collect your email address if you create an account or contact us.</p>
+      </div>
+      <div class="sec">
+        <h2>How we use it</h2>
+        <p>Your preferences are passed to our AI provider (Anthropic) to generate personalised recommendations. They are not sold, shared with advertisers, or used for any purpose other than producing your results. If you create an account, your profile preferences are saved so you don't need to re-enter them each visit.</p>
+      </div>
+      <div class="sec">
+        <h2>What we don't do</h2>
+        <p>We do not sell your data. We do not share your information with retailers or third-party advertisers. We do not use your information to build advertising profiles. We do not store payment information — this is handled entirely by Stripe, our payment provider.</p>
+      </div>
+      <div class="sec">
+        <h2>Photo analysis (coming soon)</h2>
+        <p>When we introduce optional photo-based body assessment, any image you upload will be sent directly to our AI provider for analysis and immediately discarded. Photos are never stored, never shared, and never used for any purpose beyond the single analysis you request.</p>
+      </div>
+      <div class="sec">
+        <h2>Cookies</h2>
+        <p>We use minimal, functional cookies only — to keep you logged in and remember your preferences between sessions. We do not use advertising or tracking cookies.</p>
+      </div>
+      <div class="sec">
+        <h2>Your rights</h2>
+        <p>You have the right to access, correct, or delete any personal data we hold about you. To exercise these rights, or if you have any questions about how your data is handled, please contact us at <a href="mailto:support@pret-a-fit.com" style="color:var(--bark);text-decoration:none;">support@pret-a-fit.com</a></p>
+      </div>
+      <div class="sec">
+        <h2>Changes to this policy</h2>
+        <p>If we make material changes to this policy, we will notify registered users by email. The date at the top of this page always reflects when it was last updated.</p>
+      </div>
+      <div class="sec">
+        <h2>Who holds your data</h2>
+        <p>Pr&ecirc;t-&agrave;-Fit is operated by Pret-a-Fit L.L.C-FZ, registered in the Meydan Free Zone, Dubai, United Arab Emirates, licence number 2656027.01, at Meydan Grandstand, 6th floor, Meydan Road, Nad Al Sheba, Dubai, U.A.E.. If you want to see, correct or delete anything we hold about you, write to <a href="mailto:support@pret-a-fit.com">support@pret-a-fit.com</a> and we will deal with it.</p>
+      </div>
+      <div class="sec">
+        <h2>Payments</h2>
+        <p>When you subscribe, your payment is handled by our payment provider, who acts as the seller of record. Your card details go to them and never to us &mdash; we never see or store a card number. They hold the billing information needed to take payment and meet tax obligations, under their own privacy policy.</p>
+      </div>
+  </div>
+
+  <footer>
+    <div class="foot-in">
+      <div class="foot-links">
+        <a href="pricing.html">Pricing</a>
+      <a href="terms.html">Terms</a>
+      <a href="privacy.html" aria-current="page">Privacy</a>
+      <a href="refunds.html">Refunds</a>
+      </div>
+      Pret-a-Fit L.L.C-FZ &middot; Licence 2656027.01<br>
+      Meydan Grandstand, 6th floor, Meydan Road, Nad Al Sheba, Dubai, U.A.E.<br>
+      <a href="mailto:support@pret-a-fit.com">support@pret-a-fit.com</a>
+    </div>
+  </footer>
+</body>
+</html>

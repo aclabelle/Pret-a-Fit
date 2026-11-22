@@ -814,6 +814,7 @@ select.text-input { cursor: pointer; }
   transition: color 0.15s;
 }
 .app-nav-link:hover { color: var(--bark); }
+a.app-nav-link { text-decoration: none; display: inline-block; }
 
 /* ── Editorial pages ── */
 .editorial-body {
@@ -2101,6 +2102,15 @@ select.text-input { cursor: pointer; }
       style="margin-top:1.75rem;background:none;border:none;color:var(--parchment);opacity:0.6;font-size:11px;letter-spacing:0.06em;text-decoration:underline;cursor:pointer;font-family:system-ui,sans-serif;padding:0;">
       Why a waitlist?
     </button>
+
+    <!-- Public policy pages. These are separate files, so they stay reachable
+         while the launch gate is up — which is what payment providers check. -->
+    <div style="margin-top:2.25rem;padding-top:1.25rem;border-top:0.5px solid rgba(245,240,232,0.15);display:flex;flex-wrap:wrap;gap:1.1rem;justify-content:center;">
+      <a href="pricing.html" style="font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--parchment);opacity:0.55;text-decoration:none;">Pricing</a>
+      <a href="terms.html" style="font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--parchment);opacity:0.55;text-decoration:none;">Terms</a>
+      <a href="privacy.html" style="font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--parchment);opacity:0.55;text-decoration:none;">Privacy</a>
+      <a href="refunds.html" style="font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--parchment);opacity:0.55;text-decoration:none;">Refunds</a>
+    </div>
   </div>
 </div>
 
@@ -4255,14 +4265,46 @@ function handleFitCheckPhoto(input) {
   reader.readAsDataURL(file);
 }
 
+/* Fit check usage. For a signed-in user this lives on their Clerk record, so
+   it follows them across tabs, devices and sessions. It used to be kept only
+   in sessionStorage, which meant the three free checks came back every time a
+   new tab was opened — free for anyone who noticed, and each one costs us a
+   real API call.
+
+   Guests still fall back to sessionStorage: there is nowhere else to put it
+   until someone has an account.
+
+   ⚠️ Known limit: this is stored in unsafeMetadata, which the browser can
+   write — that is the only store the page can increment on its own. So it
+   stops the accidental reset, not a determined person with the console open.
+   Making it truly tamper-proof needs a small server endpoint to do the
+   counting; see the backlog. Subscription status is a different matter and is
+   already safe — it lives in publicMetadata, which the browser cannot touch. */
 function getFitCheckCount() {
+  if (clerkInstance && clerkInstance.user) {
+    return clerkInstance.user.unsafeMetadata?.fitCheckCount || 0;
+  }
   try { return parseInt(sessionStorage.getItem('pf_fitchecks') || '0', 10) || 0; }
   catch(e) { return session.fitCheckCount || 0; }
 }
 
-function incrementFitCheckCount() {
+async function incrementFitCheckCount() {
   const next = getFitCheckCount() + 1;
   session.fitCheckCount = next;
+
+  if (clerkInstance && clerkInstance.user) {
+    try {
+      await clerkInstance.user.update({
+        unsafeMetadata: {
+          // Spread first, or this wipes the profile, wishlist, shopping guide
+          // and search count.
+          ...clerkInstance.user.unsafeMetadata,
+          fitCheckCount: next
+        }
+      });
+    } catch(e) { console.warn('Could not save fit check count:', e); }
+    return;
+  }
   try { sessionStorage.setItem('pf_fitchecks', String(next)); } catch(e) {}
 }
 
@@ -4327,7 +4369,7 @@ async function runFitCheck() {
   if (!session.fitCheckPhoto) { alert('Please upload a photo of the item first.'); return; }
 
   // Free, but capped — after the cap, the same pop-up as "Discover more"
-  if (!isSubscriber() && getFitCheckCount() >= FIT_CHECK_LIMIT) {
+  if (!hasPaidAccess() && getFitCheckCount() >= FIT_CHECK_LIMIT) {
     openGateModal();
     return;
   }
@@ -4351,7 +4393,10 @@ async function runFitCheck() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Fit check failed');
     const r = parseQuizJSON(data.result);
-    incrementFitCheckCount();
+    // Awaited so the Clerk record is updated before renderFitCheck() reads the
+    // count back for its "2 free fit checks left" line — otherwise that line
+    // shows the number from before this check.
+    await incrementFitCheckCount();
     renderFitCheck(r);
   } catch(err) {
     area.innerHTML = `<div class="error-msg">We couldn't read that one — please try a clearer photo of the item. (${esc(err.message)})</div>`;
@@ -4387,8 +4432,12 @@ function renderFitCheck(r) {
   session.fitCheckAlternative = alt;
 
   const remaining = Math.max(0, FIT_CHECK_LIMIT - getFitCheckCount());
-  const remainingNote = isSubscriber() ? '' :
-    `<p class="image-disclaimer" style="text-align:center;">${remaining} free fit ${remaining === 1 ? 'check' : 'checks'} left in this session.</p>`;
+  // "in this session" is only true for guests now. For a signed-in user the
+  // count is saved to their account and does not come back with a new tab,
+  // so promising them a fresh set each session would be a false promise.
+  const scope = (clerkInstance && clerkInstance.user) ? '' : ' in this session';
+  const remainingNote = hasPaidAccess() ? '' :
+    `<p class="image-disclaimer" style="text-align:center;">${remaining} free fit ${remaining === 1 ? 'check' : 'checks'} left${scope}.</p>`;
 
   area.innerHTML = `
     <div class="fitcheck-card">
@@ -4618,12 +4667,63 @@ async function incrementSearchCount() {
   }
 }
 
+/* ── Subscriber status — ONE definition, used everywhere ─────────────────
+   Every paid feature must call isSubscriber(). Do not write a local copy of
+   this check: there used to be four different versions in this file, two of
+   them reading a different field under a different name, which meant a real
+   paying customer would have been let into some paid features and blocked
+   from others.
+
+   IT READS publicMetadata, AND THAT MATTERS.
+   Clerk gives each user two metadata stores:
+     - unsafeMetadata  — writable from the browser. This is where the profile,
+                         wishlist and shopping guide live, which is fine: it is
+                         the user's own data and they can only harm themselves.
+     - publicMetadata  — writable ONLY from a server holding the Clerk secret
+                         key. The browser can read it but can never change it.
+
+   Subscription status therefore has to live in publicMetadata. If it lived in
+   unsafeMetadata, anyone could open the browser console and grant themselves
+   a free subscription in one line — this function is the only thing standing
+   between a visitor and every paid feature in the app.
+
+   THE STRIPE CONTRACT: the webhook (api/stripe-webhook.js, still to be built)
+   is what sets this, server-side, after Stripe confirms payment:
+       publicMetadata = { subscriber: true, subscriptionStatus: 'active' }
+   and on cancellation or failed payment sets subscriber to false and the
+   status to whatever Stripe reported. Nothing in the browser writes it.
+   ──────────────────────────────────────────────────────────────────────── */
 function isSubscriber() {
-  // Will be connected to Stripe later — for now always false
-  if (clerkInstance && clerkInstance.user) {
-    return clerkInstance.user.unsafeMetadata?.subscribed === true;
-  }
+  if (!clerkInstance || !clerkInstance.user) return false;
+
+  const pub = clerkInstance.user.publicMetadata || {};
+
+  // The flag the webhook sets. Checked strictly, so a stray truthy value
+  // (a leftover string, say) can't be mistaken for a paid account.
+  if (pub.subscriber === true) return true;
+
+  // Also accept Stripe's own status wording, in case the webhook ends up
+  // writing the status straight through rather than a boolean.
+  if (pub.subscriptionStatus === 'active' || pub.subscriptionStatus === 'trialing') return true;
+
   return false;
+}
+
+/* The gate for every paid feature. Use THIS, not isSubscriber(), anywhere a
+   feature is being unlocked — it adds the pre-launch testing bypass.
+
+   Why the bypass is safe: Stripe is not connected yet, so isSubscriber() is
+   false for everyone, including you. Without a way in, no paid feature could
+   be tested before launch. ?preview=1 provides that.
+
+   And why it cannot become a permanent back door: it only works while
+   COMING_SOON_MODE is on. Turning that off is already step one of going live,
+   so the bypass closes itself the moment the doors open — there is no separate
+   switch to remember. */
+function hasPaidAccess() {
+  if (isSubscriber()) return true;
+  const comingSoon = (typeof COMING_SOON_MODE !== 'undefined') && COMING_SOON_MODE;
+  return comingSoon && isPreviewVisit();
 }
 
 function showPaywall(area) {
@@ -4638,6 +4738,30 @@ function showPaywall(area) {
     </div>`;
 }
 
+/* ── Subscribe ────────────────────────────────────────────────────────────
+   Stripe is not connected yet. When it is, this becomes a redirect to a
+   Stripe Checkout session, and TWO THINGS MUST APPEAR BEFORE PAYMENT:
+
+   1. LINKS TO THE TERMS AND THE REFUND POLICY. Stripe Checkout can render
+      these itself (consent_collection.terms_of_service_acceptance), which is
+      the least-work way to satisfy it.
+
+   2. THE IMMEDIATE-ACCESS CONSENT. Customers in the UK and EU have a 14-day
+      statutory cancellation right. For digital services that right can be
+      waived, but ONLY with the customer's express consent plus an
+      acknowledgement that they are giving it up. Without that tickbox, a
+      customer can use the service for thirteen days and still demand the
+      whole subscription back, and our own refund policy's five-search
+      allowance would not override the statute.
+
+      Wording to use, as a required checkbox:
+        "I want access to Prêt-à-Fit straight away, and I understand that
+         once it begins I may lose my right to cancel within 14 days for a
+         full refund. Our refunds policy still applies."
+
+      Keep a record of the consent (Stripe's session object is fine) — in a
+      dispute the burden of showing it was given sits with us.
+   ──────────────────────────────────────────────────────────────────────── */
 function handleSubscribe() {
   // Stripe not yet connected — show coming soon message for now
   alert('Subscriptions are coming very soon. Thank you for your patience.');
@@ -4772,7 +4896,7 @@ async function findOutfits() {
   if (!priceMin || !priceMax) { alert('Please enter a price range.'); return; }
 
   // Check search limit
-  if (!isSubscriber() && getSearchCount() >= FREE_SEARCH_LIMIT) {
+  if (!hasPaidAccess() && getSearchCount() >= FREE_SEARCH_LIMIT) {
     showPaywall(document.getElementById('resultsArea'));
     return;
   }
@@ -4981,7 +5105,7 @@ function showGateThanks() {
 async function loadMore() {
   // Every "Discover more" is a real, paid AI search. Free users get the
   // pop-up instead — no search is run and nothing is charged.
-  if (!isSubscriber()) {
+  if (!hasPaidAccess()) {
     openGateModal();
     return;
   }
@@ -5056,10 +5180,9 @@ function selectBodyOption(method, cardEl) {
     setTimeout(() => selectQuizMethod('questions'), 320);
     return;
   }
-  // photo or camera — subscriber only
-  const isSubscriber = clerkInstance && clerkInstance.user &&
-    clerkInstance.user.publicMetadata && clerkInstance.user.publicMetadata.subscriber;
-  if (isSubscriber) {
+  // photo or camera — subscriber only. Uses the shared gate; this used to be
+  // a local copy of the check that read a different field from isSubscriber().
+  if (hasPaidAccess()) {
     goTo('screen-body-quiz');
     setTimeout(() => selectQuizMethod(method), 320);
   } else {
@@ -5069,9 +5192,7 @@ function selectBodyOption(method, cardEl) {
 
 function handleBodyPhotoMethodClick(method) {
   // Called from inside quiz screen method grid
-  const isSubscriber = clerkInstance && clerkInstance.user &&
-    clerkInstance.user.publicMetadata && clerkInstance.user.publicMetadata.subscriber;
-  if (isSubscriber) {
+  if (hasPaidAccess()) {
     selectQuizMethod(method);
   } else {
     showPhotoPaywall();
@@ -5468,10 +5589,8 @@ function selectColourOption(method, cardEl) {
 
 
   if (method === 'photo' || method === 'camera') {
-    // Check subscriber status
-    const isSubscriber = clerkInstance && clerkInstance.user &&
-      clerkInstance.user.publicMetadata && clerkInstance.user.publicMetadata.subscriber;
-    if (!isSubscriber) {
+    // Check subscriber status via the shared gate
+    if (!hasPaidAccess()) {
       showColourPaywallInline(method, cardEl);
       return;
     }
@@ -6445,10 +6564,9 @@ async function submitContact() {
       guide can be copied out in one tap and pasted into a notes app.
    ──────────────────────────────────────────────────────────────────────── */
 
-// Subscribers only, per the plan. Because Stripe isn't connected yet,
-// isSubscriber() always returns false — so ?preview=1 also unlocks it, which
-// lets you test the feature on the live site before payments exist. Real
-// visitors never have ?preview=1 on their URL.
+// Subscribers only, per the plan. Access goes through hasPaidAccess(), the
+// one shared gate used by every paid feature — which also carries the
+// ?preview=1 testing bypass, and closes it automatically at launch.
 const SHOPPING_GUIDE_SUBSCRIBER_ONLY = true;
 
 let shoppingGuide = null;      // { signature, generatedAt, data }
@@ -6461,7 +6579,7 @@ function isPreviewVisit() {
 
 function guideUnlocked() {
   if (!SHOPPING_GUIDE_SUBSCRIBER_ONLY) return true;
-  return isSubscriber() || isPreviewVisit();
+  return hasPaidAccess();
 }
 
 /* A fingerprint of the profile fields the advice actually depends on. Size,
@@ -7073,7 +7191,9 @@ async function joinWaitlist() {
       <button class="app-nav-link" onclick="goTo('screen-app')">← Back</button>
       <button class="app-nav-link" onclick="openFaq('screen-app')">FAQ</button>
       <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
-      <button class="app-nav-link" onclick="goTo('screen-privacy')">Privacy</button>
+      <a class="app-nav-link" href="pricing.html">Pricing</a>
+      <a class="app-nav-link" href="privacy.html">Privacy</a>
+      <a class="app-nav-link" href="terms.html">Terms</a>
     </nav>
   </div>
   <div class="editorial-body">
@@ -7118,7 +7238,9 @@ async function joinWaitlist() {
       <button class="app-nav-link" onclick="goTo('screen-app')">← Back</button>
       <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
       <button class="app-nav-link" onclick="openFaq('screen-app')">FAQ</button>
-      <button class="app-nav-link" onclick="goTo('screen-privacy')">Privacy</button>
+      <a class="app-nav-link" href="pricing.html">Pricing</a>
+      <a class="app-nav-link" href="privacy.html">Privacy</a>
+      <a class="app-nav-link" href="terms.html">Terms</a>
     </nav>
   </div>
   <div class="editorial-body">
@@ -7169,63 +7291,6 @@ async function joinWaitlist() {
   </div>
 </div>
 
-<!-- ══ SCREEN: PRIVACY ══ -->
-<div class="screen" id="screen-privacy">
-  <div class="app-topbar">
-    <div class="app-logo-small">prêt-à-<em>fit</em></div>
-    <nav class="app-nav">
-      <button class="app-nav-link" onclick="goTo('screen-app')">← Back</button>
-      <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
-      <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
-    </nav>
-  </div>
-  <div class="editorial-body">
-    <div class="editorial-wrap">
-
-      <div class="editorial-eyebrow">Privacy policy</div>
-      <h1 class="editorial-heading">Your privacy,<br>plainly stated.</h1>
-      <p class="editorial-p">We believe privacy policies should be readable. Here is ours, written in plain language.</p>
-      <p style="font-size:11px;color:var(--dust);margin-bottom:2rem;">Last updated: June 2026</p>
-
-      <div class="privacy-section">
-        <div class="privacy-heading">What we collect</div>
-        <p class="editorial-p">When you use Prêt-à-Fit, you provide us with style preferences — your body type, height range, sizing, location, occasion, colour preferences and style inspirations. This information is used solely to generate clothing recommendations for you. We also collect your email address if you create an account or contact us.</p>
-      </div>
-
-      <div class="privacy-section">
-        <div class="privacy-heading">How we use it</div>
-        <p class="editorial-p">Your preferences are passed to our AI provider (Anthropic) to generate personalised recommendations. They are not sold, shared with advertisers, or used for any purpose other than producing your results. If you create an account, your profile preferences are saved so you don't need to re-enter them each visit.</p>
-      </div>
-
-      <div class="privacy-section">
-        <div class="privacy-heading">What we don't do</div>
-        <p class="editorial-p">We do not sell your data. We do not share your information with retailers or third-party advertisers. We do not use your information to build advertising profiles. We do not store payment information — this is handled entirely by Stripe, our payment provider.</p>
-      </div>
-
-      <div class="privacy-section">
-        <div class="privacy-heading">Photo analysis (coming soon)</div>
-        <p class="editorial-p">When we introduce optional photo-based body assessment, any image you upload will be sent directly to our AI provider for analysis and immediately discarded. Photos are never stored, never shared, and never used for any purpose beyond the single analysis you request.</p>
-      </div>
-
-      <div class="privacy-section">
-        <div class="privacy-heading">Cookies</div>
-        <p class="editorial-p">We use minimal, functional cookies only — to keep you logged in and remember your preferences between sessions. We do not use advertising or tracking cookies.</p>
-      </div>
-
-      <div class="privacy-section">
-        <div class="privacy-heading">Your rights</div>
-        <p class="editorial-p">You have the right to access, correct, or delete any personal data we hold about you. To exercise these rights, or if you have any questions about how your data is handled, please contact us at <a href="mailto:support@pret-a-fit.com" style="color:var(--bark);text-decoration:none;">support@pret-a-fit.com</a></p>
-      </div>
-
-      <div class="privacy-section">
-        <div class="privacy-heading">Changes to this policy</div>
-        <p class="editorial-p">If we make material changes to this policy, we will notify registered users by email. The date at the top of this page always reflects when it was last updated.</p>
-      </div>
-
-    </div>
-  </div>
-</div>
-
 <!-- ══ MODAL: DISCOVER MORE GATE ══ -->
 <!-- Shown when a free user taps "Discover more". While DISCOVER_MORE_GATE is
      'waitlist' this collects an email; switch it to 'signup' once Stripe is
@@ -7270,7 +7335,9 @@ async function joinWaitlist() {
       <span id="faqExtraNav">
         <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
         <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
-        <button class="app-nav-link" onclick="goTo('screen-privacy')">Privacy</button>
+        <a class="app-nav-link" href="pricing.html">Pricing</a>
+        <a class="app-nav-link" href="privacy.html">Privacy</a>
+        <a class="app-nav-link" href="terms.html">Terms</a>
       </span>
     </nav>
   </div>
@@ -7333,6 +7400,23 @@ async function joinWaitlist() {
         <div class="privacy-heading">Will it tell me not to buy something?</div>
         <p class="editorial-p">Yes, and that is deliberate. If a piece is not going to work for you, we would rather say so before you spend money than after — better for your wardrobe, and better for the quantity of clothing that gets shipped back and forth for no reason.</p>
       </div>
+
+      <!-- ─────────────────────────────────────────────────────────────────
+           DRAFTED FOR THE LAUNCH FAQ — not live yet.
+           Pre-launch visitors are not shopping, so this question has no
+           audience until the doors open. At launch, delete the comment
+           markers around it and place it near the commission question
+           ("Do you earn money when I buy something?"), since the two
+           answer the same underlying worry about whose side we are on.
+           The live policy is refunds.html. Reasoning is in the spec under
+           "Why we do not buy things for you".
+           ───────────────────────────────────────────────────────────── -->
+      <!--
+      <div class="privacy-section">
+        <div class="privacy-heading">Why can't you just buy it for me?</div>
+        <p class="editorial-p">Because we would rather you kept hold of your own money. We could, in principle, hold your card details and complete checkouts for you. We have chosen not to — it would mean storing your payment information, and it would mean software placing real orders, in the wrong size or the wrong colour or on a sale item that cannot be returned, with nobody looking. The whole point of Prêt-à-Fit is to tell you whether something will genuinely work before you spend anything. Spending it for you sits oddly next to that. So we take you to the retailer with your size already selected where we can, and the last word stays yours.</p>
+      </div>
+      -->
 
       <div class="privacy-section">
         <div class="privacy-heading">Something else?</div>
