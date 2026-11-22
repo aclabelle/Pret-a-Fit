@@ -3951,16 +3951,83 @@ function updateUserAvatar() {
     : initials;
 }
 
+/* ── Clearing one person's data off a shared device ───────────────────────
+   Signing out does NOT reload the page, so every variable in this file keeps
+   whatever the last person put in it. Without this function the next person
+   to use the browser — a partner, a colleague, whoever picks up the tablet —
+   could land on the Profile screen and see someone else's body type, height
+   and saved items, and in the worst case their uploaded photographs.
+
+   Photographs are the reason this matters. The body-shape and colour quizzes
+   hold pictures of a person's body and face as base64 strings in memory, and
+   those survived sign-out until this was written.
+
+   `profile` and `session` are const objects that other code holds references
+   to, so they are emptied in place rather than reassigned.
+
+   Deliberately NOT cleared: the sessionStorage search and fit-check counters.
+   Those belong to the browser rather than the account, they contain nothing
+   personal, and wiping them would hand anyone a fresh set of free searches
+   just by signing out. */
+function clearPersonalState() {
+  Object.assign(profile, {
+    gender: '', body: '', colourMethod: '', colourTone: '', colourSeason: '',
+    vibes: [], muses: [], retailers: [], sizeSystem: 'US', size: '', location: '', height: ''
+  });
+
+  Object.assign(session, {
+    occasionParent: '', occasionChild: '', climate: '',
+    currency: 'USD', priceMin: '', priceMax: '',
+    localOnly: false, exclusions: [], feedback: [],
+    specificItem: '',
+    // Uploaded photographs — of garments, but also of whatever the person
+    // happened to photograph.
+    shopLookPhoto: null, pairingPhoto: null, fitCheckPhoto: null
+  });
+
+  allItems = [];
+  wishlistItems = [];
+  wishlistSearches = [];
+  shoppingGuide = null;
+  guideLoading = false;
+
+  // Photographs of the person themselves.
+  quizPhotoBase64 = null;
+  bodyCameraPhotoBase64 = null;
+  colourPhotoBase64 = null;
+  cameraPhoto1Base64 = null;
+  cameraPhoto2Base64 = null;
+  quizResultBody = '';
+  colourResultTone = '';
+  colourResultSeason = '';
+
+  // Stop any camera still running, rather than leaving the light on for
+  // whoever is next.
+  [bodyCameraStream, cameraStream].forEach(function (s) {
+    try { if (s) s.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+  });
+  bodyCameraStream = null;
+  cameraStream = null;
+
+  profileEditField = null;
+  profileTempValues = {};
+  authReturnTo = 'screen-app';
+
+  // Clearing the variables doesn't clear what is already drawn on screen, so
+  // empty the containers that hold personal results too.
+  ['resultsArea', 'wishlistItemsGrid', 'wishlistSearchesList', 'profileGuideBody']
+    .forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '';
+    });
+}
+
 function handleUserMenu() {
   if (!clerkInstance || !clerkInstance.user) return;
   const confirmed = confirm('Sign out of Prêt-à-Fit?');
   if (confirmed) {
     clerkInstance.signOut().then(() => {
-      // Signing out doesn't reload the page, so anything cached in memory
-      // survives it. The shopping guide is personal, so it must be dropped —
-      // otherwise the next person to sign in on this device would briefly see
-      // the previous user's guide on the Profile screen.
-      shoppingGuide = null;
+      clearPersonalState();
       document.getElementById('userAvatarWrap').style.display = 'none';
       goTo('screen-hero');
     });

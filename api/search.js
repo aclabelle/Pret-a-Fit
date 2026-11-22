@@ -22,6 +22,51 @@
    ──────────────────────────────────────────────────────────────────────── */
 const REQUIRE_KNOWN_ORIGIN = true;
 
+/* ── Cost logging ─────────────────────────────────────────────────────────
+   Every call to this endpoint spends real money, and until now nobody knew
+   how much. The spec has said "max 3 searches per request to control cost"
+   since July, but no such cap was ever set in the code (see the web_search
+   tool below — there is no `max_uses`), so the model runs as many searches
+   as it decides it needs. Comparison-style questions can run ten or more.
+
+   So every call now logs what it actually used. Find these in Vercel →
+   your project → the Logs tab, and filter for "[COST]".
+
+   The token counts and the search count come straight from the API and are
+   exact. The dollar figure is worked out from the two rates below.
+   ⚠️ VERIFY THESE RATES at claude.com/pricing before trusting the estimate —
+   they are the published rates for this model family, not a quote. The raw
+   numbers on each log line stay correct either way, so the estimate being
+   off does not spoil the measurement.
+   ──────────────────────────────────────────────────────────────────────── */
+const PRICE_PER_MTOK_INPUT  = 3.00;   // USD per 1,000,000 input tokens
+const PRICE_PER_MTOK_OUTPUT = 15.00;  // USD per 1,000,000 output tokens
+const PRICE_PER_WEB_SEARCH  = 0.01;   // USD per search ($10 per 1,000)
+
+function logCost(mode, usage) {
+  if (!usage) { console.log('[COST] mode=' + mode + ' usage=unavailable'); return; }
+
+  const inTok  = usage.input_tokens || 0;
+  const outTok = usage.output_tokens || 0;
+  // Cached tokens are billed differently, but nothing here uses caching yet.
+  const cacheRead  = usage.cache_read_input_tokens || 0;
+  const cacheWrite = usage.cache_creation_input_tokens || 0;
+  const searches = (usage.server_tool_use && usage.server_tool_use.web_search_requests) || 0;
+
+  const dollars = (inTok  / 1e6) * PRICE_PER_MTOK_INPUT
+                + (outTok / 1e6) * PRICE_PER_MTOK_OUTPUT
+                + searches * PRICE_PER_WEB_SEARCH;
+
+  console.log(
+    '[COST] mode=' + mode +
+    ' searches=' + searches +
+    ' in=' + inTok +
+    ' out=' + outTok +
+    (cacheRead || cacheWrite ? ' cacheRead=' + cacheRead + ' cacheWrite=' + cacheWrite : '') +
+    ' est=$' + dollars.toFixed(4)
+  );
+}
+
 const ALLOWED_ORIGIN_HOSTS = [
   'pret-a-fit.com',
   'www.pret-a-fit.com',
@@ -305,6 +350,10 @@ Respond with a raw JSON array only. No markdown, no preamble, no explanation.`;
       console.error('Anthropic API error:', response.status, errMsg);
       return res.status(response.status).json({ error: errMsg });
     }
+
+    // Log before anything else can return early — a reply that got truncated
+    // still cost money, and those are exactly the calls worth seeing.
+    logCost(resolvedMode, data.usage);
 
     const result = (data.content || [])
       .filter(block => block.type === 'text')
