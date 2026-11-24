@@ -2962,6 +2962,14 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
         <div class="chip-grid" id="heightRow"></div>
         <div class="field-hint">Changes where hems, inseams and sleeves actually land — and tells us whether to look at petite or tall ranges.</div>
       </div>
+      <!-- Optional, and deliberately phrased as something available rather
+           than something asked. No prompt, no nudge, no reminder anywhere
+           else in the app. See the pregnancy notes in the script below. -->
+      <div class="field" style="grid-column:1/-1;">
+        <label>Expecting? <span style="color:var(--dust);font-weight:400;">(optional)</span></label>
+        <select class="text-input" id="dueMonthInput" onchange="setDueMonth(this.value)"></select>
+        <div class="field-hint">If you tell us when you're due, we'll suit every recommendation to the stage you're at. Leave it blank and we won't ask again — and you can clear it in one tap whenever you like.</div>
+      </div>
       <div class="field" style="grid-column:1/-1;">
         <label>Shipping location</label>
         <input class="text-input" type="text" id="locationInput" placeholder="e.g. London, Dubai, São Paulo — anywhere" />
@@ -3112,6 +3120,16 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
     </div>
 
     <!-- Climate -->
+    <!-- Only rendered when a due month is set. People shopping while pregnant
+         are often buying for a body they don't have yet — a coat for January
+         when they're 20 weeks now. The due month alone can't express that, so
+         this says which stage the piece is actually for. -->
+    <div class="app-section" id="sectionWearWhen" style="display:none;">
+      <div class="app-section-title">When will you wear this?</div>
+      <div class="climate-row" id="wearWhenRow"></div>
+      <div class="field-hint" id="wearWhenHint" style="margin-top:0.5rem;"></div>
+    </div>
+
     <div class="app-section" id="sectionClimate">
       <div class="app-section-title">Climate</div>
       <div class="climate-row">
@@ -3234,13 +3252,17 @@ async function initClerk() {
 /* ── State ── */
 const profile = {
   gender: '', body: '', colourMethod: '', colourTone: '', colourSeason: '',
-  vibes: [], muses: [], retailers: [], sizeSystem: 'US', size: '', location: '', height: ''
+  vibes: [], muses: [], retailers: [], sizeSystem: 'US', size: '', location: '', height: '',
+  // Optional, opt-in, and the only health-related field we hold. 'YYYY-MM'.
+  dueMonth: ''
 };
 const session = {
   occasionParent: '', occasionChild: '', climate: '',
   currency: 'USD', priceMin: '', priceMax: '',
   localOnly: false, exclusions: [], feedback: [],
-  specificItem: ''
+  specificItem: '',
+  // Which stage this particular search is for — see renderWearWhen().
+  wearWhen: ''
 };
 
 /* ── FAQ ──────────────────────────────────────────────────────────────────
@@ -3313,6 +3335,227 @@ function heightNote() {
   return `Height: ${range}. Standard lengths should generally work.`;
 }
 
+/* ── Pregnancy ────────────────────────────────────────────────────────────
+   An optional due month on the profile, which changes what every search,
+   fit check and shopping guide recommends.
+
+   WHY A DUE DATE RATHER THAN A BODY TYPE OR A TRIMESTER.
+   Body types describe a stable shape. Pregnancy overrides that temporarily
+   and changes constantly — a 12-week bump and a 36-week bump need entirely
+   different clothes. Storing a trimester would go stale within weeks and
+   rely on the user remembering to update it. A due month stays accurate on
+   its own, because the stage is worked out from today's date every time.
+
+   WHAT IS STORED: a month and year, nothing else. Not a condition, not a
+   history, not a precise date. Month precision is plenty for clothing advice
+   and is the least we can hold while still being useful.
+
+   IT EXPIRES, AND IT DOES NOT ASSUME AN OUTCOME.
+   Once the due month has passed, pregnancy advice simply stops being applied.
+   The app does NOT roll into post-partum or nursing recommendations on its
+   own. Around one in four pregnancies ends in loss, and an app that starts
+   suggesting nursing tops because a date went by would be cruel. If someone
+   wants post-partum advice they can say so; we never infer it.
+
+   IT IS NEVER ASKED FOR. There is no prompt, no onboarding step and no
+   reminder. It sits as an optional field among the others for anyone who
+   goes looking, and clearing it takes one tap with no confirmation dialogue
+   and no follow-up question.
+   ──────────────────────────────────────────────────────────────────────── */
+
+const MONTH_NAMES = ['January','February','March','April','May','June',
+                     'July','August','September','October','November','December'];
+
+/* Options run from last month to nine months ahead, which covers a pregnancy
+   from either end. A stored value outside that window is added so a person
+   always sees what they actually set. */
+function getDueMonthOptions() {
+  const out = [];
+  const now = new Date();
+  for (let i = -1; i <= 9; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    out.push({
+      value: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'),
+      label: MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear()
+    });
+  }
+  if (profile.dueMonth && !out.some(o => o.value === profile.dueMonth)) {
+    const [y, m] = profile.dueMonth.split('-').map(Number);
+    if (y && m) out.unshift({ value: profile.dueMonth, label: MONTH_NAMES[m - 1] + ' ' + y });
+  }
+  return out;
+}
+
+/* Weeks pregnant today, worked out from the due month. Returns null when no
+   due month is set, or when it has passed — see the expiry note above. */
+function pregnancyWeeks() {
+  if (!profile.dueMonth) return null;
+  const [y, m] = profile.dueMonth.split('-').map(Number);
+  if (!y || !m) return null;
+
+  // Mid-month, since we only hold month precision. Good to about a fortnight,
+  // which is finer than clothing advice needs.
+  const due = new Date(y, m - 1, 15);
+  const weeksUntilDue = (due - new Date()) / (7 * 24 * 60 * 60 * 1000);
+  const weeks = 40 - weeksUntilDue;
+
+  // The cutoff is 44 weeks, not 40, and the reason matters. We only hold a
+  // month, so the reference point is mid-month — which means someone who
+  // says "due November" is still pregnant through the end of November, and
+  // babies routinely arrive up to a fortnight late. Cutting off at 40 weeks
+  // dropped exactly the people at 38-40 weeks, who need the advice most.
+  // Running a few weeks long simply keeps recommending comfortable clothes,
+  // which is harmless; stopping early leaves someone stranded.
+  if (weeks > 44 || weeks < 0) return null;
+  return Math.round(weeks);
+}
+
+/* Fills a due-month <select>. The blank option is first and is the default,
+   so the control reads as "nothing selected" rather than as a question
+   waiting for an answer. */
+function renderDueMonthOptions(selectId) {
+  const sel = document.getElementById(selectId || 'dueMonthInput');
+  if (!sel) return;
+  const opts = ['<option value="">Not applicable</option>']
+    .concat(getDueMonthOptions().map(o =>
+      `<option value="${o.value}"${profile.dueMonth === o.value ? ' selected' : ''}>${o.label}</option>`));
+  sel.innerHTML = opts.join('');
+  sel.value = profile.dueMonth || '';
+}
+
+/* Setting and clearing both run through here. Clearing is immediate: no
+   confirmation dialogue, no "are you sure?", and nothing asking why. */
+function setDueMonth(value) {
+  profile.dueMonth = value || '';
+  saveProfileToClerk();
+  const row = document.getElementById('profileDueRow');
+  if (row) renderProfileDueRow();
+}
+
+/* The Profile screen's row. Hidden outright when nothing is set, rather than
+   shown as an empty "—", so the subject never appears unprompted. Once the
+   due month has passed the row says so plainly instead of guessing what
+   happened, and the only action offered is to clear it. */
+function renderProfileDueRow() {
+  const row = document.getElementById('profileDueRow');
+  const val = document.getElementById('profileDue');
+  if (!row || !val) return;
+
+  if (!profile.dueMonth) { row.style.display = 'none'; return; }
+  row.style.display = '';
+
+  const w = pregnancyWeeks();
+  val.textContent = w === null
+    ? `Due ${dueMonthLabel()} — no longer applied`
+    : `Due ${dueMonthLabel()} · around ${w} weeks`;
+}
+
+function dueMonthLabel() {
+  if (!profile.dueMonth) return '';
+  const [y, m] = profile.dueMonth.split('-').map(Number);
+  return (y && m) ? MONTH_NAMES[m - 1] + ' ' + y : '';
+}
+
+/* ── Which body are they shopping for? ────────────────────────────────────
+   The due month says where someone is today.  It does not say what they are
+   buying for, and during pregnancy those are often different: a coat bought
+   at 20 weeks for January is needed at 32.  Buying for the body you have and
+   buying for the body you'll have are both common, so the stage defaults to
+   today and can be overridden per search.
+
+   This lives on `session`, not `profile`, because it is an intent for one
+   search rather than a fact about a person — the same split the app already
+   uses for climate and budget.
+
+   "After the birth" matters for a second reason.  Post-partum advice must
+   never be inferred from a date passing, but a person choosing it themselves
+   is not an inference — it is them telling us.  That is the only way this
+   app will ever give post-partum recommendations. */
+const WEAR_WHEN = [
+  { value: '',      label: 'Now' },
+  { value: 'soon',  label: 'In a month or two' },
+  { value: 'late',  label: 'The last few weeks' },
+  { value: 'after', label: 'After the birth' }
+];
+
+function renderWearWhen() {
+  const section = document.getElementById('sectionWearWhen');
+  const row = document.getElementById('wearWhenRow');
+  const hint = document.getElementById('wearWhenHint');
+  if (!section || !row) return;
+
+  // Invisible to anyone who hasn't set a due month, and to anyone whose due
+  // month has passed.
+  if (pregnancyWeeks() === null) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  row.innerHTML = WEAR_WHEN.map(o =>
+    `<button class="climate-chip${(session.wearWhen || '') === o.value ? ' selected' : ''}" data-value="${o.value}" onclick="selectWearWhen(this)">${o.label}</button>`
+  ).join('');
+
+  if (hint) {
+    const target = targetPregnancyWeeks();
+    hint.textContent = session.wearWhen === 'after'
+      ? 'We’ll look for pieces that work after the birth rather than during.'
+      : `We’ll fit the recommendations to around ${target} weeks.`;
+  }
+}
+
+function selectWearWhen(btn) {
+  session.wearWhen = btn.dataset.value || '';
+  renderWearWhen();
+}
+
+/* The stage the recommendations should actually target, as opposed to the
+   stage the person is at today. */
+function targetPregnancyWeeks() {
+  const now = pregnancyWeeks();
+  if (now === null) return null;
+  if (session.wearWhen === 'soon') return Math.min(40, now + 7);
+  if (session.wearWhen === 'late') return Math.max(now, 37);
+  return now;
+}
+
+/* The line handed to the AI. Written to make the model act on the stage
+   rather than simply acknowledge it, and to stop it defaulting to the
+   maternity section — most of what works during pregnancy is ordinary
+   clothing chosen well, and maternity ranges are often poor and overpriced
+   precisely because they are a captive market. */
+function pregnancyNote() {
+  const current = pregnancyWeeks();
+  if (current === null) return '';
+
+  // Chosen by the person, never inferred from a date.
+  if (session.wearWhen === 'after') {
+    return `POST-PARTUM: the client is pregnant (due ${dueMonthLabel()}) and is shopping for after the birth, which they have told us themselves. Recommend pieces for a recently post-partum body: a soft, still-changing middle, a different bust, and clothes that have to be lived in rather than admired. Prioritise forgiving waists that are not tight, stretch and soft fabrics, layers, front openings and anything that allows feeding access without making a feature of it. Sizing is uncertain at this point, so favour pieces with give and say so in sizeNote. Do not recommend anything requiring a precise fit, and do not assume a timeline for a body changing back — never refer to "getting your body back", bouncing back, or losing weight. Do not mention the baby's clothing or equipment. Recommend a mix of nursing-specific and ordinary pieces that happen to work, saying which is which.`;
+  }
+
+  const w = targetPregnancyWeeks();
+  const buyingAhead = w > current + 2;
+
+  // When someone is buying ahead, the stage that matters is the one they'll
+  // be at when they wear the piece — so that stage is the subject of the
+  // sentence, with today's as context. Stating both as flat facts ("is 32
+  // weeks" / "is 20 weeks today") would read as a contradiction.
+  const subject = buyingAhead
+    ? `the client will be around ${w} weeks pregnant by the time they wear this (due ${dueMonthLabel()}; about ${current} weeks today)`
+    : `the client is around ${w} weeks pregnant (due ${dueMonthLabel()})`;
+
+  const ahead = buyingAhead
+    ? ' They are buying ahead, so judge fit at that later stage rather than today — the piece has to work when it is worn, not when it is bought.'
+    : '';
+
+  const shared = ' Recommend a mix: pieces from maternity ranges where they are genuinely better, and ordinary clothing that accommodates a bump, saying which is which. Do not restrict the search to maternity sections. Never comment on the client\'s body, weight or size, and do not assume they want to conceal the bump — judge every garment on fit, comfort and whether it will still work in a month. In sizeNote, say how the piece is likely to fit as the bump grows, and note that maternity sizing normally follows the pre-pregnancy size.';
+
+  if (w < 13) {
+    return `PREGNANCY: ${subject}. Nothing is visible yet, but comfort has already changed — waistbands, bust size and bloating. Prioritise forgiving or elasticated waists, stretch fabrics, softer bras, and pieces that will still fit in three months. Avoid rigid waistbands, anything that depends on tailoring to an exact fit, and pieces that will be unwearable by the second trimester.${ahead}${shared}`;
+  }
+  if (w < 28) {
+    return `PREGNANCY: ${subject}, with a visible and growing bump. Prioritise empire and under-bust seams, wrap and A-line shapes, side ruching, stretch jersey, and tops cut long enough to stay covering the bump as it grows. Avoid rigid waistbands, fitted shirts that will gape at the bust, and anything that fits only this month.${ahead}${shared}`;
+  }
+  return `PREGNANCY: ${subject}, in the final stretch. Comfort, ease of dressing and temperature matter more than anything else now. Prioritise full panels or soft wide waistbands, stretch, dresses over separates, wide necklines, and shoes that need no bending to put on. Remember that hems ride up at the front over a bump, so say where things will actually land. Favour pieces that will still be wearable immediately afterwards. Avoid back zips, rigid waists, anything that must be stepped into carefully, and heels.${ahead}${shared}`;
+}
+
 /* ── Screen navigation ── */
 const SCREENS = ['screen-comingsoon','screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-manual','screen-colour-quiz','screen-style','screen-muses','screen-retailers','screen-sizing','screen-auth','screen-app','screen-wishlist','screen-profile','screen-faq'];
 const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-body-manual','screen-colour','screen-colour-manual','screen-style','screen-muses','screen-retailers','screen-sizing'];
@@ -3331,7 +3574,11 @@ function goTo(id) {
 function showScreen(id) {
   const el = document.getElementById(id);
   // Height bands depend on the gender chosen earlier, so build them on entry
-  if (id === 'screen-sizing') renderHeightOptions('heightRow');
+  if (id === 'screen-app') renderWearWhen();
+  if (id === 'screen-sizing') {
+    renderHeightOptions('heightRow');
+    renderDueMonthOptions('dueMonthInput');
+  }
   el.classList.add('active');
   setTimeout(() => el.classList.add('visible'), 20);
   updateDots(id);
@@ -3772,7 +4019,8 @@ async function saveProfileToClerk() {
           sizeSystem: profile.sizeSystem,
           size: profile.size,
           location: profile.location,
-          height: profile.height
+          height: profile.height,
+          dueMonth: profile.dueMonth
         }
       }
     });
@@ -3972,14 +4220,15 @@ function updateUserAvatar() {
 function clearPersonalState() {
   Object.assign(profile, {
     gender: '', body: '', colourMethod: '', colourTone: '', colourSeason: '',
-    vibes: [], muses: [], retailers: [], sizeSystem: 'US', size: '', location: '', height: ''
+    vibes: [], muses: [], retailers: [], sizeSystem: 'US', size: '', location: '', height: '',
+    dueMonth: ''
   });
 
   Object.assign(session, {
     occasionParent: '', occasionChild: '', climate: '',
     currency: 'USD', priceMin: '', priceMax: '',
     localOnly: false, exclusions: [], feedback: [],
-    specificItem: '',
+    specificItem: '', wearWhen: '',
     // Uploaded photographs — of garments, but also of whatever the person
     // happened to photograph.
     shopLookPhoto: null, pairingPhoto: null, fitCheckPhoto: null
@@ -4315,6 +4564,9 @@ function setShoppingControlsVisible(visible) {
     const el = document.getElementById(id);
     if (el) el.style.display = visible ? '' : 'none';
   });
+  // The fit check keeps this one: whether a garment suits you depends on when
+  // you'll be wearing it just as much as a search does.
+  renderWearWhen();
 }
 
 function handleFitCheckPhoto(input) {
@@ -4385,7 +4637,7 @@ function buildFitCheckPrompt() {
   const bodyLine = profile.body
     ? `Body type: ${profile.body}.`
     : 'Body type: not provided — base your fit comments on general proportion advice and say plainly that a body type would sharpen the answer.';
-  const heightLine = heightNote();
+  const heightLine = heightNote() + (pregnancyNote() ? '\n' + pregnancyNote() : '');
   const colourLine = profile.colourTone
     ? `Colour palette: ${profile.colourTone} tones${profile.colourSeason ? ' (' + profile.colourSeason + ')' : ''}.`
     : 'Colour palette: not provided — comment on the colour in general terms and say plainly that a colour analysis would sharpen the answer.';
@@ -4566,7 +4818,7 @@ ${alternativeNote}
 User profile:
 - Gender: ${profile.gender}
 - Body type: ${profile.body}
-- ${heightNote()}
+- ${heightNote()}${pregnancyNote() ? '\n- ' + pregnancyNote() : ''}
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
@@ -4615,7 +4867,7 @@ ${categoryNote}
 User profile:
 - Gender: ${profile.gender}
 - Body type: ${profile.body}
-- ${heightNote()}
+- ${heightNote()}${pregnancyNote() ? '\n- ' + pregnancyNote() : ''}
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
@@ -4662,7 +4914,7 @@ The user is searching for a specific item they have described. Find ${count} rea
 User profile:
 - Gender: ${profile.gender}
 - Body: ${profile.body}
-- ${heightNote()}
+- ${heightNote()}${pregnancyNote() ? '\n- ' + pregnancyNote() : ''}
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
 - Budget: ${sym}${priceMin}–${sym}${priceMax} ${currency}
@@ -4682,7 +4934,7 @@ Use at most 3 web searches total.
 Find ${count} real clothing items:
 - Gender: ${profile.gender}
 - Body: ${profile.body}
-- ${heightNote()}
+- ${heightNote()}${pregnancyNote() ? '\n- ' + pregnancyNote() : ''}
 - Occasion: ${occasion}
 - Size: ${profile.size} ${profile.sizeSystem}
 - Ships to: ${profile.location}
@@ -6328,6 +6580,7 @@ function openProfile() {
   document.getElementById('profileLocation').textContent = profile.location || '—';
   const hBand = getHeightBands().find(b => b.value === profile.height);
   document.getElementById('profileHeight').textContent = hBand ? `${hBand.label} (${hBand.sub})` : '—';
+  renderProfileDueRow();
 
   // Shopping guide — draws the locked / empty / written state as appropriate.
   // Never generates on its own: that costs money, so it waits to be asked.
@@ -6439,11 +6692,17 @@ function editProfileField(field) {
           <div class="chip-grid" id="profileHeightRow"></div>
           <div class="quick-row" id="profileLocationQuickRow"></div>
         </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>Expecting? <span style="color:var(--dust);font-weight:400;">(optional)</span></label>
+          <select class="text-input" id="profileDueMonthInput" onchange="setDueMonth(this.value)"></select>
+          <div class="field-hint">Set a due month and we'll suit every recommendation to the stage you're at. Choose "Not applicable" to clear it at any time.</div>
+        </div>
       </div>`;
   }
 
   renderLocationQuick('profileLocationEdit', 'profileLocationQuickRow');
   renderHeightOptions('profileHeightRow');
+  renderDueMonthOptions('profileDueMonthInput');
 
   panel.style.display = 'block';
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -6723,7 +6982,7 @@ ${genderCtx}
 
 About the client:
 ${bodyLine}
-${heightNote()}
+${heightNote()}${pregnancyNote() ? '\n' + pregnancyNote() : ''}
 ${colourLine}${notes ? '\n' + notes : ''}
 
 Write advice that is genuinely specific and actionable.  Every line should be something they could apply while holding an actual garment: name real cuts, rises, necklines, hem positions, sleeve lengths, fabric weights and pattern scales.  Say WHY in terms of what the garment does for their proportions.
@@ -7168,6 +7427,15 @@ async function joinWaitlist() {
         <div class="profile-row-label">Ships to</div>
         <div class="profile-row-value" id="profileLocation">—</div>
         <button class="profile-row-action" onclick="editProfileField('sizing')">Edit</button>
+      </div>
+
+      <!-- Rendered by renderProfileDueRow(). Hidden entirely when no due month
+           is set, so the Profile screen never shows the subject to anyone who
+           hasn't volunteered it. -->
+      <div class="profile-row" id="profileDueRow" style="display:none;">
+        <div class="profile-row-label">Expecting</div>
+        <div class="profile-row-value" id="profileDue">—</div>
+        <button class="profile-row-action" onclick="setDueMonth('')">Clear</button>
       </div>
     </div>
 
