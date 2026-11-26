@@ -45,6 +45,8 @@ import { createClerkClient } from '@clerk/backend';
 const PRICE_TIERS = {
   'pri_01m8ba2x02my54dypdpa1jqv2b': 'standard',   // sandbox, $14/month
   'pri_01m8ba46azz7g8j2bb1wjy0jq7': 'premium',    // sandbox, $29/month
+  'pri_01m8bwv2nvjjajex8cjhatdqy7': 'standard',   // live, $14/month
+  'pri_01m8bwy8np0ckc893ecvyfdygy': 'premium',    // live, $29/month
 };
 
 // Statuses that unlock the paid features.  past_due (a failed payment) does

@@ -365,7 +365,14 @@ export function extractPageFacts(html) {
   const isProduct = (!isListing && productCount >= 1)
                  || /product/i.test(ogType)
                  || /itemtype=["']https?:\/\/schema\.org\/Product["']/i.test(html);
-  return { title, ogTitle, isProduct, isListing };
+  // Stock, from the product's structured data: one "availability" per offer,
+  // usually one offer per size. Sold out only when NO offer is buyable — one
+  // sold-out size on an otherwise available product must not sink it.
+  const avail = (html.match(/"availability"\s*:\s*"[^"]*"/gi) || []).map(a => a.toLowerCase());
+  const buyable = avail.filter(a => /instock|limitedavailability|preorder|presale|backorder|onlineonly|instoreonly/.test(a)).length;
+  const soldOut = avail.filter(a => /outofstock|soldout|discontinued/.test(a)).length;
+  const isSoldOut = !isListing && soldOut > 0 && buyable === 0;
+  return { title, ogTitle, isProduct, isListing, isSoldOut };
 }
 
 function decodeEntities(s) {
@@ -416,10 +423,10 @@ async function checkProductPage(url, name) {
   try {
     r = await fetchWithTimeout(url, 'GET');
   } catch {
-    return { url, alive: true, reason: 'unreachable — kept' };
+    return { url, alive: true, reason: 'unreachable — kept', blocked: true };
   }
   if (r.status === 404 || r.status === 410) return { url, alive: false, reason: 'HTTP ' + r.status };
-  if (r.status >= 400) return { url, alive: true, reason: 'HTTP ' + r.status + ' (likely blocked) — kept' };
+  if (r.status >= 400) return { url, alive: true, reason: 'HTTP ' + r.status + ' (likely blocked) — kept', blocked: true };
   if (!(r.headers.get('content-type') || '').includes('text/html')) return { url, alive: true, reason: 'not html — kept' };
 
   let html = '';
@@ -428,7 +435,7 @@ async function checkProductPage(url, name) {
   const facts = extractPageFacts(html);
   const titleText = (facts.title + ' ' + facts.ogTitle).trim();
 
-  if (BLOCK_PAGE_TITLES.test(titleText)) return { url, alive: true, reason: 'bot check — kept' };
+  if (BLOCK_PAGE_TITLES.test(titleText)) return { url, alive: true, reason: 'bot check — kept', blocked: true };
 
   if (DEAD_PAGE_PHRASES.some(p => lower.slice(0, 6000).includes(p))) {
     return { url, alive: false, reason: 'not-found page' };
@@ -443,6 +450,9 @@ async function checkProductPage(url, name) {
   } catch {}
   if (titleText && !titleMatches(name, titleText)) {
     return { url, alive: false, reason: 'title "' + titleText.slice(0, 80) + '" ≠ "' + String(name).slice(0, 60) + '"' };
+  }
+  if (facts.isSoldOut) {
+    return { url, alive: false, reason: 'sold out in every size' };
   }
   // A listing: the address has no product ID, and the page either describes
   // a list of products or doesn't describe a single one. (Product pages with
@@ -495,11 +505,18 @@ export default async function handler(req, res) {
     // fall back to the original "does it load?" check.
     const results = await Promise.all(urls.map((u, i) =>
       names && typeof names[i] === 'string' && names[i] ? checkProductPage(u, names[i]) : checkUrl(u)));
+    // One line per check, every time — so a quiet log means "all fine", not
+    // "nobody looked". "blockedKept" counts pages the retailer wouldn't show
+    // us, which were kept unchecked; if that number is high for a retailer,
+    // the title and stock checks can't help there.
     const rejected = results.filter(x => !x.alive);
-    if (rejected.length) {
-      console.log('[LINKS] rejected ' + rejected.length + '/' + results.length + ': ' +
-        rejected.map(x => x.url + ' (' + (x.reason || 'dead') + ')').join(' | ').slice(0, 1500));
-    }
+    const blocked = results.filter(x => x.blocked);
+    const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return '?'; } };
+    console.log('[LINKS] checked=' + results.length + ' ok=' + (results.length - rejected.length - blocked.length) +
+      ' rejected=' + rejected.length + ' blockedKept=' + blocked.length +
+      (blocked.length ? ' blockedBy=' + [...new Set(blocked.map(x => hostOf(x.url)))].join(',') : '') +
+      (names ? '' : ' (no names sent — old check)') +
+      (rejected.length ? ' | ' + rejected.map(x => x.url + ' (' + (x.reason || 'dead') + ')').join(' | ').slice(0, 1500) : ''));
     return res.status(200).json({ results: results.map(({ url, alive }) => ({ url, alive })) });
   }
 
@@ -549,6 +566,7 @@ LINKS — this is critical:
 - Before including a URL, verify it leads directly to that exact product by checking the page in your web search results.
 - Strongly prefer large, stable retailers with reliable URLs: Net-a-Porter, Mytheresa, Farfetch, Nordstrom, SSENSE, ASOS, Selfridges, Saks Fifth Avenue, Neiman Marcus, Shopbop, Revolve, COS, Arket, Zara, Uniqlo, Mr Porter, End Clothing, J.Crew. These retailers keep product pages live longer.
 - Do not include URLs from small boutiques, pop-up shops, or retailers with complex/dynamic URL structures.
+- VARIETY: use at least 4 different retailers, and never more than 2 items from the same retailer. This still applies when the user is petite, tall or pregnant — several of the stores above have petite, tall or maternity ranges, so spread across them rather than filling the list from one.
 - Never recommend a retailer that has closed down. Do not use Matches / MatchesFashion — that business went into administration and its website closed.
 - If you are not confident a product URL is live and correct, do not include that product — find another one instead.
 - Every "url" is automatically compared against the pages your web searches actually returned. Any url that did not appear in your search results is discarded before the user sees it, so never construct, guess, shorten or edit a url — copy it exactly from a search result.

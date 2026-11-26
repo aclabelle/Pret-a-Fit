@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prêt-à-Fit</title>
 <script>
-  window.__clerk_publishable_key = 'pk_test_cHJvcGVyLXRhZHBvbGUtNTQuY2xlcmsuYWNjb3VudHMuZGV2JA';
+  window.__clerk_publishable_key = 'pk_live_Y2xlcmsucHJldC1hLWZpdC5jb20k';
 </script>
 <script async crossorigin="anonymous"
-  data-clerk-publishable-key="pk_test_cHJvcGVyLXRhZHBvbGUtNTQuY2xlcmsuYWNjb3VudHMuZGV2JA"
+  data-clerk-publishable-key="pk_live_Y2xlcmsucHJldC1hLWZpdC5jb20k"
   src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
   onload="window.__clerkScriptLoaded = true;"
   onerror="window.__clerkScriptFailed = true; console.warn('Clerk CDN failed to load — auth features disabled.');">
@@ -4414,6 +4414,7 @@ function clearPersonalState() {
   // Billing: nothing personal is held in memory, but a half-finished
   // subscribe journey shouldn't carry over to the next person.
   setPendingSubscribe(false);
+  try { sessionStorage.removeItem(DISCOUNT_CODE_KEY); } catch (e) {}
   planChoice = '';
   closePlanModal();
 
@@ -5199,20 +5200,29 @@ function isSubscriber() {
 }
 
 /* The gate for every paid feature. Use THIS, not isSubscriber(), anywhere a
-   feature is being unlocked — it adds the pre-launch testing bypass.
+   feature is being unlocked — it adds the owner pass.
 
-   Why the bypass is safe: it only works while COMING_SOON_MODE is on.
-   Turning that off is already step one of going live, so the bypass closes
-   itself the moment the doors open — there is no separate switch to remember.
+   ?preview=1 NO LONGER UNLOCKS PAID FEATURES (changed 26 Nov 2026, when real
+   payments went live for friends' testing). It only gets people past the
+   "coming soon" screen. Before payments existed, the preview link had to
+   unlock everything or nothing could be tested; with real payments, it would
+   have given every tester everything free, and nobody would ever meet a
+   paywall or test paying.
 
-   Note the bypass never hides a REAL subscription: anywhere the plan itself
-   matters (the monthly allowance, the Profile "Plan" row) reads
-   subscriptionTier(), which ignores the bypass. That is what lets you test a
-   real sandbox purchase on the live site with ?preview=1. */
+   THE OWNER PASS: publicMetadata.staff === true, set by hand in the Clerk
+   dashboard (Users → the account → Metadata → Public: {"staff": true}).
+   publicMetadata can only be written server-side or from the dashboard, so
+   nobody can give themselves this from the browser. It unlocks paid features
+   and unlimited searches, but never fakes a plan: the Profile "Plan" row and
+   the monthly allowance read subscriptionTier(), which ignores it, so the
+   owner can still subscribe and test real payments. */
+function isStaff() {
+  return !!(clerkInstance && clerkInstance.user &&
+    (clerkInstance.user.publicMetadata || {}).staff === true);
+}
+
 function hasPaidAccess() {
-  if (isSubscriber()) return true;
-  const comingSoon = (typeof COMING_SOON_MODE !== 'undefined') && COMING_SOON_MODE;
-  return comingSoon && isPreviewVisit();
+  return isSubscriber() || isStaff();
 }
 
 /* ── Plans and Paddle settings ────────────────────────────────────────────
@@ -5229,12 +5239,36 @@ function hasPaidAccess() {
    The prices and allowances shown in the plan picker are written here too.
    The pricing page takes its copy from TIERS in build_pages.py, so if a
    price ever changes, change it in both places. */
-const PADDLE_ENV = 'sandbox';
-const PADDLE_CLIENT_TOKEN = 'test_598c5a4c01e65a8c88e1491eee4';
-const PADDLE_PRICES = {
-  standard: 'pri_01m8ba2x02my54dypdpa1jqv2b',
-  premium:  'pri_01m8ba46azz7g8j2bb1wjy0jq7'
+const PADDLE_SETTINGS = {
+  sandbox: {
+    token: 'test_598c5a4c01e65a8c88e1491eee4',
+    prices: { standard: 'pri_01m8ba2x02my54dypdpa1jqv2b', premium: 'pri_01m8ba46azz7g8j2bb1wjy0jq7' }
+  },
+  production: {
+    token: 'live_b3837307044efb9b295370857be',
+    prices: { standard: 'pri_01m8bwv2nvjjajex8cjhatdqy7', premium: 'pri_01m8bwy8np0ckc893ecvyfdygy' }
+  }
 };
+// Live since 26 Nov 2026 (friends' testing). Back to 'sandbox' = test mode,
+// together with Paddle's sandbox keys in Vercel and Clerk's test keys.
+const PADDLE_ENV = 'production';
+const PADDLE_CLIENT_TOKEN = PADDLE_SETTINGS[PADDLE_ENV].token;
+const PADDLE_PRICES = PADDLE_SETTINGS[PADDLE_ENV].prices;
+
+/* A discount code from the link, e.g. ?code=BIDDIETESTER (friends' testing:
+   first month free). Remembered for this tab — it survives the round trip to
+   sign-up or Google sign-in — and handed to Paddle at checkout. Paddle checks
+   whether the code is valid; we only pass it on. */
+const DISCOUNT_CODE_KEY = 'pf_discount_code';
+(function rememberDiscountCode() {
+  try {
+    const c = new URLSearchParams(location.search).get('code');
+    if (c && /^[A-Za-z0-9_-]{3,40}$/.test(c)) sessionStorage.setItem(DISCOUNT_CODE_KEY, c.toUpperCase());
+  } catch (e) {}
+})();
+function discountCode() {
+  try { return sessionStorage.getItem(DISCOUNT_CODE_KEY) || ''; } catch (e) { return ''; }
+}
 const PLANS = {
   standard: { name: 'Standard', price: '$14', searches: 20 },
   premium:  { name: 'Premium',  price: '$29', searches: 50 }
@@ -5313,9 +5347,9 @@ function searchAllowance() {
     const used = getPeriodSearchCount();
     return { kind: 'subscriber', tier, limit, used, left: Math.max(0, limit - used) };
   }
-  if (hasPaidAccess()) {
-    // ?preview=1 testing — no cap, nothing counted against a real plan.
-    return { kind: 'preview', limit: Infinity, used: 0, left: Infinity };
+  if (isStaff()) {
+    // Owner pass — no cap, nothing counted against a real plan.
+    return { kind: 'staff', limit: Infinity, used: 0, left: Infinity };
   }
   const used = getSearchCount();
   return { kind: 'free', limit: FREE_SEARCH_LIMIT, used, left: Math.max(0, FREE_SEARCH_LIMIT - used) };
@@ -5450,6 +5484,12 @@ function openPlanModal(mode) {
     }).join('');
     consentWrap.style.display = '';
     consentBox.checked = false;
+    const codeNote = document.getElementById('planCodeNote');
+    if (codeNote) {
+      const code = discountCode();
+      codeNote.style.display = code ? '' : 'none';
+      codeNote.textContent = code ? 'Your code ' + code + ' will be applied at checkout.' : '';
+    }
     btn.textContent = 'Continue to payment';
     updatePlanButton();
   }
@@ -5547,6 +5587,7 @@ async function startCheckout(plan) {
     }
   };
   if (email) checkout.customer = { email: email };
+  if (discountCode()) checkout.discountCode = discountCode();
 
   closePlanModal();
   subscribeCheckoutOpen = true;
@@ -5795,9 +5836,30 @@ let allItems = [];
    each product URL is a real, working page. Dead links are dropped and we
    fetch replacements automatically so the user only ever sees live products.
    ──────────────────────────────────────────────────────────────────────── */
-async function verifyAndFill(items, targetCount, buildMoreFn, statusEl) {
+/* At most this many results from one retailer, so one store with a big range
+   (ASOS Petite, in testing) can't fill the whole page. Counted across what's
+   already on screen too, so "Discover more" doesn't pile on the same store. */
+const MAX_PER_RETAILER = 2;
+
+function retailerKey(item) {
+  try { return new URL(item.url).hostname.toLowerCase().replace(/^www\./, ''); }
+  catch(e) { return String(item.retailer || '').toLowerCase(); }
+}
+
+async function verifyAndFill(items, targetCount, buildMoreFn, statusEl, alreadyShown) {
   const MAX_ROUNDS = 3;   // max replacement attempts
   let good = [];
+  // Good items held back by the per-retailer limit. Used only to top up at
+  // the end if there genuinely isn't enough variety to fill the page.
+  let overflow = [];
+  const perRetailer = {};
+  (alreadyShown || []).forEach(i => { const k = retailerKey(i); perRetailer[k] = (perRetailer[k] || 0) + 1; });
+  const accept = (item) => {
+    const k = retailerKey(item);
+    if ((perRetailer[k] || 0) >= MAX_PER_RETAILER) { overflow.push(item); return; }
+    perRetailer[k] = (perRetailer[k] || 0) + 1;
+    good.push(item);
+  };
   let tried = new Set(items.map(i => i.name));
   let seenUrls = new Set();          // stops the same product appearing twice
   let currentBatch = dedupeItems(items, seenUrls);
@@ -5843,7 +5905,7 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl) {
         checkData.results.filter(r => r.alive).map(r => r.url)
       );
       currentBatch.forEach(item => {
-        if (liveSet.has(item.url)) good.push(item);
+        if (liveSet.has(item.url)) accept(item);
       });
     }
 
@@ -5881,6 +5943,11 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl) {
     currentBatch = dedupeItems(extras, seenUrls); // verify these next round
   }
 
+  // Not enough variety to fill the page within the limit: top up from the
+  // held-back items rather than show fewer results.
+  if (good.length < targetCount && overflow.length) {
+    good = good.concat(overflow.slice(0, targetCount - good.length));
+  }
   return good.slice(0, targetCount);
 }
 
@@ -6182,7 +6249,7 @@ async function loadMore() {
     const rawNew = parseItems(data.result);
 
     if (btn) btn.textContent = 'Checking links…';
-    const newItems = await verifyAndFill(rawNew, 5, (n, ex) => buildFn(n, [...exclude, ...ex]), null);
+    const newItems = await verifyAndFill(rawNew, 5, (n, ex) => buildFn(n, [...exclude, ...ex]), null, allItems);
 
     if (newItems.length && allowance.kind === 'subscriber') await incrementSearchCount();
 
@@ -8468,6 +8535,7 @@ async function joinWaitlist() {
     <p class="paywall-sub" id="planSub" style="margin-bottom:1.5rem;"></p>
 
     <div class="plan-options" id="planOptions"></div>
+    <p class="plan-legal" id="planCodeNote" style="display:none;color:var(--bark);margin-bottom:0.9rem;"></p>
 
     <div id="planConsentWrap">
       <label class="plan-consent">

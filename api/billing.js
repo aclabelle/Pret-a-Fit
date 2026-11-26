@@ -36,8 +36,12 @@ import { createClerkClient, verifyToken } from '@clerk/backend';
 
 // Keep in step with PRICE_TIERS in api/paddle-webhook.js and PADDLE_PRICES in
 // index.html.  When you go live, switch these to the live price IDs.
-const PREMIUM_PRICE_ID = 'pri_01m8ba46azz7g8j2bb1wjy0jq7';
-const STANDARD_PRICE_ID = 'pri_01m8ba2x02my54dypdpa1jqv2b';
+// Sandbox and live prices have different IDs; the right pair is picked by
+// which Paddle account the API key in Vercel belongs to (see paddleApiBase).
+const PRICE_IDS = {
+  sandbox: { standard: 'pri_01m8ba2x02my54dypdpa1jqv2b', premium: 'pri_01m8ba46azz7g8j2bb1wjy0jq7' },
+  live:    { standard: 'pri_01m8bwv2nvjjajex8cjhatdqy7', premium: 'pri_01m8bwy8np0ckc893ecvyfdygy' },
+};
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -52,6 +56,10 @@ function paddleApiBase() {
   if (env === 'sandbox') return 'https://sandbox-api.paddle.com';
   const key = process.env.PADDLE_API_KEY || '';
   return key.includes('_live_') ? 'https://api.paddle.com' : 'https://sandbox-api.paddle.com';
+}
+
+function prices() {
+  return paddleApiBase().includes('sandbox') ? PRICE_IDS.sandbox : PRICE_IDS.live;
 }
 
 async function paddle(method, path, body) {
@@ -124,7 +132,7 @@ export async function POST(request) {
         return json({ ok: true, tier: pub.tier || null });   // nothing pending
       }
       await paddle('PATCH', '/subscriptions/' + encodeURIComponent(pub.paddleSubscriptionId), {
-        items: [{ price_id: PREMIUM_PRICE_ID, quantity: 1 }],
+        items: [{ price_id: prices().premium, quantity: 1 }],
         proration_billing_mode: 'do_not_bill',
       });
       await clerk.users.updateUserMetadata(userId, {
@@ -152,7 +160,7 @@ export async function POST(request) {
       // 2. Then Paddle.  If Paddle refuses, take the hold away again.
       try {
         await paddle('PATCH', '/subscriptions/' + encodeURIComponent(pub.paddleSubscriptionId), {
-          items: [{ price_id: STANDARD_PRICE_ID, quantity: 1 }],
+          items: [{ price_id: prices().standard, quantity: 1 }],
           proration_billing_mode: 'do_not_bill',
         });
       } catch (e) {
@@ -175,7 +183,7 @@ export async function POST(request) {
         return json({ error: 'This subscription is set to end.  Restart it from the billing page first, then move up.' }, 400);
       }
       await paddle('PATCH', '/subscriptions/' + encodeURIComponent(pub.paddleSubscriptionId), {
-        items: [{ price_id: PREMIUM_PRICE_ID, quantity: 1 }],
+        items: [{ price_id: prices().premium, quantity: 1 }],
         // Charge the difference for the rest of this month now, then the new
         // price from the next renewal.
         proration_billing_mode: 'prorated_immediately',
