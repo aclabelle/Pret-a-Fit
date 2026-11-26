@@ -3348,7 +3348,10 @@ const profile = {
   gender: '', body: '', colourMethod: '', colourTone: '', colourSeason: '',
   vibes: [], muses: [], retailers: [], sizeSystem: 'US', size: '', location: '', height: '',
   // Optional, opt-in, and the only health-related field we hold. 'YYYY-MM'.
-  dueMonth: ''
+  dueMonth: '',
+  // How often renewal reminders arrive: '' / 'every' = before every charge
+  // (the default), 'biannual' = twice a year. Read by api/renewal-reminders.js.
+  billingEmails: ''
 };
 const session = {
   occasionParent: '', occasionChild: '', climate: '',
@@ -4160,7 +4163,8 @@ async function saveProfileToClerk() {
           size: profile.size,
           location: profile.location,
           height: profile.height,
-          dueMonth: profile.dueMonth
+          dueMonth: profile.dueMonth,
+          billingEmails: profile.billingEmails
         }
       }
     });
@@ -4366,7 +4370,7 @@ function clearPersonalState() {
   Object.assign(profile, {
     gender: '', body: '', colourMethod: '', colourTone: '', colourSeason: '',
     vibes: [], muses: [], retailers: [], sizeSystem: 'US', size: '', location: '', height: '',
-    dueMonth: ''
+    dueMonth: '', billingEmails: ''
   });
 
   Object.assign(session, {
@@ -5717,6 +5721,7 @@ function renderPlanRow() {
   const val = document.getElementById('profilePlan');
   const btn = document.getElementById('profilePlanAction');
   if (!row || !val || !btn) return;
+  renderBillingEmailsRow();
   if (!clerkInstance || !clerkInstance.user) { row.style.display = 'none'; return; }
   row.style.display = '';
 
@@ -5755,6 +5760,17 @@ function renderPlanRow() {
     btn.textContent = 'Subscribe';
     btn.onclick = handleSubscribe;
   }
+}
+
+/* Shown to anyone with a subscription on record (even a lapsed one, so the
+   setting is there if they come back). */
+function renderBillingEmailsRow() {
+  const row = document.getElementById('profileBillingRow');
+  const val = document.getElementById('profileBilling');
+  if (!row || !val) return;
+  const show = !!(clerkInstance && clerkInstance.user && billingInfo().paddleSubscriptionId);
+  row.style.display = show ? '' : 'none';
+  val.textContent = profile.billingEmails === 'biannual' ? 'Twice a year' : 'Before every charge';
 }
 
 /* A small note at the bottom of the screen. ms = 0 keeps it up until the
@@ -7327,6 +7343,22 @@ function editProfileField(field) {
         <button class="chip ${profile.gender === 'non-binary' ? 'selected' : ''}" onclick="profileTempSet('gender','non-binary',this)">Non-binary</button>
       </div>`;
 
+  } else if (field === 'billingEmails') {
+    // Copy approved 22 Nov 2026. "The least we're allowed to send" answers
+    // "where's the off switch?" before anyone has to ask it.
+    heading.textContent = 'Billing emails';
+    const cur = profile.billingEmails === 'biannual' ? 'biannual' : 'every';
+    body.innerHTML = `
+      <div class="quiz-opts">
+        <button class="quiz-opt ${cur === 'every' ? 'selected' : ''}" onclick="profileTempSetOpt('billingEmails','every',this)">
+          <span class="quiz-opt-dot"></span><span><strong>Before every charge</strong> — one short email a month</span>
+        </button>
+        <button class="quiz-opt ${cur === 'biannual' ? 'selected' : ''}" onclick="profileTempSetOpt('billingEmails','biannual',this)">
+          <span class="quiz-opt-dot"></span><span><strong>Twice a year</strong> — the least we're allowed to send</span>
+        </button>
+      </div>
+      <p style="font-size:12px;color:var(--charcoal);line-height:1.7;margin-top:1rem;">We can't switch these off completely: a periodic billing notice is required by consumer law in the UK, the EU and several US states, and we apply it everywhere rather than guessing where you are.  We'll always tell you about a price change or a payment problem either way.</p>`;
+
   } else if (field === 'body') {
     heading.textContent = 'Change body type';
     const types = bodyTypes[profile.gender] || bodyTypes.women;
@@ -7437,6 +7469,13 @@ function profileTempSet(key, val, el) {
   el.classList.add('selected');
 }
 
+/* Like profileTempSet(), for the list-style options in the billing emails panel. */
+function profileTempSetOpt(key, val, el) {
+  profileTempValues[key] = val;
+  el.closest('.quiz-opts').querySelectorAll('.quiz-opt').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
 function profileToggleVibe(vibe, el) {
   el.classList.toggle('selected');
 }
@@ -7504,6 +7543,9 @@ function updateProfileSizeOptions() {
 function saveProfileEdit() {
   if (profileEditField === 'gender') {
     if (profileTempValues.gender) profile.gender = profileTempValues.gender;
+
+  } else if (profileEditField === 'billingEmails') {
+    if (profileTempValues.billingEmails) profile.billingEmails = profileTempValues.billingEmails;
 
   } else if (profileEditField === 'body') {
     if (profileTempValues.body) profile.body = profileTempValues.body;
@@ -8022,6 +8064,14 @@ async function init() {
   if (clerk.user && takePendingSubscribe()) {
     setTimeout(handleSubscribe, 700);
   }
+
+  // The "Cancel or change plan" button in renewal reminder emails links to
+  // ?open=plan — straight to the Profile, where the Plan row and the billing
+  // emails setting are. Signed out? Sign in first, then the Profile.
+  if (new URLSearchParams(location.search).get('open') === 'plan') {
+    if (clerk.user) setTimeout(openProfile, 400);
+    else goToSignIn('screen-profile');
+  }
 }
 
 init();
@@ -8091,6 +8141,13 @@ async function joinWaitlist() {
         <div class="profile-row-label">Plan</div>
         <div class="profile-row-value" id="profilePlan">—</div>
         <button class="profile-row-action" id="profilePlanAction">Manage</button>
+      </div>
+      <!-- Subscribers only. How often renewal reminders arrive. There is no
+           "never" on purpose — see editProfileField('billingEmails'). -->
+      <div class="profile-row" id="profileBillingRow" style="display:none;">
+        <div class="profile-row-label">Billing emails</div>
+        <div class="profile-row-value" id="profileBilling">—</div>
+        <button class="profile-row-action" onclick="editProfileField('billingEmails')">Edit</button>
       </div>
       <div class="profile-row" id="profileGuestRow" style="display:none;">
         <div class="profile-row-label">Account</div>

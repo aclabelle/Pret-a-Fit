@@ -125,6 +125,9 @@ export function metadataFromSubscription(sub, occurredAt) {
     nextBilledAt: sub?.next_billed_at || null,
     periodStart: sub?.current_billing_period?.starts_at || null,
     periodEnd: sub?.current_billing_period?.ends_at || null,
+    // When they first subscribed — the starting point for "twice a year"
+    // renewal reminders (see api/renewal-reminders.js).
+    subscribedAt: sub?.started_at || sub?.first_billed_at || null,
     scheduledChange: sc ? { action: sc.action || null, effectiveAt: sc.effective_at || null } : null,
     paddleEventAt: occurredAt || new Date().toISOString(),
   };
