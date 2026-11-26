@@ -5256,10 +5256,23 @@ function billingInfo() {
    bypass on purpose — see hasPaidAccess(). */
 function subscriptionTier() {
   if (!isSubscriber()) return null;
-  const t = billingInfo().tier;
+  const pub = billingInfo();
+  // Moving down from Premium: they keep Premium until the end of the month
+  // they paid for, then Standard — checked here by date as well as by the
+  // webhook, so it's right even if the webhook is running late.
+  if (pendingDowngrade()) {
+    return Date.now() < Date.parse(pub.premiumUntil) ? 'premium' : 'standard';
+  }
+  const t = pub.tier;
   // An active subscription with no recognised tier gets the smaller
   // allowance, never the larger.
   return PLANS[t] ? t : 'standard';
+}
+
+/* True while a Premium subscriber has chosen to move down at renewal. */
+function pendingDowngrade() {
+  const pub = billingInfo();
+  return pub.pendingTier === 'standard' && !!pub.premiumUntil && Number.isFinite(Date.parse(pub.premiumUntil));
 }
 
 /* ── Monthly search allowance ─────────────────────────────────────────────
@@ -5389,8 +5402,8 @@ let planChoice = '';
 let planModalMode = 'new';   // 'new' | 'upgrade'
 
 function openPlanModal(mode) {
-  planModalMode = mode === 'upgrade' ? 'upgrade' : 'new';
-  planChoice = planModalMode === 'upgrade' ? 'premium' : '';
+  planModalMode = (mode === 'upgrade' || mode === 'downgrade') ? mode : 'new';
+  planChoice = planModalMode === 'upgrade' ? 'premium' : (planModalMode === 'downgrade' ? 'standard' : '');
 
   const eyebrow = document.getElementById('planEyebrow');
   const heading = document.getElementById('planHeading');
@@ -5401,7 +5414,16 @@ function openPlanModal(mode) {
   const btn = document.getElementById('planContinueBtn');
   document.getElementById('planError').textContent = '';
 
-  if (planModalMode === 'upgrade') {
+  if (planModalMode === 'downgrade') {
+    const until = formatShortDate(billingInfo().premiumUntil || billingInfo().periodEnd || billingInfo().nextBilledAt);
+    eyebrow.textContent = 'Move down';
+    heading.textContent = 'Move down to Standard';
+    sub.textContent = `You keep Premium and its ${PLANS.premium.searches} searches until ${until || 'your next renewal'}.  From then you're on Standard: ${PLANS.standard.price} a month for ${PLANS.standard.searches} searches.  Nothing is charged or refunded now, and you can change your mind any time before then.`;
+    opts.style.display = 'none';
+    consentWrap.style.display = 'none';
+    btn.textContent = 'Move down at renewal';
+    btn.disabled = false;
+  } else if (planModalMode === 'upgrade') {
     eyebrow.textContent = 'Move up';
     heading.textContent = 'Move up to Premium';
     sub.textContent = `${PLANS.premium.searches} searches a month instead of ${PLANS.standard.searches}.  You pay the difference for the rest of this billing month now, then ${PLANS.premium.price} a month from your next renewal.`;
@@ -5454,6 +5476,7 @@ function closePlanModal() {
 
 function confirmPlan() {
   if (planModalMode === 'upgrade') { upgradeToPremium(); return; }
+  if (planModalMode === 'downgrade') { downgradeAtRenewal(); return; }
   if (!planChoice || !document.getElementById('planConsent').checked) return;
   startCheckout(planChoice);
 }
@@ -5625,6 +5648,37 @@ async function upgradeToPremium() {
   }
 }
 
+async function downgradeAtRenewal() {
+  const btn = document.getElementById('planContinueBtn');
+  const err = document.getElementById('planError');
+  btn.disabled = true;
+  btn.textContent = 'Arranging it…';
+  err.textContent = '';
+  try {
+    const r = await callBilling('downgrade');
+    closePlanModal();
+    try { await clerkInstance.user.reload(); } catch (e) {}
+    const until = formatShortDate(r.premiumUntil || billingInfo().premiumUntil);
+    showToast(`Done.  You're on Premium until ${until || 'your renewal'}, then Standard at ${PLANS.standard.price} a month.`, 9000);
+    refreshAfterPlanChange();
+  } catch (e) {
+    err.textContent = e.message;
+    btn.disabled = false;
+    btn.textContent = 'Move down at renewal';
+  }
+}
+
+async function keepPremium() {
+  try {
+    await callBilling('keep-premium');
+    try { await clerkInstance.user.reload(); } catch (e) {}
+    showToast("You're staying on Premium.  Nothing has been charged.", 7000);
+    refreshAfterPlanChange();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
 /* ── Billing endpoint (portal link, upgrades) ──
    Sends the Clerk session token so the server knows who is asking. */
 async function callBilling(action) {
@@ -5672,13 +5726,20 @@ function renderPlanRow() {
   if (tier) {
     const a = searchAllowance();
     const ending = pub.scheduledChange && pub.scheduledChange.action === 'cancel';
+    const movingDown = tier === 'premium' && pendingDowngrade();
     const when = ending
       ? 'ends ' + formatShortDate(pub.scheduledChange.effectiveAt || pub.periodEnd)
-      : (pub.nextBilledAt ? 'renews ' + formatShortDate(pub.nextBilledAt) : '');
+      : movingDown
+        ? 'moves to Standard on ' + formatShortDate(pub.premiumUntil)
+        : (pub.nextBilledAt ? 'renews ' + formatShortDate(pub.nextBilledAt) : '');
+    let link = '';
+    if (!ending) {
+      if (tier === 'standard') link = `<button class="guide-inline-link" onclick="openPlanModal('upgrade')">Move up to Premium</button>`;
+      else if (movingDown) link = `<button class="guide-inline-link" onclick="keepPremium()">Keep Premium instead</button>`;
+      else link = `<button class="guide-inline-link" onclick="openPlanModal('downgrade')">Move down to Standard</button>`;
+    }
     val.innerHTML = `${esc(PLANS[tier].name)} · ${a.left} of ${a.limit} searches left this month${when ? ' · ' + esc(when) : ''}`
-      + (tier === 'standard' && !ending
-        ? `<br><button class="guide-inline-link" onclick="openPlanModal('upgrade')">Move up to Premium</button>`
-        : '');
+      + (link ? '<br>' + link : '');
     btn.textContent = 'Manage';
     btn.onclick = openBillingPortal;
   } else if (pub.paddleSubscriptionId && pub.subscriptionStatus === 'past_due') {

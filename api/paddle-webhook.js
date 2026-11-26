@@ -19,6 +19,10 @@
                            the renewal reminder emails will read.
      periodStart/periodEnd the current billing month.  The monthly search
                            allowance resets when periodStart changes.
+     pendingTier/premiumUntil  set by api/billing.js when a Premium subscriber
+                           moves down: they keep Premium until premiumUntil
+                           (the end of the month they paid for) — see
+                           applyDowngradeHold() below
      scheduledChange       e.g. { action: 'cancel', effectiveAt: '…' } after a
                            cancellation, so the app can say "ends on 3 Dec"
      paddleEventAt         time of the last event applied — used to ignore
@@ -126,6 +130,25 @@ export function metadataFromSubscription(sub, occurredAt) {
   };
 }
 
+/* A Premium subscriber who moved down is switched to the Standard price in
+   Paddle straight away (so the next bill is $14), but has paid for Premium
+   until the end of this billing month.  While the billing period is still the
+   one they paid for, keep them on Premium.  Once a new period starts — or if
+   they're back on the Premium price — the hold is cleared. */
+export function applyDowngradeHold(existing, incoming) {
+  if (!existing || existing.pendingTier !== 'standard' || !existing.premiumUntil) return incoming;
+  if (incoming.tier === 'premium') {
+    return { ...incoming, pendingTier: null, premiumUntil: null };
+  }
+  const until = Date.parse(existing.premiumUntil);
+  const start = Date.parse(incoming.periodStart);
+  const samePaidPeriod = Number.isFinite(until) && (!Number.isFinite(start) || start < until - 60 * 1000);
+  if (samePaidPeriod && incoming.subscriber) {
+    return { ...incoming, tier: 'premium' };
+  }
+  return { ...incoming, pendingTier: null, premiumUntil: null };
+}
+
 /* True if the account already holds a newer event for this same subscription.
    Paddle doesn't promise delivery order, and applying an old "past_due" after
    a newer "active" would lock a paying customer out. */
@@ -217,7 +240,7 @@ export async function POST(request) {
     return json({ received: true, matched: false });
   }
 
-  const incoming = metadataFromSubscription(sub, event.occurred_at);
+  const incoming = applyDowngradeHold(user.publicMetadata, metadataFromSubscription(sub, event.occurred_at));
   if (isStale(user.publicMetadata, incoming)) {
     console.log('[PADDLE] Skipped out-of-order ' + type + ' for ' + user.id);
     return json({ received: true, skipped: 'stale' });

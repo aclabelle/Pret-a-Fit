@@ -1,12 +1,29 @@
 /* ── api/billing.js ───────────────────────────────────────────────────────
-   Two jobs for a signed-in subscriber, both needing the private Paddle API
-   key, which is why they run here and not in the browser:
+   Jobs for a signed-in subscriber, all needing the private Paddle API key,
+   which is why they run here and not in the browser:
 
-     action: 'portal'   → a signed-in link to Paddle's billing page, where
-                          they can cancel, change card or see receipts.
-     action: 'upgrade'  → move from Standard to Premium straight away, paying
-                          the difference for the rest of the month (what the
-                          pricing page promises).
+     action: 'portal'       → a signed-in link to Paddle's billing page, where
+                              they can cancel, change card or see receipts.
+     action: 'upgrade'      → move from Standard to Premium straight away,
+                              paying the difference for the rest of the month
+                              (what the pricing page promises).
+     action: 'downgrade'    → move from Premium to Standard AT THE NEXT RENEWAL
+                              (also what the pricing page promises).
+     action: 'keep-premium' → change their mind about a downgrade before it
+                              happens.
+
+   HOW "DOWN AT THE NEXT RENEWAL" WORKS.  Paddle can schedule a cancellation
+   but not a plan change, so we do it in two halves:
+     1. Paddle's side: the subscription is switched to the Standard price now,
+        with proration 'do_not_bill' — no charge, no credit.  Paddle's next
+        bill is therefore $14, and their billing page says so.
+     2. Our side: publicMetadata keeps tier 'premium' plus a hold —
+        pendingTier: 'standard', premiumUntil: <end of the paid month>.  The
+        webhook respects the hold until the next billing period starts, and
+        the app also checks the date, so they keep Premium for exactly the
+        month they paid for.
+   The hold is written BEFORE the Paddle change, so the webhook that change
+   triggers always sees it, whichever arrives first.
 
    The browser proves who it is by sending its Clerk session token.  The
    Paddle IDs come from the account's publicMetadata, which only our server
@@ -20,6 +37,7 @@ import { createClerkClient, verifyToken } from '@clerk/backend';
 // Keep in step with PRICE_TIERS in api/paddle-webhook.js and PADDLE_PRICES in
 // index.html.  When you go live, switch these to the live price IDs.
 const PREMIUM_PRICE_ID = 'pri_01m8ba46azz7g8j2bb1wjy0jq7';
+const STANDARD_PRICE_ID = 'pri_01m8ba2x02my54dypdpa1jqv2b';
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -96,6 +114,54 @@ export async function POST(request) {
       const url = session?.data?.urls?.general?.overview;
       if (!url) return json({ error: 'Paddle did not return a link.' }, 502);
       return json({ url });
+    }
+
+    // Undo a pending downgrade: back to the Premium price, nothing charged —
+    // they have already paid for Premium this month.  'upgrade' lands here too
+    // when a downgrade is pending, so nobody pays twice for the same month.
+    if (action === 'keep-premium' || (action === 'upgrade' && pub.pendingTier === 'standard')) {
+      if (pub.pendingTier !== 'standard' || !pub.paddleSubscriptionId) {
+        return json({ ok: true, tier: pub.tier || null });   // nothing pending
+      }
+      await paddle('PATCH', '/subscriptions/' + encodeURIComponent(pub.paddleSubscriptionId), {
+        items: [{ price_id: PREMIUM_PRICE_ID, quantity: 1 }],
+        proration_billing_mode: 'do_not_bill',
+      });
+      await clerk.users.updateUserMetadata(userId, {
+        publicMetadata: { tier: 'premium', pendingTier: null, premiumUntil: null },
+      });
+      return json({ ok: true, tier: 'premium' });
+    }
+
+    if (action === 'downgrade') {
+      if (!pub.paddleSubscriptionId || pub.subscriptionStatus !== 'active') {
+        return json({ error: 'There is no active subscription to change.' }, 400);
+      }
+      if (pub.tier !== 'premium') return json({ error: "You're already on Standard." }, 400);
+      if (pub.pendingTier === 'standard') return json({ ok: true, premiumUntil: pub.premiumUntil });
+      if (pub.scheduledChange && pub.scheduledChange.action === 'cancel') {
+        return json({ error: 'This subscription is already set to end, so there is nothing to change.' }, 400);
+      }
+      const until = pub.periodEnd || pub.nextBilledAt;
+      if (!until) return json({ error: "We couldn't find your renewal date.  Please try again in a minute." }, 409);
+
+      // 1. The hold first (see the note at the top of this file).
+      await clerk.users.updateUserMetadata(userId, {
+        publicMetadata: { tier: 'premium', pendingTier: 'standard', premiumUntil: until },
+      });
+      // 2. Then Paddle.  If Paddle refuses, take the hold away again.
+      try {
+        await paddle('PATCH', '/subscriptions/' + encodeURIComponent(pub.paddleSubscriptionId), {
+          items: [{ price_id: STANDARD_PRICE_ID, quantity: 1 }],
+          proration_billing_mode: 'do_not_bill',
+        });
+      } catch (e) {
+        await clerk.users.updateUserMetadata(userId, {
+          publicMetadata: { pendingTier: null, premiumUntil: null },
+        });
+        throw e;
+      }
+      return json({ ok: true, premiumUntil: until });
     }
 
     if (action === 'upgrade') {
