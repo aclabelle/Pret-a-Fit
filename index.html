@@ -5791,39 +5791,45 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl) {
       ? 'Checking product links…'
       : 'Replacing broken links…';
 
-    if (!currentBatch.length) break;
+    // An empty batch is no longer a reason to stop. Since 26 Nov the server
+    // drops any product whose link the AI invented, so a first batch can
+    // arrive empty — that's exactly when replacements are needed.
+    if (currentBatch.length) {
+      // Ask the server to check every URL in the current batch. The product
+      // names go too, so it can confirm each page is really that product
+      // rather than just a page that loads.
+      let checkData;
+      try {
+        const checkRes = await fetch('/api/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            validateUrls: true,
+            urls: currentBatch.map(i => i.url),
+            names: currentBatch.map(i => i.name || '')
+          })
+        });
+        checkData = await checkRes.json();
+      } catch(e) {
+        checkData = null;
+      }
 
-    // Ask the server to check every URL in the current batch
-    let checkData;
-    try {
-      const checkRes = await fetch('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          validateUrls: true,
-          urls: currentBatch.map(i => i.url)
-        })
+      // If the checker itself is broken (network error, or the server replied
+      // with something other than a list of results), we cannot tell live links
+      // from dead ones. Showing the unchecked items is far better than showing
+      // the user nothing at all — the on-screen disclaimer covers bad links.
+      if (!checkData || !Array.isArray(checkData.results)) {
+        return good.concat(currentBatch).slice(0, targetCount);
+      }
+
+      // Split the batch into live vs dead
+      const liveSet = new Set(
+        checkData.results.filter(r => r.alive).map(r => r.url)
+      );
+      currentBatch.forEach(item => {
+        if (liveSet.has(item.url)) good.push(item);
       });
-      checkData = await checkRes.json();
-    } catch(e) {
-      checkData = null;
     }
-
-    // If the checker itself is broken (network error, or the server replied
-    // with something other than a list of results), we cannot tell live links
-    // from dead ones. Showing the unchecked items is far better than showing
-    // the user nothing at all — the on-screen disclaimer covers bad links.
-    if (!checkData || !Array.isArray(checkData.results)) {
-      return good.concat(currentBatch).slice(0, targetCount);
-    }
-
-    // Split the batch into live vs dead
-    const liveSet = new Set(
-      checkData.results.filter(r => r.alive).map(r => r.url)
-    );
-    currentBatch.forEach(item => {
-      if (liveSet.has(item.url)) good.push(item);
-    });
 
     // If we have enough good results, stop
     if (good.length >= targetCount) break;
@@ -5952,7 +5958,7 @@ async function findOutfits() {
       area.innerHTML = `
         <div class="status-msg" style="text-align:center;line-height:1.7;">
           We couldn't find pieces we were confident in for this search.<br>
-          This usually means the items we found were already sold out.<br>
+          We only show products we've checked are real and on the retailer's site, and this time none passed.<br>
           <span style="display:block;margin-top:0.75rem;font-size:12px;color:var(--dust);">
             Try widening your budget, changing the occasion, or removing an exclusion.
           </span>

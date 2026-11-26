@@ -67,6 +67,79 @@ function logCost(mode, usage) {
   );
 }
 
+/* ── Grounding: every product link must come from the search itself ───────
+   Added 26 Nov 2026 after testing found invented links: a "Leisure Lab Linen
+   Resort Short" whose link was a real Nordstrom page for a play mat (the AI
+   made up a product number), and an Isabel Marant dress pointing at
+   Mytheresa's beach-dresses listing.
+
+   The prompts have always said "only use URLs from your search results", but
+   nothing enforced it. Now it is enforced here: the API hands back every page
+   the web search returned (web_search_tool_result blocks, plus citations), and
+   any product whose link isn't among them is dropped before the browser ever
+   sees it. The model can only know a real product link if a search returned
+   it — anything else was constructed.
+
+   Links are compared on host (ignoring "www.") and path (ignoring case and a
+   trailing slash). Query strings are ignored, because retailers add and drop
+   tracking parameters freely. */
+function normaliseForMatch(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    const path = decodeURIComponent(u.pathname).toLowerCase().replace(/\/+$/, '');
+    return host + path;
+  } catch {
+    return null;
+  }
+}
+
+export function collectSearchResultUrls(content) {
+  const found = new Set();
+  const add = (u) => { const n = normaliseForMatch(u); if (n) found.add(n); };
+  for (const block of content || []) {
+    if (block && block.type === 'web_search_tool_result' && Array.isArray(block.content)) {
+      for (const r of block.content) if (r && r.url) add(r.url);
+    }
+    if (block && block.type === 'text' && Array.isArray(block.citations)) {
+      for (const c of block.citations) if (c && c.url) add(c.url);
+    }
+  }
+  return found;
+}
+
+function parseItemArray(text) {
+  let raw = String(text || '').replace(/```json|```/g, '').trim();
+  if (!raw.startsWith('[')) {
+    const m = raw.match(/\[[\s\S]*\]/);
+    if (!m) return null;
+    raw = m[0];
+  }
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : null;
+  } catch {
+    return null;
+  }
+}
+
+/* Returns the text to send back: the same JSON array, minus any product
+   whose link wasn't returned by a search. If the reply can't be read as a
+   list at all, it's passed through untouched and the browser handles it as
+   before. */
+export function groundResults(resultText, content) {
+  const items = parseItemArray(resultText);
+  if (!items) return { text: resultText, kept: null, dropped: [] };
+  const known = collectSearchResultUrls(content);
+  const kept = [], dropped = [];
+  for (const item of items) {
+    const n = item && normaliseForMatch(item.url);
+    if (n && known.has(n)) kept.push(item);
+    else dropped.push(item && item.url);
+  }
+  return { text: JSON.stringify(kept), kept: kept.length, dropped };
+}
+
 const ALLOWED_ORIGIN_HOSTS = [
   'pret-a-fit.com',
   'www.pret-a-fit.com',
@@ -213,6 +286,173 @@ async function checkUrl(url) {
   }
 }
 
+/* ── Is this page actually the product? ──────────────────────────────────
+   Added 26 Nov 2026. The old check only asked "does the page load?", and both
+   bad links found in testing loaded perfectly: one was the wrong product, the
+   other a category listing. So when the browser sends the product's name
+   along with its link, we read the page and ask two more questions:
+
+     1. Does the page title match the product name? A Nordstrom page titled
+        "Play Mat with Arch" is not a "Linen Resort Short".
+     2. Is it a product page at all? Retailers mark product pages for Google
+        Shopping (schema.org "Product" data, or og:type "product"); listing
+        pages don't carry that. A page with no product marker whose address
+        also looks like a category ("/clothing/beachwear/beach-dresses") is
+        rejected.
+
+   When we can't tell — the retailer blocked our request, served a "checking
+   your browser" page, had no title, or timed out — the link is KEPT. Blocking
+   is common and says nothing about the link, and the job here is to remove
+   links we know are wrong, not to throw away good ones on a hunch. */
+
+const CHECK_BYTES = 300 * 1024;   // enough to cover the <head> and most structured data
+
+// Pages a retailer shows instead of the real one when it suspects a bot.
+const BLOCK_PAGE_TITLES = /access denied|just a moment|attention required|are you a robot|captcha|pardon our interruption|request blocked|security check|forbidden|bot detection|please verify|one more step/i;
+
+// Words that say nothing about WHICH product it is.
+const NAME_STOPWORDS = new Set([
+  'the','and','with','for','by','of','in','a','an','to','on','at','from','new',
+  'women','womens','woman','men','mens','man','unisex','ladies','size','sizes',
+  'shop','buy','online','official','store','sale','free','shipping','us','uk','en'
+]);
+
+function stemWord(w) {
+  if (w.length > 4 && w.endsWith('es')) return w.slice(0, -2);
+  if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
+  return w;
+}
+
+function nameTokens(text) {
+  return String(text || '')
+    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(w => w.length >= 2 && !NAME_STOPWORDS.has(w))
+    .map(stemWord);
+}
+
+/* How well the product name matches the page title. A token counts as found
+   if it appears in the title as a word, or inside a run-together title word
+   ("minidress" vs "mini dress"). Passing needs two matching words, or half
+   the name for very short names. Deliberately generous: product names on
+   retailer pages are often worded differently from the AI's version. */
+export function titleMatches(productName, pageTitle) {
+  const want = [...new Set(nameTokens(productName))];
+  if (!want.length) return true;                 // nothing to compare
+  const have = nameTokens(pageTitle);
+  if (!have.length) return true;                 // no title — can't judge
+  const haveSet = new Set(have);
+  const joined = have.join('');
+  const matched = want.filter(w => haveSet.has(w) || (w.length >= 4 && joined.includes(w))).length;
+  return matched >= 2 || matched / want.length >= 0.5;
+}
+
+export function extractPageFacts(html) {
+  const pick = (re) => { const m = html.match(re); return m ? decodeEntities(m[1]).trim() : ''; };
+  const title = pick(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const ogTitle = pick(/<meta[^>]+property=["']og:title["'][^>]*content=["']([^"']*)["']/i)
+               || pick(/<meta[^>]+content=["']([^"']*)["'][^>]*property=["']og:title["']/i);
+  const ogType = pick(/<meta[^>]+property=["']og:type["'][^>]*content=["']([^"']*)["']/i)
+              || pick(/<meta[^>]+content=["']([^"']*)["'][^>]*property=["']og:type["']/i);
+  // Listing pages ALSO carry "Product" data — one entry per item shown (a
+  // Mytheresa listing tested on 26 Nov had 60, inside an "ItemList"), so the
+  // marker only means "a product page" when it appears a few times at most
+  // and there's no list wrapper around it.
+  const productCount = (html.match(/"@type"\s*:\s*\[?\s*"(?:https?:\/\/schema\.org\/)?Product"/gi) || []).length;
+  const hasList = /"@type"\s*:\s*\[?\s*"(?:https?:\/\/schema\.org\/)?(ItemList|CollectionPage|OfferCatalog|SearchResultsPage)"/i.test(html);
+  const isListing = hasList || productCount >= 4;
+  const isProduct = (!isListing && productCount >= 1)
+                 || /product/i.test(ogType)
+                 || /itemtype=["']https?:\/\/schema\.org\/Product["']/i.test(html);
+  return { title, ogTitle, isProduct, isListing };
+}
+
+function decodeEntities(s) {
+  return String(s)
+    .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+}
+
+/* A product address almost always carries an ID number or a product marker
+   ("/product/", "/p/", "/dp/", ".html" with an ID…). One with neither is
+   probably a listing. Only used together with the missing product marker,
+   never on its own. */
+export function looksLikeCategoryUrl(url) {
+  try {
+    const p = new URL(url).pathname.toLowerCase();
+    if (/\d{4,}/.test(p)) return false;
+    if (/\/(products?|p|dp|item|items|pd|prd|buy|style)\//.test(p)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readCapped(response, maxBytes) {
+  if (!response.body || !response.body.getReader) return (await response.text()).slice(0, maxBytes);
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (total < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.length;
+    }
+  } finally {
+    try { reader.cancel(); } catch {}
+  }
+  return new TextDecoder('utf-8').decode(Buffer.concat(chunks.map(c => Buffer.from(c))).subarray(0, maxBytes));
+}
+
+/* Full check for a link that came with a product name. Returns
+   { url, alive, reason } — reason is only for the logs. */
+async function checkProductPage(url, name) {
+  if (!isCheckableUrl(url)) return { url, alive: false, reason: 'bad url' };
+  let r;
+  try {
+    r = await fetchWithTimeout(url, 'GET');
+  } catch {
+    return { url, alive: true, reason: 'unreachable — kept' };
+  }
+  if (r.status === 404 || r.status === 410) return { url, alive: false, reason: 'HTTP ' + r.status };
+  if (r.status >= 400) return { url, alive: true, reason: 'HTTP ' + r.status + ' (likely blocked) — kept' };
+  if (!(r.headers.get('content-type') || '').includes('text/html')) return { url, alive: true, reason: 'not html — kept' };
+
+  let html = '';
+  try { html = await readCapped(r, CHECK_BYTES); } catch { return { url, alive: true, reason: 'unreadable — kept' }; }
+  const lower = html.toLowerCase();
+  const facts = extractPageFacts(html);
+  const titleText = (facts.title + ' ' + facts.ogTitle).trim();
+
+  if (BLOCK_PAGE_TITLES.test(titleText)) return { url, alive: true, reason: 'bot check — kept' };
+
+  if (DEAD_PAGE_PHRASES.some(p => lower.slice(0, 6000).includes(p))) {
+    return { url, alive: false, reason: 'not-found page' };
+  }
+  // Landed on a homepage or top-level page instead of the product. (A move to
+  // another host alone isn't counted — retailers redirect to regional sites
+  // all the time; the title check below catches it if the product is wrong.)
+  try {
+    const o = new URL(url), f = new URL(r.url || url);
+    const depth = (u) => u.pathname.split('/').filter(Boolean).length;
+    if (depth(o) > 1 && depth(f) <= 1) return { url, alive: false, reason: 'redirected to ' + r.url };
+  } catch {}
+  if (titleText && !titleMatches(name, titleText)) {
+    return { url, alive: false, reason: 'title "' + titleText.slice(0, 80) + '" ≠ "' + String(name).slice(0, 60) + '"' };
+  }
+  // A listing: the address has no product ID, and the page either describes
+  // a list of products or doesn't describe a single one. (Product pages with
+  // "you may also like" lists still pass — their addresses carry an ID.)
+  if (looksLikeCategoryUrl(r.url || url) && (facts.isListing || !facts.isProduct)) {
+    return { url, alive: false, reason: 'listing page, not a product' };
+  }
+  return { url, alive: true, reason: 'ok' };
+}
+
 // Reads a slice of the page as lowercase text. If all we have is a HEAD
 // response (no body), fetch the page properly first.
 async function readPageText(response, url, alreadyHaveBody) {
@@ -247,10 +487,20 @@ export default async function handler(req, res) {
   // The frontend sends a list of URLs and we check which ones are alive.
   if (validateUrls) {
     const submitted = Array.isArray(req.body.urls) ? req.body.urls : [];
+    const names = Array.isArray(req.body.names) ? req.body.names : null;
     // Cap the batch so this can't be turned into a bulk scanning tool.
     const urls = submitted.slice(0, MAX_URLS_PER_CHECK);
-    const results = await Promise.all(urls.map(checkUrl));
-    return res.status(200).json({ results });
+    // With product names (the current frontend), read each page and check
+    // it's really that product. Without them (an older cached frontend),
+    // fall back to the original "does it load?" check.
+    const results = await Promise.all(urls.map((u, i) =>
+      names && typeof names[i] === 'string' && names[i] ? checkProductPage(u, names[i]) : checkUrl(u)));
+    const rejected = results.filter(x => !x.alive);
+    if (rejected.length) {
+      console.log('[LINKS] rejected ' + rejected.length + '/' + results.length + ': ' +
+        rejected.map(x => x.url + ' (' + (x.reason || 'dead') + ')').join(' | ').slice(0, 1500));
+    }
+    return res.status(200).json({ results: results.map(({ url, alive }) => ({ url, alive })) });
   }
 
   // ── Normal search / fit check / quiz mode ────────────────────────────────
@@ -301,6 +551,9 @@ LINKS — this is critical:
 - Do not include URLs from small boutiques, pop-up shops, or retailers with complex/dynamic URL structures.
 - Never recommend a retailer that has closed down. Do not use Matches / MatchesFashion — that business went into administration and its website closed.
 - If you are not confident a product URL is live and correct, do not include that product — find another one instead.
+- Every "url" is automatically compared against the pages your web searches actually returned. Any url that did not appear in your search results is discarded before the user sees it, so never construct, guess, shorten or edit a url — copy it exactly from a search result.
+- Search in a way that returns individual product pages, not listings: include the brand, the product's name and the retailer in your query (e.g. "Isabel Marant Freya silk minidress Mytheresa").
+- The "name" must be the product's real name as the retailer shows it on that page, because the page title is checked against it.
 
 IMAGES:
 - The "imageUrl" must be a direct CDN image URL ending in .jpg, .jpeg, .png, or .webp. No redirect URLs, no tracking URLs.
@@ -365,6 +618,17 @@ Respond with a raw JSON array only. No markdown, no preamble, no explanation.`;
     if (data.stop_reason === 'max_tokens') {
       console.error('Reply truncated by max_tokens, mode:', resolvedMode);
       return res.status(500).json({ error: 'The reply was cut short — please try again.' });
+    }
+
+    // Product searches: keep only products whose link a search actually
+    // returned. See groundResults() above.
+    if (isOutfitSearch) {
+      const g = groundResults(result, data.content);
+      if (g.kept !== null) {
+        console.log('[GROUND] kept=' + g.kept + ' dropped=' + g.dropped.length +
+          (g.dropped.length ? ' invented=' + g.dropped.slice(0, 5).join(' ') : ''));
+      }
+      return res.status(200).json({ result: g.text });
     }
 
     return res.status(200).json({ result });
