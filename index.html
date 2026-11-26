@@ -3324,8 +3324,15 @@ async function initClerk() {
   }
 
   try {
-    // clerk-js v5 CDN: window.Clerk is a constructor
-    const clerk = new window.Clerk(window.__clerk_publishable_key);
+    // The CDN script used to hand us a constructor (`new Clerk(key)`). Newer
+    // clerk-js 5.x releases read data-clerk-publishable-key off the script tag
+    // and hand us a ready-made instance instead — and calling `new` on that
+    // throws "window.Clerk is not a constructor", which silently switched off
+    // every sign-in on the site (found 26 Nov 2026). Accept either shape, since
+    // "@5" on the script tag means the version keeps moving.
+    const clerk = (typeof window.Clerk === 'function')
+      ? new window.Clerk(window.__clerk_publishable_key)
+      : window.Clerk;
     await clerk.load({ appearance: {} });
     clerkInstance = clerk;
     return clerk;
