@@ -13,6 +13,10 @@
   onload="window.__clerkScriptLoaded = true;"
   onerror="window.__clerkScriptFailed = true; console.warn('Clerk CDN failed to load — auth features disabled.');">
 </script>
+<!-- Paddle checkout.  Loaded async so it never slows the page; it is only
+     needed once someone presses a Subscribe button. -->
+<script async src="https://cdn.paddle.com/paddle/v2/paddle.js"
+  onerror="window.__paddleScriptFailed = true;"></script>
 <style>
 /* ── Tokens ── */
 :root {
@@ -2023,6 +2027,89 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
   padding: 0;
 }
 
+/* ── Plan picker (Paddle checkout) ──────────────────────────────────────── */
+.plan-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--linen);
+  border: 0.5px solid var(--dust);
+  margin: 0 0 1.25rem;
+  text-align: left;
+}
+.plan-option {
+  background: var(--mist);
+  border: none;
+  padding: 1.1rem 1rem 1.2rem;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  text-align: left;
+  transition: background 0.15s;
+}
+.plan-option:hover { background: var(--linen); }
+.plan-option.selected { background: #fff; box-shadow: inset 0 0 0 1px var(--ink); }
+.plan-option-name {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bark);
+  margin-bottom: 0.5rem;
+}
+.plan-option-price {
+  font-family: Georgia, serif;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--ink);
+}
+.plan-option-price span { font-family: system-ui, sans-serif; font-size: 0.75rem; color: var(--charcoal); }
+.plan-option-detail {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--charcoal);
+  margin-top: 0.6rem;
+}
+.plan-consent {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--charcoal);
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+}
+.plan-consent input { margin-top: 3px; flex-shrink: 0; accent-color: var(--ink); }
+.plan-legal {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--dust);
+  text-align: left;
+  margin-bottom: 0.25rem;
+}
+.plan-legal a { color: var(--bark); }
+
+/* Small confirmation note, bottom of the screen */
+.pf-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  max-width: min(440px, calc(100% - 2rem));
+  background: var(--ink);
+  color: var(--parchment);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 0.9rem 1.2rem;
+  z-index: 950;
+  display: none;
+}
+.pf-toast.show { display: block; }
+
+@media (max-width: 420px) {
+  .plan-options { grid-template-columns: 1fr; }
+}
+
 </style>
 </head>
 <body>
@@ -2240,9 +2327,9 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
     <!-- Inline paywall -->
     <div id="bodyMethodPaywall" style="display:none;" class="paywall-wrap">
       <div class="paywall-eyebrow">Subscriber feature</div>
-      <div class="paywall-heading">Photo &amp; camera body analysis is part of Prêt-à-Fit Premium</div>
-      <div class="paywall-sub">Subscribers unlock AI photo body assessment, colour analysis, saved looks, and unlimited searches. The questions quiz is available to everyone — and works beautifully.</div>
-      <button class="paywall-btn" onclick="goToSignIn('screen-body')">Upgrade or sign in</button>
+      <div class="paywall-heading">Photo &amp; camera body analysis comes with every Prêt-à-Fit plan</div>
+      <div class="paywall-sub">Subscribers get photo body and colour analysis, unlimited fit checks, a personal shopping guide, and 20 or 50 searches a month. The questions quiz is free for everyone — and works beautifully.</div>
+      <button class="paywall-btn" onclick="handleSubscribe()">See plans</button>
       <div class="paywall-signin">
         <button onclick="document.getElementById('bodyMethodPaywall').style.display='none';selectBodyOption('questions',null);">Continue with questions instead →</button>
       </div>
@@ -4183,6 +4270,10 @@ async function enterApp() {
   } else {
     goTo(dest);
   }
+  // They signed in on the way to subscribing — carry on where they meant to.
+  if (clerkInstance && clerkInstance.user && takePendingSubscribe()) {
+    setTimeout(handleSubscribe, 450);
+  }
 }
 
 /* ── User avatar in nav ── */
@@ -4261,6 +4352,12 @@ function clearPersonalState() {
   profileEditField = null;
   profileTempValues = {};
   authReturnTo = 'screen-app';
+
+  // Billing: nothing personal is held in memory, but a half-finished
+  // subscribe journey shouldn't carry over to the next person.
+  setPendingSubscribe(false);
+  planChoice = '';
+  closePlanModal();
 
   // Clearing the variables doesn't clear what is already drawn on screen, so
   // empty the containers that hold personal results too.
@@ -4970,6 +5067,19 @@ function getSearchCount() {
 }
 
 async function incrementSearchCount() {
+  // Subscribers count against this billing month's allowance instead of the
+  // free lifetime count. See searchAllowance().
+  if (subscriptionTier()) {
+    try {
+      await clerkInstance.user.update({
+        unsafeMetadata: {
+          ...clerkInstance.user.unsafeMetadata,
+          periodSearches: { period: currentPeriodKey(), count: getPeriodSearchCount() + 1 }
+        }
+      });
+    } catch(e) { console.warn('Could not save monthly search count:', e); }
+    return;
+  }
   if (clerkInstance && clerkInstance.user) {
     const current = clerkInstance.user.unsafeMetadata?.searchCount || 0;
     try {
@@ -4987,11 +5097,11 @@ async function incrementSearchCount() {
 }
 
 /* ── Subscriber status — ONE definition, used everywhere ─────────────────
-   Every paid feature must call isSubscriber(). Do not write a local copy of
-   this check: there used to be four different versions in this file, two of
-   them reading a different field under a different name, which meant a real
-   paying customer would have been let into some paid features and blocked
-   from others.
+   Every paid feature must call hasPaidAccess() (which calls isSubscriber()).
+   Do not write a local copy of this check: there used to be four different
+   versions in this file, two of them reading a different field under a
+   different name, which meant a real paying customer would have been let
+   into some paid features and blocked from others.
 
    IT READS publicMetadata, AND THAT MATTERS.
    Clerk gives each user two metadata stores:
@@ -5003,14 +5113,17 @@ async function incrementSearchCount() {
 
    Subscription status therefore has to live in publicMetadata. If it lived in
    unsafeMetadata, anyone could open the browser console and grant themselves
-   a free subscription in one line — this function is the only thing standing
-   between a visitor and every paid feature in the app.
+   a free subscription in one line.
 
-   THE STRIPE CONTRACT: the webhook (api/stripe-webhook.js, still to be built)
-   is what sets this, server-side, after Stripe confirms payment:
-       publicMetadata = { subscriber: true, subscriptionStatus: 'active' }
-   and on cancellation or failed payment sets subscriber to false and the
-   status to whatever Stripe reported. Nothing in the browser writes it.
+   THE PADDLE CONTRACT: api/paddle-webhook.js is the only thing that writes
+   this, server-side, each time Paddle reports a change:
+       publicMetadata = { subscriber: true, subscriptionStatus: 'active',
+                          tier: 'standard' | 'premium',
+                          paddleCustomerId, paddleSubscriptionId,
+                          nextBilledAt, periodStart, periodEnd,
+                          scheduledChange }
+   and on cancellation or a failed payment sets subscriber to false and the
+   status to whatever Paddle reported. Nothing in the browser writes it.
    ──────────────────────────────────────────────────────────────────────── */
 function isSubscriber() {
   if (!clerkInstance || !clerkInstance.user) return false;
@@ -5021,8 +5134,7 @@ function isSubscriber() {
   // (a leftover string, say) can't be mistaken for a paid account.
   if (pub.subscriber === true) return true;
 
-  // Also accept Stripe's own status wording, in case the webhook ends up
-  // writing the status straight through rather than a boolean.
+  // Also accept the status wording directly, as a second route in.
   if (pub.subscriptionStatus === 'active' || pub.subscriptionStatus === 'trialing') return true;
 
   return false;
@@ -5031,18 +5143,118 @@ function isSubscriber() {
 /* The gate for every paid feature. Use THIS, not isSubscriber(), anywhere a
    feature is being unlocked — it adds the pre-launch testing bypass.
 
-   Why the bypass is safe: Stripe is not connected yet, so isSubscriber() is
-   false for everyone, including you. Without a way in, no paid feature could
-   be tested before launch. ?preview=1 provides that.
+   Why the bypass is safe: it only works while COMING_SOON_MODE is on.
+   Turning that off is already step one of going live, so the bypass closes
+   itself the moment the doors open — there is no separate switch to remember.
 
-   And why it cannot become a permanent back door: it only works while
-   COMING_SOON_MODE is on. Turning that off is already step one of going live,
-   so the bypass closes itself the moment the doors open — there is no separate
-   switch to remember. */
+   Note the bypass never hides a REAL subscription: anywhere the plan itself
+   matters (the monthly allowance, the Profile "Plan" row) reads
+   subscriptionTier(), which ignores the bypass. That is what lets you test a
+   real sandbox purchase on the live site with ?preview=1. */
 function hasPaidAccess() {
   if (isSubscriber()) return true;
   const comingSoon = (typeof COMING_SOON_MODE !== 'undefined') && COMING_SOON_MODE;
   return comingSoon && isPreviewVisit();
+}
+
+/* ── Plans and Paddle settings ────────────────────────────────────────────
+   PADDLE_ENV and the token switch together when you go live:
+     sandbox:  PADDLE_ENV = 'sandbox',    token starts test_
+     live:     PADDLE_ENV = 'production', token starts live_
+   The price IDs change too — live prices have different IDs from sandbox
+   ones. They also appear in api/paddle-webhook.js and api/billing.js.
+
+   The client-side token is safe to have in this file: Paddle designs it to
+   be public. The API key and webhook secret are NOT, and live only in
+   Vercel's environment variables.
+
+   The prices and allowances shown in the plan picker are written here too.
+   The pricing page takes its copy from TIERS in build_pages.py, so if a
+   price ever changes, change it in both places. */
+const PADDLE_ENV = 'sandbox';
+const PADDLE_CLIENT_TOKEN = 'test_598c5a4c01e65a8c88e1491eee4';
+const PADDLE_PRICES = {
+  standard: 'pri_01m8ba2x02my54dypdpa1jqv2b',
+  premium:  'pri_01m8ba46azz7g8j2bb1wjy0jq7'
+};
+const PLANS = {
+  standard: { name: 'Standard', price: '$14', searches: 20 },
+  premium:  { name: 'Premium',  price: '$29', searches: 50 }
+};
+
+/* UK and EU customers have a 14-day right to cancel. For a digital service
+   it can be waived, but ONLY with express consent plus an acknowledgement
+   that they are giving it up — hence a required checkbox before checkout.
+   Without it, a customer could use the service for thirteen days and still
+   claim the whole subscription back, and the refund policy's five-search
+   allowance would not override the statute.
+
+   The record is kept twice: in the checkout's custom data (Paddle stores it
+   on the transaction) and, via the webhook, on the Clerk account. In a
+   dispute the burden of showing consent was given sits with us. */
+const CONSENT_WORDING = 'I want access to Prêt-à-Fit straight away, and I understand that once it begins I may lose my right to cancel within 14 days for a full refund.  Our refunds policy still applies.';
+
+function billingInfo() {
+  return (clerkInstance && clerkInstance.user && clerkInstance.user.publicMetadata) || {};
+}
+
+/* 'standard', 'premium', or null for anyone not paying. Ignores the preview
+   bypass on purpose — see hasPaidAccess(). */
+function subscriptionTier() {
+  if (!isSubscriber()) return null;
+  const t = billingInfo().tier;
+  // An active subscription with no recognised tier gets the smaller
+  // allowance, never the larger.
+  return PLANS[t] ? t : 'standard';
+}
+
+/* ── Monthly search allowance ─────────────────────────────────────────────
+   Searches are the one thing that costs real money, so they are the one
+   thing rationed (see the pricing page). The allowance resets when the
+   billing month does: the webhook stores the start of the current billing
+   period, and the count is kept against that date, so a new period means a
+   fresh count without anyone resetting anything.
+
+   ⚠️ Same known limit as the free-tier counters: the count lives in
+   unsafeMetadata, the only store the page can write, so a determined person
+   with the console open could reset it. Fixing that properly is the
+   api/usage.js item in the backlog. The cap still protects against normal
+   use, which is what the pricing maths depends on. */
+function currentPeriodKey() {
+  const start = billingInfo().periodStart;
+  if (start) return String(start);
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+function getPeriodSearchCount() {
+  const rec = clerkInstance && clerkInstance.user && clerkInstance.user.unsafeMetadata
+    && clerkInstance.user.unsafeMetadata.periodSearches;
+  return (rec && rec.period === currentPeriodKey()) ? (rec.count || 0) : 0;
+}
+
+/* One answer to "can this person run another search?", used by both the
+   main search button and Discover more. */
+function searchAllowance() {
+  const tier = subscriptionTier();
+  if (tier) {
+    const limit = PLANS[tier].searches;
+    const used = getPeriodSearchCount();
+    return { kind: 'subscriber', tier, limit, used, left: Math.max(0, limit - used) };
+  }
+  if (hasPaidAccess()) {
+    // ?preview=1 testing — no cap, nothing counted against a real plan.
+    return { kind: 'preview', limit: Infinity, used: 0, left: Infinity };
+  }
+  const used = getSearchCount();
+  return { kind: 'free', limit: FREE_SEARCH_LIMIT, used, left: Math.max(0, FREE_SEARCH_LIMIT - used) };
+}
+
+function formatShortDate(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+  } catch (e) { return ''; }
 }
 
 function showPaywall(area) {
@@ -5050,40 +5262,370 @@ function showPaywall(area) {
   area.innerHTML = `
     <div class="paywall-wrap">
       <div class="paywall-eyebrow">Your free search has been used</div>
-      <h2 class="paywall-heading">Unlock unlimited<br>personal styling</h2>
-      <p class="paywall-sub">You've used your complimentary search. Subscribe to Prêt-à-Fit for unlimited recommendations, saved looks, and your full style profile — always ready when you are.</p>
-      <button class="paywall-btn" onclick="handleSubscribe()">Subscribe to continue</button>
-      ${!isLoggedIn ? `<div class="paywall-signin">Already have an account? <button onclick="goToSignIn()">Sign in</button></div>` : ''}
+      <h2 class="paywall-heading">Keep going with<br>a subscription</h2>
+      <p class="paywall-sub">Plans start at ${PLANS.standard.price} a month for ${PLANS.standard.searches} searches, with unlimited fit checks, photo body and colour analysis, and your own shopping guide.  Cancel whenever you like.</p>
+      <button class="paywall-btn" onclick="handleSubscribe()">See plans</button>
+      <div class="paywall-signin"><a href="pricing.html" style="color:var(--bark);">Compare plans in full</a></div>
+      ${!isLoggedIn ? `<div class="paywall-signin" style="margin-top:0.5rem;">Already subscribed? <button onclick="goToSignIn()">Sign in</button></div>` : ''}
+    </div>`;
+}
+
+/* A subscriber who has used this month's allowance. Nothing is charged
+   automatically — they can wait for the reset or move up a plan, exactly as
+   the pricing page promises. */
+function showAllowanceUsed(area, a) {
+  const reset = formatShortDate(billingInfo().nextBilledAt);
+  const canUpgrade = a.tier === 'standard';
+  area.innerHTML = `
+    <div class="paywall-wrap">
+      <div class="paywall-eyebrow">This month's searches are used</div>
+      <h2 class="paywall-heading">You've used all ${a.limit}<br>of this month's searches</h2>
+      <p class="paywall-sub">Your allowance resets ${reset ? 'on ' + reset : 'at your next renewal'}.  Fit checks, your profile and your shopping guide all keep working in the meantime.${canUpgrade ? `  Or move up to Premium for ${PLANS.premium.searches} a month — you only pay the difference for the rest of this month.` : ''}</p>
+      ${canUpgrade ? `<button class="paywall-btn" onclick="openPlanModal('upgrade')">Move up to Premium</button>` : ''}
     </div>`;
 }
 
 /* ── Subscribe ────────────────────────────────────────────────────────────
-   Stripe is not connected yet. When it is, this becomes a redirect to a
-   Stripe Checkout session, and TWO THINGS MUST APPEAR BEFORE PAYMENT:
+   Every "Subscribe" / "See plans" button in the app comes here.
 
-   1. LINKS TO THE TERMS AND THE REFUND POLICY. Stripe Checkout can render
-      these itself (consent_collection.terms_of_service_acceptance), which is
-      the least-work way to satisfy it.
+   A subscription has to belong to an account — that is how the webhook
+   knows whose features to unlock — so guests are sent to sign up first. A
+   flag in sessionStorage remembers they were on their way to subscribe, so
+   the plan picker opens by itself once they're in, even after the round
+   trip to Google sign-in. */
+const PENDING_SUBSCRIBE_KEY = 'pf_pending_subscribe';
 
-   2. THE IMMEDIATE-ACCESS CONSENT. Customers in the UK and EU have a 14-day
-      statutory cancellation right. For digital services that right can be
-      waived, but ONLY with the customer's express consent plus an
-      acknowledgement that they are giving it up. Without that tickbox, a
-      customer can use the service for thirteen days and still demand the
-      whole subscription back, and our own refund policy's five-search
-      allowance would not override the statute.
+function setPendingSubscribe(on) {
+  try {
+    if (on) sessionStorage.setItem(PENDING_SUBSCRIBE_KEY, '1');
+    else sessionStorage.removeItem(PENDING_SUBSCRIBE_KEY);
+  } catch (e) {}
+}
 
-      Wording to use, as a required checkbox:
-        "I want access to Prêt-à-Fit straight away, and I understand that
-         once it begins I may lose my right to cancel within 14 days for a
-         full refund. Our refunds policy still applies."
+function takePendingSubscribe() {
+  try {
+    const was = sessionStorage.getItem(PENDING_SUBSCRIBE_KEY) === '1';
+    sessionStorage.removeItem(PENDING_SUBSCRIBE_KEY);
+    return was;
+  } catch (e) { return false; }
+}
 
-      Keep a record of the consent (Stripe's session object is fine) — in a
-      dispute the burden of showing it was given sits with us.
-   ──────────────────────────────────────────────────────────────────────── */
 function handleSubscribe() {
-  // Stripe not yet connected — show coming soon message for now
-  alert('Subscriptions are coming very soon. Thank you for your patience.');
+  if (!clerkInstance) {
+    alert("Accounts aren't available right now, so we can't set up a subscription.  Please refresh the page and try again.");
+    return;
+  }
+  if (!clerkInstance.user) {
+    setPendingSubscribe(true);
+    const here = document.querySelector('.screen.active');
+    goToSignIn(here && here.id !== 'screen-auth' ? here.id : 'screen-app');
+    switchAuthTab('signup');
+    document.getElementById('authSub').textContent =
+      'Create an account, or sign in, so your subscription is yours on any device.';
+    return;
+  }
+  const tier = subscriptionTier();
+  if (tier === 'premium') { openBillingPortal(); return; }
+  if (tier === 'standard') { openPlanModal('upgrade'); return; }
+  openPlanModal('new');
+}
+
+/* ── Plan picker ── */
+let planChoice = '';
+let planModalMode = 'new';   // 'new' | 'upgrade'
+
+function openPlanModal(mode) {
+  planModalMode = mode === 'upgrade' ? 'upgrade' : 'new';
+  planChoice = planModalMode === 'upgrade' ? 'premium' : '';
+
+  const eyebrow = document.getElementById('planEyebrow');
+  const heading = document.getElementById('planHeading');
+  const sub = document.getElementById('planSub');
+  const opts = document.getElementById('planOptions');
+  const consentWrap = document.getElementById('planConsentWrap');
+  const consentBox = document.getElementById('planConsent');
+  const btn = document.getElementById('planContinueBtn');
+  document.getElementById('planError').textContent = '';
+
+  if (planModalMode === 'upgrade') {
+    eyebrow.textContent = 'Move up';
+    heading.textContent = 'Move up to Premium';
+    sub.textContent = `${PLANS.premium.searches} searches a month instead of ${PLANS.standard.searches}.  You pay the difference for the rest of this billing month now, then ${PLANS.premium.price} a month from your next renewal.`;
+    opts.style.display = 'none';
+    consentWrap.style.display = 'none';
+    btn.textContent = 'Move up to Premium';
+    btn.disabled = false;
+  } else {
+    eyebrow.textContent = 'Subscribe';
+    heading.textContent = 'Choose your plan';
+    sub.textContent = 'Every plan includes every feature.  The only difference is how many searches you get each month.';
+    opts.style.display = '';
+    opts.innerHTML = ['standard', 'premium'].map(key => {
+      const p = PLANS[key];
+      return `<button class="plan-option" data-plan="${key}" onclick="selectPlan('${key}')">
+        <div class="plan-option-name">${p.name}</div>
+        <div class="plan-option-price">${p.price}<span>/month</span></div>
+        <div class="plan-option-detail">${p.searches} searches a month<br>Unlimited fit checks<br>Photo analysis &amp; shopping guide</div>
+      </button>`;
+    }).join('');
+    consentWrap.style.display = '';
+    consentBox.checked = false;
+    btn.textContent = 'Continue to payment';
+    updatePlanButton();
+  }
+
+  document.getElementById('planModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function selectPlan(key) {
+  planChoice = key;
+  document.querySelectorAll('#planOptions .plan-option').forEach(b =>
+    b.classList.toggle('selected', b.dataset.plan === key));
+  updatePlanButton();
+}
+
+function updatePlanButton() {
+  if (planModalMode !== 'new') return;
+  const btn = document.getElementById('planContinueBtn');
+  btn.disabled = !(planChoice && document.getElementById('planConsent').checked);
+}
+
+function closePlanModal() {
+  const modal = document.getElementById('planModal');
+  if (!modal) return;
+  modal.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function confirmPlan() {
+  if (planModalMode === 'upgrade') { upgradeToPremium(); return; }
+  if (!planChoice || !document.getElementById('planConsent').checked) return;
+  startCheckout(planChoice);
+}
+
+/* ── Paddle checkout ── */
+let paddleReady = false;
+
+/* Paddle.js loads in the background. Wait for it (briefly) the first time
+   someone wants to pay, then set it up once. */
+async function ensurePaddle() {
+  if (paddleReady) return true;
+  if (!PADDLE_CLIENT_TOKEN || PADDLE_CLIENT_TOKEN.indexOf('PASTE') !== -1) {
+    console.warn('Paddle: PADDLE_CLIENT_TOKEN has not been filled in.');
+    return false;
+  }
+  const loaded = await new Promise(resolve => {
+    if (window.Paddle) { resolve(true); return; }
+    let waited = 0;
+    const poll = setInterval(() => {
+      waited += 100;
+      if (window.Paddle) { clearInterval(poll); resolve(true); }
+      else if (waited >= 8000 || window.__paddleScriptFailed) { clearInterval(poll); resolve(false); }
+    }, 100);
+  });
+  if (!loaded) return false;
+  try {
+    if (PADDLE_ENV === 'sandbox') window.Paddle.Environment.set('sandbox');
+    window.Paddle.Initialize({ token: PADDLE_CLIENT_TOKEN, eventCallback: onPaddleEvent });
+    paddleReady = true;
+    return true;
+  } catch (e) {
+    console.warn('Paddle failed to start:', e);
+    return false;
+  }
+}
+
+async function startCheckout(plan) {
+  const btn = document.getElementById('planContinueBtn');
+  const err = document.getElementById('planError');
+  btn.disabled = true;
+  btn.textContent = 'Opening checkout…';
+
+  const ok = await ensurePaddle();
+  btn.textContent = 'Continue to payment';
+  updatePlanButton();
+  if (!ok) {
+    err.textContent = "The checkout couldn't open just now.  Please check your connection and try again.";
+    return;
+  }
+
+  const u = clerkInstance.user;
+  const email = (u.primaryEmailAddress && u.primaryEmailAddress.emailAddress) || '';
+  const checkout = {
+    settings: { displayMode: 'overlay', theme: 'light', locale: 'en', allowLogout: false },
+    items: [{ priceId: PADDLE_PRICES[plan], quantity: 1 }],
+    // Paddle copies this onto the subscription, and the webhook uses
+    // clerk_user_id to find whose account to unlock. The consent fields are
+    // the record of the immediate-access waiver.
+    customData: {
+      clerk_user_id: u.id,
+      plan: plan,
+      immediate_access_consent_at: new Date().toISOString(),
+      immediate_access_consent_wording: CONSENT_WORDING
+    }
+  };
+  if (email) checkout.customer = { email: email };
+
+  closePlanModal();
+  window.Paddle.Checkout.open(checkout);
+}
+
+function onPaddleEvent(ev) {
+  if (!ev || !ev.name) return;
+  if (ev.name === 'checkout.completed') {
+    showToast('Payment received — switching on your plan…', 0);
+    waitForSubscription(null);
+  }
+}
+
+/* After paying, Paddle tells our webhook, and the webhook updates the Clerk
+   account. That takes a few seconds, so check back until it lands. */
+async function waitForSubscription(wantTier) {
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    try { await clerkInstance.user.reload(); } catch (e) {}
+    const tier = subscriptionTier();
+    if (tier && (!wantTier || tier === wantTier)) {
+      showToast(`You're on ${PLANS[tier].name} — ${PLANS[tier].searches} searches a month, and everything else unlocked.  Thank you.`, 8000);
+      refreshAfterPlanChange();
+      return true;
+    }
+  }
+  showToast("Your payment went through, but your plan is taking longer than usual to switch on.  Refresh the page in a minute — and if it still hasn't, write to support@pret-a-fit.com.", 12000);
+  return false;
+}
+
+/* Clears away anything on screen that was drawn for a non-subscriber. */
+function refreshAfterPlanChange() {
+  // "Discover more" at the cap: put the button back, keep the results above it.
+  const more = document.getElementById('loadMoreWrap');
+  if (more && more.querySelector('.paywall-wrap')) {
+    more.innerHTML = '<button class="btn-load-more" onclick="loadMore()">Discover more</button>';
+  }
+  // A paywall that replaced the whole results area. Only a direct child —
+  // the Discover more message above also lives inside resultsArea, and
+  // matching that would wipe the person's results off the screen.
+  const area = document.getElementById('resultsArea');
+  if (area && area.querySelector(':scope > .paywall-wrap')) area.innerHTML = '';
+  const bodyPaywall = document.getElementById('bodyMethodPaywall');
+  if (bodyPaywall) bodyPaywall.style.display = 'none';
+  ['quizPhotoPaywall', 'colourInlinePaywall'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  });
+  const active = document.querySelector('.screen.active');
+  if (active && active.id === 'screen-profile') {
+    renderPlanRow();
+    renderShoppingGuide();
+  }
+}
+
+async function upgradeToPremium() {
+  const btn = document.getElementById('planContinueBtn');
+  const err = document.getElementById('planError');
+  btn.disabled = true;
+  btn.textContent = 'Moving you up…';
+  err.textContent = '';
+  try {
+    await callBilling('upgrade');
+    closePlanModal();
+    try { await clerkInstance.user.reload(); } catch (e) {}
+    if (subscriptionTier() === 'premium') {
+      showToast(`You're on Premium — ${PLANS.premium.searches} searches a month.  Thank you.`, 8000);
+      refreshAfterPlanChange();
+    } else {
+      showToast('Moving you up to Premium…', 0);
+      waitForSubscription('premium');
+    }
+  } catch (e) {
+    err.textContent = e.message;
+    btn.disabled = false;
+    btn.textContent = 'Move up to Premium';
+  }
+}
+
+/* ── Billing endpoint (portal link, upgrades) ──
+   Sends the Clerk session token so the server knows who is asking. */
+async function callBilling(action) {
+  if (!clerkInstance || !clerkInstance.session) throw new Error('Please sign in first.');
+  const token = await clerkInstance.session.getToken();
+  const res = await fetch('/api/billing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ action })
+  });
+  let data = {};
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) throw new Error(data.error || 'Something went wrong — please try again.');
+  return data;
+}
+
+/* Paddle's own billing page: cancel, change card, download receipts. The
+   new tab is opened during the tap itself, because browsers block pop-ups
+   that appear after waiting for a server. */
+async function openBillingPortal() {
+  const win = window.open('', '_blank');
+  try {
+    const { url } = await callBilling('portal');
+    if (win) win.location.href = url;
+    else window.location.href = url;
+  } catch (e) {
+    if (win) win.close();
+    alert(e.message);
+  }
+}
+
+/* The "Plan" row in the Account section of the Profile screen. Reads the
+   real subscription, never the preview bypass, so it always tells the truth. */
+function renderPlanRow() {
+  const row = document.getElementById('profilePlanRow');
+  const val = document.getElementById('profilePlan');
+  const btn = document.getElementById('profilePlanAction');
+  if (!row || !val || !btn) return;
+  if (!clerkInstance || !clerkInstance.user) { row.style.display = 'none'; return; }
+  row.style.display = '';
+
+  const pub = billingInfo();
+  const tier = subscriptionTier();
+
+  if (tier) {
+    const a = searchAllowance();
+    const ending = pub.scheduledChange && pub.scheduledChange.action === 'cancel';
+    const when = ending
+      ? 'ends ' + formatShortDate(pub.scheduledChange.effectiveAt || pub.periodEnd)
+      : (pub.nextBilledAt ? 'renews ' + formatShortDate(pub.nextBilledAt) : '');
+    val.innerHTML = `${esc(PLANS[tier].name)} · ${a.left} of ${a.limit} searches left this month${when ? ' · ' + esc(when) : ''}`
+      + (tier === 'standard' && !ending
+        ? `<br><button class="guide-inline-link" onclick="openPlanModal('upgrade')">Move up to Premium</button>`
+        : '');
+    btn.textContent = 'Manage';
+    btn.onclick = openBillingPortal;
+  } else if (pub.paddleSubscriptionId && pub.subscriptionStatus === 'past_due') {
+    val.textContent = "Your last payment didn't go through.  Update your card to carry on.";
+    btn.textContent = 'Update card';
+    btn.onclick = openBillingPortal;
+  } else if (pub.paddleSubscriptionId && pub.subscriptionStatus === 'paused') {
+    val.textContent = 'Paused';
+    btn.textContent = 'Manage';
+    btn.onclick = openBillingPortal;
+  } else {
+    val.textContent = 'Free · 1 search and 3 fit checks';
+    btn.textContent = 'Subscribe';
+    btn.onclick = handleSubscribe;
+  }
+}
+
+/* A small note at the bottom of the screen. ms = 0 keeps it up until the
+   next one replaces it. */
+let toastTimer = null;
+function showToast(text, ms) {
+  const el = document.getElementById('pfToast');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  if (ms) toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
 
@@ -5214,9 +5756,13 @@ async function findOutfits() {
   const priceMax = document.getElementById('priceMax').value;
   if (!priceMin || !priceMax) { alert('Please enter a price range.'); return; }
 
-  // Check search limit
-  if (!hasPaidAccess() && getSearchCount() >= FREE_SEARCH_LIMIT) {
-    showPaywall(document.getElementById('resultsArea'));
+  // Check the search limit: one free search, or this month's allowance for
+  // subscribers.
+  const allowance = searchAllowance();
+  if (allowance.left <= 0) {
+    const limitArea = document.getElementById('resultsArea');
+    if (allowance.kind === 'subscriber') showAllowanceUsed(limitArea, allowance);
+    else showPaywall(limitArea);
     return;
   }
 
@@ -5275,6 +5821,10 @@ async function findOutfits() {
 
     // Count this search
     await incrementSearchCount();
+    const after = searchAllowance();
+    const leftNote = after.kind === 'subscriber'
+      ? `<p class="image-disclaimer">${after.left} of ${after.limit} searches left this month.</p>`
+      : '';
 
     const label = isPhotoSearch
       ? items.length + ' similar items found'
@@ -5289,6 +5839,7 @@ async function findOutfits() {
       </div>
       <p class="image-disclaimer">Some images may not display due to individual retailer settings — click any card to view the item and its photo directly on the retailer's site.</p>
       <p class="image-disclaimer">Results are generated by AI and can occasionally be inaccurate — please forgive any broken links or mismatched details. We're continually working to refine the accuracy of these results.</p>
+      ${leftNote}
       <div class="product-grid" id="productGrid">${renderProducts(items)}</div>
       <div id="loadMoreWrap" style="text-align:center;margin-top:2.5rem;">
         <button class="btn-load-more" onclick="loadMore()">Discover more</button>
@@ -5306,11 +5857,14 @@ async function findOutfits() {
    running up unlimited cost.
 
    Set DISCOVER_MORE_GATE to:
-     'waitlist' — collect name + email (use this until Stripe is connected)
-     'signup'   — push people to create an account / subscribe instead
+     'waitlist' — collect name + email (the pre-payments setting)
+     'signup'   — send people to the plan picker (sign-up first if needed)
+   Switched to 'signup' on 26 Nov 2026, when Paddle was connected. While the
+   launch gate is up no ordinary visitor can reach this anyway, so the change
+   takes effect for real on launch day — which is when it should.
    Subscribers are never shown this pop-up either way.
    ─────────────────────────────────────────────────────────── */
-const DISCOVER_MORE_GATE = 'waitlist';   // 'waitlist' | 'signup'
+const DISCOVER_MORE_GATE = 'signup';   // 'waitlist' | 'signup'
 
 function openGateModal() {
   const modal = document.getElementById('gateModal');
@@ -5330,9 +5884,9 @@ function openGateModal() {
   if (DISCOVER_MORE_GATE === 'signup') {
     eyebrow.textContent = 'More where that came from';
     heading.innerHTML = 'Want to see<br>the full edit?';
-    sub.textContent = 'Discovering more pieces is part of a Prêt-à-Fit subscription — unlimited searches, saved looks, and your full style profile.';
+    sub.textContent = `This is part of a Prêt-à-Fit subscription.  Plans start at ${PLANS.standard.price} a month, with ${PLANS.standard.searches} or ${PLANS.premium.searches} searches a month, unlimited fit checks, photo analysis and your own shopping guide.`;
     fields.style.display = 'none';
-    btn.textContent = isLoggedIn ? 'Subscribe to continue' : 'Sign up to continue';
+    btn.textContent = isLoggedIn ? 'See plans' : 'Sign up to continue';
     btn.disabled = false;
   } else {
     eyebrow.textContent = 'More where that came from';
@@ -5373,6 +5927,8 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     const modal = document.getElementById('gateModal');
     if (modal && modal.classList.contains('open')) closeGateModal();
+    const planModal = document.getElementById('planModal');
+    if (planModal && planModal.classList.contains('open')) closePlanModal();
   }
 });
 
@@ -5380,8 +5936,9 @@ async function submitGate() {
   // Sign-up mode: send them to the auth screen instead of collecting an email
   if (DISCOVER_MORE_GATE === 'signup') {
     closeGateModal();
-    if (clerkInstance && clerkInstance.user) { handleSubscribe(); }
-    else { goToSignIn('screen-app'); }
+    // handleSubscribe() sends guests to sign up first and then opens the
+    // plan picker for them once they're in.
+    handleSubscribe();
     return;
   }
 
@@ -5423,9 +5980,17 @@ function showGateThanks() {
 
 async function loadMore() {
   // Every "Discover more" is a real, paid AI search. Free users get the
-  // pop-up instead — no search is run and nothing is charged.
-  if (!hasPaidAccess()) {
+  // pop-up instead — no search is run and nothing is charged. Subscribers
+  // spend one search from their monthly allowance, the same as the main
+  // button: without that, the caps the prices are built on would not hold.
+  const allowance = searchAllowance();
+  if (allowance.kind === 'free') {
     openGateModal();
+    return;
+  }
+  if (allowance.left <= 0) {
+    const wrap = document.getElementById('loadMoreWrap');
+    if (wrap) showAllowanceUsed(wrap, allowance);
     return;
   }
 
@@ -5455,6 +6020,8 @@ async function loadMore() {
 
     if (btn) btn.textContent = 'Checking links…';
     const newItems = await verifyAndFill(rawNew, 5, (n, ex) => buildFn(n, [...exclude, ...ex]), null);
+
+    if (newItems.length && allowance.kind === 'subscriber') await incrementSearchCount();
 
     const offset = allItems.length;
     allItems = allItems.concat(newItems);
@@ -5624,16 +6191,16 @@ function showPhotoPaywall() {
 
     var heading = document.createElement('div');
     heading.className = 'paywall-heading';
-    heading.textContent = 'Photo analysis is part of Prêt-à-Fit Premium';
+    heading.textContent = 'Photo analysis comes with every Prêt-à-Fit plan';
 
     var sub = document.createElement('div');
     sub.className = 'paywall-sub';
-    sub.textContent = 'Subscribers unlock AI photo body assessment, the colour analysis quiz, saved looks, and unlimited searches. The questions quiz is available to everyone — and works beautifully.';
+    sub.textContent = 'Subscribers get photo body and colour analysis, unlimited fit checks, a personal shopping guide, and 20 or 50 searches a month. The questions quiz is free for everyone — and works beautifully.';
 
     var upgradeBtn = document.createElement('button');
     upgradeBtn.className = 'paywall-btn';
-    upgradeBtn.textContent = 'Upgrade or sign in';
-    upgradeBtn.onclick = function() { goTo('screen-auth'); };
+    upgradeBtn.textContent = 'See plans';
+    upgradeBtn.onclick = function() { handleSubscribe(); };
 
     var signinDiv = document.createElement('div');
     signinDiv.className = 'paywall-signin';
@@ -5956,9 +6523,9 @@ function showColourPaywallInline(method, cardEl) {
 
   paywall.innerHTML = `
     <div class="paywall-eyebrow">Subscriber feature</div>
-    <div class="paywall-heading">Photo &amp; camera colour analysis is part of Prêt-à-Fit Premium</div>
-    <div class="paywall-sub">Subscribers unlock AI photo and camera colour analysis, body shape assessment, saved looks, and unlimited searches. The questions quiz is available to everyone — and works beautifully.</div>
-    <button class="paywall-btn" onclick="goTo('screen-auth')">Upgrade or sign in</button>
+    <div class="paywall-heading">Photo &amp; camera colour analysis comes with every Prêt-à-Fit plan</div>
+    <div class="paywall-sub">Subscribers get photo body and colour analysis, unlimited fit checks, a personal shopping guide, and 20 or 50 searches a month. The questions quiz is free for everyone — and works beautifully.</div>
+    <button class="paywall-btn" onclick="handleSubscribe()">See plans</button>
     <div class="paywall-signin">
       <button onclick="document.getElementById('colourInlinePaywall').remove();selectColourOption('questions',null);">Continue with questions instead →</button>
     </div>`;
@@ -6581,6 +7148,7 @@ function openProfile() {
   const hBand = getHeightBands().find(b => b.value === profile.height);
   document.getElementById('profileHeight').textContent = hBand ? `${hBand.label} (${hBand.sub})` : '—';
   renderProfileDueRow();
+  renderPlanRow();
 
   // Shopping guide — draws the locked / empty / written state as appropriate.
   // Never generates on its own: that costs money, so it waits to be asked.
@@ -7291,6 +7859,11 @@ async function init() {
       goTo('screen-app');
     }
   }
+
+  // Coming back from Google sign-in, having set off to subscribe.
+  if (clerk.user && takePendingSubscribe()) {
+    setTimeout(handleSubscribe, 700);
+  }
 }
 
 init();
@@ -7353,6 +7926,13 @@ async function joinWaitlist() {
         <div class="profile-row-label">Signed in as</div>
         <div class="profile-row-value" id="profileEmail">—</div>
         <button class="profile-row-action" onclick="handleSignOut()">Sign out</button>
+      </div>
+      <!-- Rendered by renderPlanRow(): the real plan, searches left, renewal
+           date, and the way to manage or cancel. Signed-in users only. -->
+      <div class="profile-row" id="profilePlanRow" style="display:none;">
+        <div class="profile-row-label">Plan</div>
+        <div class="profile-row-value" id="profilePlan">—</div>
+        <button class="profile-row-action" id="profilePlanAction">Manage</button>
       </div>
       <div class="profile-row" id="profileGuestRow" style="display:none;">
         <div class="profile-row-label">Account</div>
@@ -7628,8 +8208,8 @@ async function joinWaitlist() {
 
 <!-- ══ MODAL: DISCOVER MORE GATE ══ -->
 <!-- Shown when a free user taps "Discover more". While DISCOVER_MORE_GATE is
-     'waitlist' this collects an email; switch it to 'signup' once Stripe is
-     live to push people to create an account instead. -->
+     'waitlist' this collects an email; in 'signup' mode (the setting since
+     Paddle was connected) it sends people to the plan picker instead. -->
 <div class="pf-modal-overlay" id="gateModal" onclick="if(event.target===this)closeGateModal()">
   <div class="pf-modal" role="dialog" aria-modal="true" aria-labelledby="gateHeading">
     <button class="pf-modal-close" onclick="closeGateModal()" aria-label="Close">&times;</button>
@@ -7660,6 +8240,40 @@ async function joinWaitlist() {
     </div>
   </div>
 </div>
+
+<!-- ══ MODAL: PLAN PICKER ══ -->
+<!-- Opened by handleSubscribe(). Choose a plan, give the immediate-access
+     consent, then Paddle's own checkout opens on top. Also used, without the
+     plan cards or the checkbox, for moving up from Standard to Premium. -->
+<div class="pf-modal-overlay" id="planModal" onclick="if(event.target===this)closePlanModal()">
+  <div class="pf-modal" role="dialog" aria-modal="true" aria-labelledby="planHeading" style="max-width:480px;">
+    <button class="pf-modal-close" onclick="closePlanModal()" aria-label="Close">&times;</button>
+    <div class="paywall-eyebrow" id="planEyebrow">Subscribe</div>
+    <h2 class="paywall-heading" id="planHeading">Choose your plan</h2>
+    <p class="paywall-sub" id="planSub" style="margin-bottom:1.5rem;"></p>
+
+    <div class="plan-options" id="planOptions"></div>
+
+    <div id="planConsentWrap">
+      <label class="plan-consent">
+        <input type="checkbox" id="planConsent" onchange="updatePlanButton()" />
+        <span>I want access to Prêt-à-Fit straight away, and I understand that once it begins I may lose my right to cancel within 14 days for a full refund.  Our refunds policy still applies.</span>
+      </label>
+      <p class="plan-legal">
+        Renews monthly until you cancel, which you can do at any time from your profile.  By continuing you agree to our
+        <a href="terms.html" target="_blank" rel="noopener">terms</a> and
+        <a href="refunds.html" target="_blank" rel="noopener">refunds policy</a>.
+        Payment is handled securely by Paddle, our payment provider; we never see your card.
+      </p>
+    </div>
+
+    <button class="pf-modal-btn" id="planContinueBtn" onclick="confirmPlan()" disabled>Continue to payment</button>
+    <div class="pf-modal-error" id="planError"></div>
+    <button class="pf-modal-dismiss" onclick="closePlanModal()">Not right now</button>
+  </div>
+</div>
+
+<div class="pf-toast" id="pfToast" role="status" aria-live="polite"></div>
 
 <!-- ══ SCREEN: FAQ ══ -->
 <div class="screen" id="screen-faq">

@@ -2,6 +2,7 @@
   "name": "pret-a-fit",
   "version": "1.0.0",
   "dependencies": {
+    "@clerk/backend": "^3.33.1",
     "resend": "^6.18.1"
   }
 }
