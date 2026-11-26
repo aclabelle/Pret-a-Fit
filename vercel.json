@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://challenges.cloudflare.com https://*.paddle.com https://public.profitwell.com; style-src 'self' 'unsafe-inline' https://*.paddle.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.clerk.accounts.dev https://*.clerkstage.dev https://api.anthropic.com https:; worker-src 'self' blob:; frame-src https://*.clerk.accounts.dev https://challenges.cloudflare.com https://*.paddle.com;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://challenges.cloudflare.com https://*.paddle.com https://public.profitwell.com; style-src 'self' 'unsafe-inline' https://*.paddle.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.clerk.accounts.dev https://*.clerkstage.dev https://api.anthropic.com https:; worker-src 'self' blob:; frame-src https://*.clerk.accounts.dev https://challenges.cloudflare.com https://*.paddle.com https://paddle.net https://*.paddle.net;"
         }
       ]
     }

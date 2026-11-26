@@ -3416,7 +3416,27 @@ function renderHeightOptions(rowId) {
 
 /* The line handed to the AI. Spells out what the band means in practice so
    the model acts on it rather than just acknowledging it. */
+/* Everything the AI needs to know about length and build, in one line that
+   every prompt already includes. */
 function heightNote() {
+  const lean = leanBuildNote();
+  return heightOnlyNote() + (lean ? ' ' + lean : '');
+}
+
+/* A lean build changes FIT, not length: menswear off the rack is cut for a
+   broader torso, so a slim frame swims in it. Tall and lean together is the
+   hardest pairing to dress, so it gets its own instructions. Never framed as
+   a problem with the person — the advice is about what the clothes do. */
+function leanBuildNote() {
+  if (profile.body !== 'lean') return '';
+  const shared = 'Lean build: prefer slim or tailored fits over regular cuts, which will hang loose through the body. Structure at the shoulder, layering and textured or heavier fabrics add welcome breadth.';
+  if (profile.height === 'taller') {
+    return shared + ' Tall and lean together is the hardest combination to fit off the rack: look specifically for tall-slim ranges, which add length without adding width. Avoid head-to-toe skinny cuts and unbroken vertical lines, which make a long frame read longer still; favour pieces that create some horizontal interest, such as layered outerwear, chest pockets or a contrasting top and bottom.';
+  }
+  return shared;
+}
+
+function heightOnlyNote() {
   if (!profile.height) return 'Height: not specified — stick to standard lengths and do not assume petite or tall ranges.';
   const band = getHeightBands().find(b => b.value === profile.height);
   const range = band ? band.sub.replace(' · ', ' / ') : '';
@@ -3730,31 +3750,57 @@ function selectChoice(el, key, val) {
 }
 
 /* ── Body types ── */
+/* Petite used to be a body type here (women and non-binary). Removed 26 Nov
+   2026: it describes height, not shape, and height is asked for separately on
+   the Size & location screen. As a body type it let people skip choosing a
+   real shape without realising height would be covered later. Anyone who
+   saved "petite" before is moved over by migrateLegacyBody(). */
 const bodyTypes = {
   women: [
     { value: 'hourglass', name: 'Hourglass', desc: 'Balanced bust & hip, defined waist' },
     { value: 'pear', name: 'Pear', desc: 'Hips wider than shoulders' },
     { value: 'apple', name: 'Apple', desc: 'Fuller midsection, slimmer legs' },
     { value: 'rectangle', name: 'Rectangle', desc: 'Shoulders, waist & hips aligned' },
-    { value: 'inverted triangle', name: 'Inverted Triangle', desc: 'Broader shoulders, narrower hips' },
-    { value: 'petite', name: 'Petite', desc: 'Under 5\'4\" with a smaller frame' }
+    { value: 'inverted triangle', name: 'Inverted Triangle', desc: 'Broader shoulders, narrower hips' }
   ],
   men: [
     { value: 'athletic', name: 'Athletic', desc: 'Broad shoulders, tapered waist' },
     { value: 'rectangle', name: 'Rectangle', desc: 'Consistent width shoulder to hip' },
     { value: 'oval', name: 'Oval', desc: 'Fuller midsection' },
     { value: 'triangle', name: 'Triangle', desc: 'Narrower shoulders, wider hips' },
-    { value: 'tall & lean', name: 'Tall & Lean', desc: 'Long, slim proportions' }
+    // Was "Tall & Lean" until 26 Nov 2026. The "tall" half now comes from the
+    // height question; "lean" is the build, and it applies at any height.
+    { value: 'lean', name: 'Lean', desc: 'Slim, narrow frame throughout' }
   ],
   'non-binary': [
     { value: 'hourglass', name: 'Hourglass', desc: 'Balanced, defined waist' },
     { value: 'pear', name: 'Pear', desc: 'Fuller through the hips' },
     { value: 'rectangle', name: 'Rectangle', desc: 'Straight, even proportions' },
     { value: 'athletic', name: 'Athletic', desc: 'Broad shoulders, tapered waist' },
-    { value: 'inverted triangle', name: 'Inv. Triangle', desc: 'Broader shoulders' },
-    { value: 'petite', name: 'Petite / Slight', desc: 'Smaller, finer frame' }
+    { value: 'inverted triangle', name: 'Inv. Triangle', desc: 'Broader shoulders' }
   ]
 };
+
+/* People who chose "Petite" before it stopped being a body type. What they
+   told us was really about height, so keep that — as the shorter height band,
+   unless they've already set a height — and clear the body type, so the
+   Profile shows it as not set and they can pick an actual shape. Nothing is
+   asked or announced; the next profile save stores the moved values. */
+function migrateLegacyBody() {
+  if (profile.body === 'petite') {
+    profile.body = '';
+    if (!profile.height) profile.height = 'shorter';
+    return true;
+  }
+  // "Tall & Lean" (menswear) became "Lean" on 26 Nov 2026. Same idea: the
+  // build stays a body type, the height moves to the height band.
+  if (profile.body === 'tall & lean') {
+    profile.body = 'lean';
+    if (!profile.height) profile.height = 'taller';
+    return true;
+  }
+  return false;
+}
 
 function updateBodyTypes() {
   const types = bodyTypes[profile.gender] || bodyTypes.women;
@@ -4130,6 +4176,7 @@ async function loadProfileFromClerk() {
     if (!saved || !saved.gender) return false;
     // Restore all profile fields
     Object.assign(profile, saved);
+    if (migrateLegacyBody()) saveProfileToClerk();
     return true;
   } catch(e) {
     return false;
@@ -5475,15 +5522,41 @@ async function startCheckout(plan) {
   if (email) checkout.customer = { email: email };
 
   closePlanModal();
+  subscribeCheckoutOpen = true;
   window.Paddle.Checkout.open(checkout);
 }
+
+/* True only while a checkout WE opened for a new subscription is on screen.
+   Paddle also opens checkouts on this page by itself — see
+   openPaddleLinkIfPresent() — and those (updating a card, paying a failed
+   renewal) must not be told "switching on your plan". */
+let subscribeCheckoutOpen = false;
 
 function onPaddleEvent(ev) {
   if (!ev || !ev.name) return;
   if (ev.name === 'checkout.completed') {
-    showToast('Payment received — switching on your plan…', 0);
-    waitForSubscription(null);
+    if (subscribeCheckoutOpen) {
+      subscribeCheckoutOpen = false;
+      showToast('Payment received — switching on your plan…', 0);
+      waitForSubscription(null);
+    } else {
+      showToast('Thank you — your payment details are up to date.', 8000);
+    }
   }
+  if (ev.name === 'checkout.closed') subscribeCheckoutOpen = false;
+}
+
+/* Paddle's "default payment link" points at this site. Links in Paddle's own
+   emails — update your card, pay a renewal that failed — arrive here with
+   ?_ptxn=txn_… on the end, and Paddle.js opens the right checkout for that
+   transaction by itself once it has been started. It's normally started
+   lazily, on the first Subscribe tap, so start it straight away when one of
+   these links is present. Runs before the launch gate: a subscriber fixing a
+   failed payment must never be stopped by "coming soon". */
+function openPaddleLinkIfPresent() {
+  try {
+    if (new URLSearchParams(location.search).get('_ptxn')) ensurePaddle();
+  } catch (e) {}
 }
 
 /* After paying, Paddle tells our webhook, and the webhook updates the Clerk
@@ -6152,7 +6225,6 @@ Look at the proportions in this photo and identify the body shape from this list
 - apple (fuller through the midsection)
 - rectangle (shoulders, waist and hips roughly aligned)
 - inverted triangle (broader shoulders, narrower hips)
-- petite (slight, smaller frame overall)
 - athletic (broader shoulders, tapered waist)
 
 Write the description with genuine warmth. Celebrate what is lovely about this shape. Keep it to 2 sentences. Never use clinical or negative language.
@@ -6302,7 +6374,6 @@ Look at the proportions in this photo and identify the body shape from this list
 - apple (fuller through the midsection)
 - rectangle (shoulders, waist and hips roughly aligned)
 - inverted triangle (broader shoulders, narrower hips)
-- petite (slight, smaller frame overall)
 - athletic (broader shoulders, tapered waist)
 
 Write the description with genuine warmth. Celebrate what is lovely about this shape. Name a styling strength appropriate to the gender context above. Keep it to 2 sentences. Never use clinical or negative language.
@@ -6366,7 +6437,7 @@ Q1 — Shoulders vs hips: "${quizAnswers[1]}" (broader=shoulders wider, similar=
 Q2 — Waist definition: "${quizAnswers[2]}" (defined=clearly narrower, slight=gentle curve inward, straight=similar width throughout, fuller=fullest at the midsection)
 Q3 — Where weight is carried: "${quizAnswers[3]}" (hips-thighs, midsection, bust-shoulders, evenly distributed)
 
-Choose from: hourglass, pear, apple, rectangle, inverted triangle, athletic, petite
+Choose from: hourglass, pear, apple, rectangle, inverted triangle, athletic
 
 Write the description with genuine warmth — every shape is beautiful. Celebrate what is lovely about this shape. Name a real styling strength that is appropriate for the gender context above. Keep it to 2 warm sentences. Never use clinical or negative language.
 
@@ -6403,13 +6474,21 @@ function formatBodyName(val) {
   const names = {
     hourglass: 'Hourglass', pear: 'Pear', apple: 'Apple',
     rectangle: 'Rectangle', 'inverted triangle': 'Inverted Triangle',
-    athletic: 'Athletic', petite: 'Petite'
+    athletic: 'Athletic', petite: 'Petite', lean: 'Lean'
   };
   return names[val] || val.charAt(0).toUpperCase() + val.slice(1);
 }
 
 function acceptQuizResult() {
   if (!quizResultBody) return;
+  // The prompts no longer offer "petite", but if the AI says it anyway,
+  // treat it as a height and ask for the shape rather than storing it.
+  if (quizResultBody === 'petite') {
+    if (!profile.height) profile.height = 'shorter';
+    quizResultBody = '';
+    goTo('screen-body-manual');
+    return;
+  }
   profile.body = quizResultBody;
   highlightBodyCard(quizResultBody);
   goTo('screen-colour');
@@ -7822,6 +7901,7 @@ async function copyShoppingGuide() {
 const COMING_SOON_MODE = true;
 
 async function init() {
+  openPaddleLinkIfPresent();
   const previewBypass = new URLSearchParams(location.search).get('preview') === '1';
   if (COMING_SOON_MODE && !previewBypass) {
     setTimeout(() => document.getElementById('screen-comingsoon').classList.add('visible'), 50);
@@ -7849,8 +7929,12 @@ async function init() {
     const heroBtn = document.getElementById('heroBeginBtn');
     const heroSignIn = document.getElementById('heroSignInLink');
     if (heroBtn) {
-      const firstName = clerk.user.firstName || 'back';
-      heroBtn.textContent = `Welcome back, ${firstName} — continue`;
+      // Email sign-ups have no first name, and the old fallback of 'back'
+      // produced "Welcome back, back — continue". Leave the name out instead.
+      const firstName = (clerk.user.firstName || '').trim();
+      heroBtn.textContent = firstName
+        ? `Welcome back, ${firstName} — continue`
+        : 'Welcome back — continue';
       heroBtn.onclick = () => goTo('screen-app');
     }
     // Hide the sign-in link — they are already signed in
