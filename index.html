@@ -404,6 +404,7 @@ select.text-input { cursor: pointer; }
   transition: all 0.15s;
 }
 .quick-chip:hover { border-color: var(--bark); color: var(--bark); }
+.quick-chip.selected { background: var(--linen); border-color: var(--ink); color: var(--ink); }
 
 .field-hint { font-size: 11px; color: var(--dust); margin-bottom: 1rem; letter-spacing: 0.04em; }
 
@@ -1879,6 +1880,32 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
   margin-bottom: 1.5rem;
 }
 /* Re-doing an assessment from the Profile (body type, colour palette) */
+.shop-more-toggle {
+  display: block; background: none; border: none; padding: 0; margin: 6px 0 0;
+  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--bark); cursor: pointer; text-align: left; font-family: system-ui, sans-serif;
+}
+.shop-more-toggle:hover { color: var(--ink); }
+.shop-more { margin: 8px 0 4px; padding: 10px; border: 0.5px solid var(--dust); background: var(--mist); }
+.shop-more-btn {
+  display: block; width: 100%; text-align: left; margin-bottom: 6px;
+  background: var(--mist); border: 0.5px solid var(--dust); padding: 7px 10px;
+  font-size: 12px; color: var(--ink); cursor: pointer; font-family: system-ui, sans-serif;
+}
+.shop-more-btn:hover { border-color: var(--ink); }
+.shop-more-note { font-size: 11px; line-height: 1.5; color: var(--charcoal); margin: 4px 0 0; }
+.shop-results-head { margin-bottom: 1.25rem; }
+.shop-back-btn {
+  background: none; border: none; padding: 0; margin-bottom: 1rem; cursor: pointer;
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bark);
+  font-family: system-ui, sans-serif;
+}
+.one-shop-note { color: var(--bark); }
+.one-shop-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.product-stock-note {
+  font-size: 11px; line-height: 1.5; color: var(--bark);
+  margin: 4px 0 10px; font-style: italic;
+}
 .profile-assess { margin-bottom: 1.25rem; }
 .profile-assess-label {
   font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
@@ -3311,6 +3338,15 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
       </div>
     </div>
 
+    <!-- Only search one shop (optional) — added 27 Nov 2026 -->
+    <div class="app-section" id="sectionShop">
+      <div class="app-section-title">Only search one shop <span style="text-transform:none;letter-spacing:0;color:var(--dust);">(optional)</span></div>
+      <p style="font-size:12px;color:var(--charcoal);line-height:1.6;margin-bottom:1rem;">Leave this blank to search everywhere.  Or name one shop to see only what it sells — handy if you'd like everything in one order.</p>
+      <input class="text-input" type="text" id="oneShopInput" placeholder="e.g. COS, or cos.com" maxlength="80" autocomplete="off" style="margin:0;" />
+      <div class="one-shop-chips" id="oneShopChips"></div>
+      <p class="image-disclaimer one-shop-note" style="margin-top:0.9rem;">Good to know: smaller shops may only have a few pieces that fit your profile and budget, so you may see fewer than six.  That's the shop's range rather than something going wrong, and searching the same shop again usually won't find more.  Typing the shop's web address (like cos.com) keeps results strictly to that site.  It counts as one search, the same as any other.</p>
+    </div>
+
     <button class="search-btn" id="searchBtn" onclick="findOutfits()">Find my outfits</button>
     <div class="results-area" id="resultsArea"></div>
 
@@ -3629,7 +3665,28 @@ const WEAR_WHEN = [
   { value: 'after', label: 'After the birth' }
 ];
 
+/* Quick picks under "Only search one shop": the favourite retailers from the
+   Profile. Tapping one fills the box; tapping it again clears it. */
+function renderOneShopChips() {
+  const wrap = document.getElementById('oneShopChips');
+  if (!wrap) return;
+  const input = document.getElementById('oneShopInput');
+  const current = input ? input.value.trim().toLowerCase() : '';
+  wrap.innerHTML = (profile.retailers || []).slice(0, 8).map(r =>
+    `<button type="button" class="quick-chip${current === r.toLowerCase() ? ' selected' : ''}" onclick="pickOneShop(this)">${esc(r)}</button>`
+  ).join('');
+}
+
+function pickOneShop(btn) {
+  const input = document.getElementById('oneShopInput');
+  if (!input) return;
+  const name = btn.textContent;
+  input.value = input.value.trim().toLowerCase() === name.toLowerCase() ? '' : name;
+  renderOneShopChips();
+}
+
 function renderWearWhen() {
+  renderOneShopChips();
   const section = document.getElementById('sectionWearWhen');
   const row = document.getElementById('wearWhenRow');
   const hint = document.getElementById('wearWhenHint');
@@ -4685,8 +4742,15 @@ function renderProducts(items, offset=0) {
         <div class="product-retailer">${esc(item.retailer)}</div>
         <div class="product-name">${esc(item.name)}</div>
         <div class="product-price">${esc(item.price)}</div>
+        ${item.stockUnconfirmed ? `<div class="product-stock-note">We couldn't confirm stock — check your size on ${esc(item.retailer || "the retailer")}'s site</div>` : ''}
       </a>
       <button class="product-details-toggle" onclick="toggleDetails('d${idx}',this)">+ Why this works for you</button>
+      ${item.url ? `<button class="shop-more-toggle" onclick="toggleShopMore(${idx}, this)">Shop more at ${esc(item.retailer || 'this shop')} →</button>
+      <div class="shop-more" id="sm${idx}" style="display:none;">
+        <button class="shop-more-btn" onclick="runShopMore(${idx}, 'similar')">More like this</button>
+        <button class="shop-more-btn" onclick="runShopMore(${idx}, 'pairs')">Pieces that go with this</button>
+        <p class="shop-more-note">Searches only ${esc(item.retailer || 'this shop')} and counts as one search.  Smaller shops may only have a few matches.</p>
+      </div>` : ''}
       <div class="product-details" id="d${idx}">
         ${item.whyItWorks?`<div class="product-detail-row"><span class="product-detail-label">Why it works</span>${esc(item.whyItWorks)}</div>`:''}
         ${item.sizeNote?`<div class="product-detail-row"><span class="product-detail-label">Size note</span>${esc(item.sizeNote)}</div>`:''}
@@ -4845,7 +4909,7 @@ function joinNotes(...notes) {
 const FIT_CHECK_LIMIT = 3;   // free fit checks per browser tab
 
 function setShoppingControlsVisible(visible) {
-  ['sectionClimate', 'sectionBudget', 'sectionAvoid'].forEach(id => {
+  ['sectionClimate', 'sectionBudget', 'sectionAvoid', 'sectionShop'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = visible ? '' : 'none';
   });
@@ -5238,6 +5302,139 @@ Use at most 3 web searches total. Prioritise well-known retailers with internati
 URL rules — follow strictly: only use a product URL that appeared directly in your web search results. Never guess, construct, shorten, or modify a URL. The URL must point to a specific product page (not a homepage, category page, or search results page). If you cannot find a real, specific product-page URL for an item, do not include that item at all — search for a different one instead.
 
 [{"retailer":"Name","name":"Product name","price":"${sym}XX","url":"https://specific-product-page","imageUrl":"https://cdn-image.jpg","whyItWorks":"Why flatters ${profile.body}","sizeNote":"Size note","stylingTip":"Tip"}]` };
+}
+
+/* "Shop more at [retailer]": more pieces from the shop of one result, either
+   alternatives to it ('similar') or things to wear with it ('pairs'). Same
+   profile, budget and exclusions as the search it came from. */
+function buildShopMorePrompt(count, exclude=[]) {
+  const sh = shopSearch || {};
+  const it = sh.item || {};
+  const currency = document.getElementById('currency').value;
+  const priceMin = document.getElementById('priceMin').value;
+  const priceMax = document.getElementById('priceMax').value;
+  const syms = {USD:'$',GBP:'£',EUR:'€',SGD:'S$',AUD:'A$',CAD:'C$',JPY:'¥',HKD:'HK$'};
+  const sym = syms[currency] || currency;
+  const budget = priceMin && priceMax
+    ? `${sym}${priceMin}–${sym}${priceMax} ${currency}`
+    : `around the price of the piece they liked`;
+  const vibeNote = profile.vibes.length ? `Style vibes: ${profile.vibes.join(', ')}.` : '';
+  const museNote = profile.muses.length ? `Style muses: ${profile.muses.join(', ')}.` : '';
+  const colourNote = profile.colourTone ? `Colour palette: ${profile.colourTone} tones${profile.colourSeason ? ' (' + profile.colourSeason + ')' : ''}. Prioritise colours that suit this palette.` : '';
+  const exclNote = session.exclusions.length ? `Exclude: ${session.exclusions.join(', ')}.` : '';
+  const excludeItems = `Do NOT include the piece itself${exclude.length ? ', or these already shown: ' + exclude.join(', ') : ''}.`;
+  const notes = joinNotes(vibeNote, museNote, colourNote, exclNote, excludeItems);
+  const task = sh.kind === 'pairs'
+    ? `Find ${count} pieces from ${sh.name} that go WITH it, to make complete outfits: other kinds of clothing, shoes and accessories that pair well with it. Not more of the same kind of garment.`
+    : `Find ${count} other pieces from ${sh.name} that are good alternatives to it: the same kind of garment, but different options (cut, colour, fabric or price) so they can compare.`;
+  return { sym, currency, prompt: `Fashion search engine. Return ONLY a JSON array of exactly ${count} items. First character must be [. No text before or after.
+
+The user liked this piece from ${sh.name}: "${it.name || ''}"${it.price ? ' (' + it.price + ')' : ''}.
+${task}
+
+Every item must be sold by ${sh.name}${sh.domain ? ' on ' + sh.domain : ''}. If ${sh.name} has fewer than ${count} suitable pieces, return fewer — never add items from another shop.
+
+User profile:
+- Gender: ${profile.gender}
+- Body: ${profile.body}
+- ${heightNote()}${pregnancyNote() ? '\n- ' + pregnancyNote() : ''}
+- Size: ${profile.size} ${profile.sizeSystem}
+- Ships to: ${profile.location}
+- Budget: ${budget}
+${notes}
+
+For whyItWorks, say why it ${sh.kind === 'pairs' ? 'goes with the piece they liked' : 'is a good alternative to the piece they liked'} AND why it flatters their body type.
+
+URL rules — follow strictly: only use a product URL that appeared directly in your web search results. Never guess, construct, shorten, or modify a URL. The URL must point to a specific product page (not a homepage, category page, or search results page). If you cannot find a real, specific product-page URL for an item, do not include that item at all.
+
+[{"retailer":"${sh.name}","name":"Product name","price":"${sym}XX","url":"https://specific-product-page","imageUrl":"https://cdn-image.jpg","whyItWorks":"Why","sizeNote":"Size note","stylingTip":"Tip"}]` };
+}
+
+function toggleShopMore(idx, btn) {
+  const box = document.getElementById('sm' + idx);
+  if (!box) return;
+  const open = box.style.display === 'none';
+  box.style.display = open ? 'block' : 'none';
+}
+
+async function runShopMore(idx, kind) {
+  const item = allItems[idx];
+  if (!item) return;
+  const area = document.getElementById('resultsArea');
+
+  // Same allowance rules as any search.
+  const allowance = searchAllowance();
+  if (allowance.left <= 0) {
+    const box = document.getElementById('sm' + idx) || area;
+    if (allowance.kind === 'subscriber') showAllowanceUsed(box, allowance);
+    else showPaywall(box);
+    return;
+  }
+
+  // Remember what's on screen, so "← Back" can return to it whatever happens.
+  resultsStack.push({ html: area.innerHTML, items: allItems, feedback: session.feedback, shop: shopSearch });
+  shopSearch = { ...shopFromItem(item), kind, item: { name: item.name, price: item.price, url: item.url } };
+  session.feedback = [];
+  const shopName = shopSearch.name;
+  const back = `<button class="shop-back-btn" onclick="backToResults()">← Back to your results</button>`;
+  const heading = kind === 'pairs' ? 'To go with ' + item.name : 'More like ' + item.name;
+  area.innerHTML = `${back}<div class="status-msg"><div class="spinner"></div>Looking through ${esc(shopName)}…</div>`;
+  try { area.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+
+  try {
+    const { prompt } = buildShopMorePrompt(9);
+    const response = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(addShopToBody({ prompt, mode: 'search' }))
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Search failed');
+    const rawItems = parseItems(data.result);
+
+    const statusEl = document.createElement('p');
+    statusEl.className = 'status-msg';
+    area.innerHTML = back;
+    area.appendChild(statusEl);
+    const items = await verifyAndFill(rawItems, 6, buildShopMorePrompt, statusEl);
+
+    if (!items.length) {
+      area.innerHTML = back + (lastSearchServiceProblem ? ourSideMessageHtml('search') : noneFromShopHtml(shopName));
+      return;
+    }
+    allItems = items;
+    await incrementSearchCount();
+    const after = searchAllowance();
+    const leftNote = after.kind === 'subscriber'
+      ? `<p class="image-disclaimer">${after.left} of ${after.limit} searches left this month.</p>` : '';
+    area.innerHTML = `
+      ${back}
+      <div class="shop-results-head" style="padding-bottom:1rem;border-bottom:0.5px solid var(--linen);">
+        <div class="results-label" style="margin:0;padding:0;border:none;">${items.length} from ${esc(shopName)}</div>
+        <p class="image-disclaimer" style="margin:4px 0 0;">${esc(heading)}</p>
+      </div>
+      <p class="image-disclaimer">Results are generated by AI and can occasionally be inaccurate — please forgive any broken links or mismatched details.</p>
+      ${leftNote}
+      ${items.length < 6 ? fewFromShopNote(shopName, items.length) : ''}
+      <div class="product-grid" id="productGrid">${renderProducts(items)}</div>
+      <div id="loadMoreWrap" style="text-align:center;margin-top:2.5rem;">
+        <button class="btn-load-more" onclick="loadMore()">Discover more from ${esc(shopName)}</button>
+      </div>`;
+  } catch (err) {
+    console.warn('Shop more failed:', err && err.message);
+    area.innerHTML = back + ourSideMessageHtml('search');
+  }
+}
+
+function backToResults() {
+  const prev = resultsStack.pop();
+  if (!prev) return;
+  const area = document.getElementById('resultsArea');
+  area.innerHTML = prev.html;
+  allItems = prev.items;
+  session.feedback = prev.feedback || [];
+  shopSearch = prev.shop || null;
+  try { area.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
 }
 
 function parseItems(raw) {
@@ -5977,6 +6174,78 @@ let allItems = [];
    already on screen too, so "Discover more" doesn't pile on the same store. */
 const MAX_PER_RETAILER = 2;
 
+/* ── One-shop searches (27 Nov 2026) ─────────────────────────────────────
+   Two ways in:
+     • "Only search one shop" on the search form       → kind 'form'
+     • "Shop more at [retailer]" on a product card     → kind 'similar' or 'pairs'
+   While one is running or on screen, shopSearch holds the shop; null means a
+   normal search across shops. Every request it makes sends
+   shop: { name, domain } so the server searches only that shop's website
+   (when the domain is known) and drops anything from elsewhere. The usual
+   "at most 2 per shop" variety rule is off for these searches only.
+   They are ordinary searches in every other way: they need an allowance,
+   count once when results appear, and never count when nothing comes back. */
+let shopSearch = null;      // { name, domain, kind, item? }
+const resultsStack = [];    // what was on screen before "Shop more", for ← Back
+
+/* Same rule as the server's baseDomain(): "shop.lululemon.com" → "lululemon.com". */
+function baseDomain(host) {
+  const parts = String(host || '').toLowerCase().replace(/^www\./, '').split('.').filter(Boolean);
+  if (parts.length <= 2) return parts.join('.');
+  const second = parts[parts.length - 2];
+  const shortSecond = ['co', 'com', 'net', 'org', 'gov', 'ac', 'edu'].includes(second) && parts[parts.length - 1].length === 2;
+  return parts.slice(shortSecond ? -3 : -2).join('.');
+}
+
+/* What someone typed in "Only search one shop": a name ("COS") or a web
+   address ("cos.com", "https://www.cos.com/en-gb"). An address lets the search
+   stay strictly on that site; a name relies on the AI's instructions. */
+function shopFromText(text) {
+  const t = String(text || '').trim();
+  if (!t) return null;
+  if (/^(https?:\/\/)?[a-z0-9-]+(\.[a-z0-9-]+)+([\/?#].*)?$/i.test(t)) {
+    try {
+      const host = new URL(/^https?:/i.test(t) ? t : 'https://' + t).hostname;
+      const domain = baseDomain(host);
+      return { name: domain, domain };
+    } catch (e) {}
+  }
+  return { name: t.slice(0, 60), domain: '' };
+}
+
+function shopFromItem(item) {
+  let domain = '';
+  try { domain = baseDomain(new URL(item.url).hostname); } catch (e) {}
+  return { name: item.retailer || domain, domain };
+}
+
+function onShopSite(item, shop) {
+  if (!shop || !shop.domain) return true;
+  try { return baseDomain(new URL(item.url).hostname) === shop.domain; } catch (e) { return false; }
+}
+
+function addShopToBody(body) {
+  if (shopSearch) body.shop = { name: shopSearch.name, domain: shopSearch.domain || '' };
+  return body;
+}
+
+/* Said up front and again when results are short, so nobody keeps re-running
+   a one-shop search hoping for more. */
+function fewFromShopNote(shopName, n) {
+  return `<p class="image-disclaimer one-shop-note">${esc(shopName)} had ${n} ${n === 1 ? 'piece' : 'pieces'} that fit what you asked for.  That's probably all we'll find there right now, so searching again usually won't add more — for more choice, widen your budget or search all shops.</p>`;
+}
+
+function noneFromShopHtml(shopName) {
+  return `
+    <div class="status-msg" style="text-align:center;line-height:1.7;">
+      We couldn't find pieces from ${esc(shopName)} that fit your profile, size and budget.<br>
+      This search hasn't been counted against you.
+      <span style="display:block;margin-top:0.75rem;font-size:12px;color:var(--dust);">
+        Searching ${esc(shopName)} again probably won't change that — try a wider budget, or search all shops.
+      </span>
+    </div>`;
+}
+
 function retailerKey(item) {
   try { return new URL(item.url).hostname.toLowerCase().replace(/^www\./, ''); }
   catch(e) { return String(item.retailer || '').toLowerCase(); }
@@ -6008,13 +6277,20 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl, alreadyS
   const perRetailer = {};
   (alreadyShown || []).forEach(i => { const k = retailerKey(i); perRetailer[k] = (perRetailer[k] || 0) + 1; });
   const accept = (item) => {
+    if (shopSearch) {
+      // One shop: everything from that shop is welcome, anything else isn't.
+      if (onShopSite(item, shopSearch)) good.push(item);
+      return;
+    }
     const k = retailerKey(item);
     if ((perRetailer[k] || 0) >= MAX_PER_RETAILER) { overflow.push(item); return; }
     perRetailer[k] = (perRetailer[k] || 0) + 1;
     good.push(item);
   };
   let tried = new Set(items.map(i => i.name));
-  let seenUrls = new Set();          // stops the same product appearing twice
+  // Stops the same product appearing twice — including one already on screen
+  // when "Discover more" brings it back (the AI is told not to, but may).
+  let seenUrls = new Set((alreadyShown || []).filter(i => i && i.url).map(i => urlKey(i.url)));
   let currentBatch = dedupeItems(items, seenUrls);
 
   for (let round = 0; round <= MAX_ROUNDS; round++) {
@@ -6054,11 +6330,16 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl, alreadyS
       }
 
       // Split the batch into live vs dead
-      const liveSet = new Set(
-        checkData.results.filter(r => r.alive).map(r => r.url)
-      );
+      // stock: 'in' = the shop's page says it can be bought; 'unknown' = the
+      // shop blocked the check or its page doesn't say. Those still show, with
+      // a short "check your size" note (decided 27 Nov 2026) — dropping them
+      // would mean almost no Nordstrom, for one.
+      const checked = new Map(checkData.results.map(r => [r.url, r]));
       currentBatch.forEach(item => {
-        if (liveSet.has(item.url)) accept(item);
+        const r = checked.get(item.url);
+        if (!r || !r.alive) return;
+        if (r.stock === 'unknown') item.stockUnconfirmed = true;
+        accept(item);
       });
     }
 
@@ -6077,7 +6358,7 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl, alreadyS
     let moreRes = null;
     try {
       const { prompt, imageBase64, imageMediaType } = buildMoreFn(needed + 4, exclude);
-      const body = { prompt, mode: 'search' };
+      const body = addShopToBody({ prompt, mode: 'search' });
       if (imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
       moreRes = await fetch('/api/search', {
         method: 'POST',
@@ -6117,12 +6398,16 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl, alreadyS
 /* Drops anything malformed, and anything whose product page we've already
    used in this search — the AI sometimes returns the same product under a
    slightly different name, which used to slip past the name-only check. */
+function urlKey(url) {
+  return String(url).split('#')[0].replace(/\/$/, '').toLowerCase();
+}
+
 function dedupeItems(items, seenUrls) {
   if (!Array.isArray(items)) return [];
   const out = [];
   items.forEach(item => {
     if (!item || !item.url || !item.name) return;
-    const key = String(item.url).split('#')[0].replace(/\/$/, '').toLowerCase();
+    const key = urlKey(item.url);
     if (seenUrls.has(key)) return;
     seenUrls.add(key);
     out.push(item);
@@ -6159,6 +6444,13 @@ async function findOutfits() {
     return;
   }
 
+  // "Only search one shop", if filled in. A new search from the form also
+  // forgets any "Shop more" results it replaces.
+  const shopInput = document.getElementById('oneShopInput');
+  shopSearch = shopFromText(shopInput ? shopInput.value : '');
+  if (shopSearch) shopSearch.kind = 'form';
+  resultsStack.length = 0;
+
   allItems = [];
   // Feedback is stored against the card position (0, 1, 2…). A new search
   // reuses those positions, so old thumbs up/down entries would get mixed in
@@ -6176,7 +6468,7 @@ async function findOutfits() {
     const usesImage = isPhotoSearch || isPairingSearch;
     const buildFn = isPhotoSearch ? buildPhotoSearchPrompt : (isPairingSearch ? buildPairingPrompt : buildPrompt);
     const { prompt, imageBase64, imageMediaType } = buildFn(9); // ask for 9 so we have spares if some fail
-    const body = { prompt, mode: 'search' };
+    const body = addShopToBody({ prompt, mode: 'search' });
     if (usesImage && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
 
     // Step 1 — get results from Claude
@@ -6201,7 +6493,7 @@ async function findOutfits() {
     // If nothing survived, don't charge the user their free search for an
     // empty screen — show a real message and let them try again.
     if (!items.length) {
-      area.innerHTML = lastSearchServiceProblem ? ourSideMessageHtml('search') : `
+      area.innerHTML = lastSearchServiceProblem ? ourSideMessageHtml('search') : shopSearch ? noneFromShopHtml(shopSearch.name) : `
         <div class="status-msg" style="text-align:center;line-height:1.7;">
           We couldn't find pieces we were confident in for this search.<br>
           We only show products we've checked are real and on the retailer's site, and this time none passed.<br>
@@ -6220,11 +6512,13 @@ async function findOutfits() {
       ? `<p class="image-disclaimer">${after.left} of ${after.limit} searches left this month.</p>`
       : '';
 
-    const label = isPhotoSearch
-      ? items.length + ' similar items found'
+    const fromShop = shopSearch ? ' from ' + shopSearch.name : '';
+    const label = esc(isPhotoSearch
+      ? items.length + ' similar items found' + fromShop
       : isPairingSearch
-        ? items.length + ' pieces that pair with it'
-        : (session.occasionParent === 'specific' ? items.length + ' matches found' : items.length + ' picks for you');
+        ? items.length + ' pieces that pair with it' + fromShop
+        : (session.occasionParent === 'specific' ? items.length + ' matches found' + fromShop : items.length + ' picks for you' + fromShop));
+    const shopNote = shopSearch && items.length < 6 ? fewFromShopNote(shopSearch.name, items.length) : '';
 
     area.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:0.5px solid var(--linen);">
@@ -6234,6 +6528,7 @@ async function findOutfits() {
       <p class="image-disclaimer">Some images may not display due to individual retailer settings — click any card to view the item and its photo directly on the retailer's site.</p>
       <p class="image-disclaimer">Results are generated by AI and can occasionally be inaccurate — please forgive any broken links or mismatched details. We're continually working to refine the accuracy of these results.</p>
       ${leftNote}
+      ${shopNote}
       <div class="product-grid" id="productGrid">${renderProducts(items)}</div>
       <div id="loadMoreWrap" style="text-align:center;margin-top:2.5rem;">
         <button class="btn-load-more" onclick="loadMore()">Discover more</button>
@@ -6399,12 +6694,15 @@ async function loadMore() {
     const isPhotoSearch = session.occasionParent === 'shoplook';
     const isPairingSearch = session.occasionParent === 'pairing';
     const usesImage = isPhotoSearch || isPairingSearch;
-    const buildFn = isPhotoSearch ? buildPhotoSearchPrompt : (isPairingSearch ? buildPairingPrompt : buildPrompt);
+    // "Shop more" results carry on with the same shop and the same piece.
+    const shopMore = shopSearch && shopSearch.item;
+    const buildFn = shopMore ? buildShopMorePrompt
+      : isPhotoSearch ? buildPhotoSearchPrompt : (isPairingSearch ? buildPairingPrompt : buildPrompt);
 
     // Ask for 8, so we have spares after verification
     const { prompt, imageBase64, imageMediaType } = buildFn(8, exclude);
-    const body = { prompt, mode: 'search' };
-    if (usesImage && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
+    const body = addShopToBody({ prompt, mode: 'search' });
+    if (usesImage && !shopMore && imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
 
     if (btn) btn.textContent = 'Finding more…';
     const response = await fetch('/api/search', {
@@ -6424,8 +6722,10 @@ async function loadMore() {
       // button looking like it did nothing.
       showMoreNote(lastSearchServiceProblem
         ? "Something went wrong on our side.  This hasn't been counted against you — please try again in a few minutes."
-        : "We couldn't find more pieces we were confident in.  This hasn't been counted against you.");
-      if (btn) { btn.disabled = false; btn.textContent = 'Discover more'; }
+        : shopSearch
+          ? "That looks like everything " + shopSearch.name + " has that fits what you asked for right now.  This hasn't been counted against you."
+          : "We couldn't find more pieces we were confident in.  This hasn't been counted against you.");
+      if (btn) { btn.disabled = false; btn.textContent = moreLabel(); }
       return;
     }
     if (allowance.kind === 'subscriber') await incrementSearchCount();
@@ -6435,12 +6735,16 @@ async function loadMore() {
     allItems = allItems.concat(newItems);
     const grid = document.getElementById('productGrid');
     if (grid) grid.insertAdjacentHTML('beforeend', renderProducts(newItems, offset));
-    if (btn) { btn.disabled = false; btn.textContent = 'Discover more'; }
+    if (btn) { btn.disabled = false; btn.textContent = moreLabel(); }
   } catch(err) {
     console.warn('Discover more failed:', err && err.message);
     showMoreNote("Something went wrong on our side.  This hasn't been counted against you — please try again in a few minutes.");
-    if (btn) { btn.disabled = false; btn.textContent = 'Discover more'; }
+    if (btn) { btn.disabled = false; btn.textContent = moreLabel(); }
   }
+}
+
+function moreLabel() {
+  return shopSearch && shopSearch.item ? 'Discover more from ' + shopSearch.name : 'Discover more';
 }
 
 function showMoreNote(text) {
@@ -7510,7 +7814,8 @@ async function saveSearchToWishlist(items) {
   const detail = [
     session.climate && session.climate !== 'any climate' ? session.climate : '',
     priceMin && priceMax ? sym + priceMin + '–' + sym + priceMax + ' ' + currency : '',
-    profile.size ? profile.size + ' ' + profile.sizeSystem : ''
+    profile.size ? profile.size + ' ' + profile.sizeSystem : '',
+    (document.getElementById('oneShopInput') || {}).value ? 'only ' + document.getElementById('oneShopInput').value.trim() : ''
   ].filter(Boolean).join(' · ');
 
   const search = {
@@ -7526,7 +7831,8 @@ async function saveSearchToWishlist(items) {
       priceMin,
       priceMax,
       exclusions: [...session.exclusions],
-      localOnly: session.localOnly
+      localOnly: session.localOnly,
+      oneShop: (document.getElementById('oneShopInput') || {}).value || ''
     }
   };
 
@@ -7587,6 +7893,8 @@ function rerunSearch(idx) {
     if (p.currency) document.getElementById('currency').value = p.currency;
     if (p.priceMin) document.getElementById('priceMin').value = p.priceMin;
     if (p.priceMax) document.getElementById('priceMax').value = p.priceMax;
+    const shopBox = document.getElementById('oneShopInput');
+    if (shopBox) { shopBox.value = p.oneShop || ''; renderOneShopChips(); }
     // Exclusions
     renderExclusions();
     // Local toggle

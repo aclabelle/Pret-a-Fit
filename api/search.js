@@ -177,6 +177,36 @@ export function groundResults(resultText, content) {
   return { text: JSON.stringify(kept), kept: kept.length, dropped };
 }
 
+/* ── One-shop searches ────────────────────────────────────────────────────
+   Added 27 Nov 2026: "Only search one shop" on the search form, and "Shop
+   more at [retailer]" on each product card. The browser sends
+   shop: { name, domain } — domain only when known (from a product's link, or
+   typed as a web address). The shop's name and domain come from the user,
+   so both are cleaned up before going anywhere near the AI's instructions. */
+export function cleanShop(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const name = String(raw.name || '').replace(/[^\p{L}\p{N} &'.,+\-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  let domain = String(raw.domain || '').trim().toLowerCase().replace(/^https?:\/\//, '').split(/[\/?#]/)[0].replace(/^www\./, '');
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain) || domain.length > 80) domain = '';
+  if (!name && !domain) return null;
+  return { name: name || domain, domain: domain ? baseDomain(domain) : '' };
+}
+
+/* "shop.lululemon.com" → "lululemon.com", "www2.hm.com" → "hm.com",
+   "marksandspencer.co.uk" stays as it is. Good enough to tell one shop's
+   pages from another's; not a full public-suffix list. */
+export function baseDomain(host) {
+  const parts = String(host || '').toLowerCase().replace(/^www\./, '').split('.').filter(Boolean);
+  if (parts.length <= 2) return parts.join('.');
+  const second = parts[parts.length - 2];
+  const shortSecond = ['co', 'com', 'net', 'org', 'gov', 'ac', 'edu'].includes(second) && parts[parts.length - 1].length === 2;
+  return parts.slice(shortSecond ? -3 : -2).join('.');
+}
+
+function onShop(url, domain) {
+  try { return baseDomain(new URL(url).hostname) === domain; } catch { return false; }
+}
+
 const ALLOWED_ORIGIN_HOSTS = [
   'pret-a-fit.com',
   'www.pret-a-fit.com',
@@ -342,7 +372,10 @@ async function checkUrl(url) {
    is common and says nothing about the link, and the job here is to remove
    links we know are wrong, not to throw away good ones on a hunch. */
 
-const CHECK_BYTES = 300 * 1024;   // enough to cover the <head> and most structured data
+// 27 Nov 2026: was 300 KB. Shopbop's stock label sat at about 390 KB of a
+// 1.6 MB page, so a sold-out skirt passed. Pages are read as they arrive and
+// reading stops here, inside the same 8-second limit as before.
+const CHECK_BYTES = 1536 * 1024;
 
 // Pages a retailer shows instead of the real one when it suspects a bot.
 const BLOCK_PAGE_TITLES = /access denied|just a moment|attention required|are you a robot|captcha|pardon our interruption|request blocked|security check|forbidden|bot detection|please verify|one more step/i;
@@ -405,11 +438,30 @@ export function extractPageFacts(html) {
   // Stock, from the product's structured data: one "availability" per offer,
   // usually one offer per size. Sold out only when NO offer is buyable — one
   // sold-out size on an otherwise available product must not sink it.
-  const avail = (html.match(/"availability"\s*:\s*"[^"]*"/gi) || []).map(a => a.toLowerCase());
-  const buyable = avail.filter(a => /instock|limitedavailability|preorder|presale|backorder|onlineonly|instoreonly/.test(a)).length;
-  const soldOut = avail.filter(a => /outofstock|soldout|discontinued/.test(a)).length;
-  const isSoldOut = !isListing && soldOut > 0 && buyable === 0;
-  return { title, ogTitle, isProduct, isListing, isSoldOut };
+  //
+  // Shops publish stock in a few standard ways; all are read:
+  //   "availability": "https://schema.org/InStock"        (JSON-LD — most shops)
+  //   itemprop="availability" href=".../OutOfStock"       (older microdata)
+  //   <meta property="product:availability" content="out of stock">
+  const avail = [
+    ...(html.match(/"availability"\s*:\s*"[^"]*"/gi) || []),
+    ...(html.match(/<[^>]*itemprop=["']availability["'][^>]*>/gi) || []),
+    ...(html.match(/<meta[^>]+property=["'](?:product|og):availability["'][^>]*>/gi) || [])
+  ].map(a => a.toLowerCase());
+  const buyable = avail.filter(a => /instock|in stock|in_stock|limitedavailability|preorder|presale|backorder|onlineonly|instoreonly/.test(a)).length;
+  const soldOut = avail.filter(a => /outofstock|out of stock|out_of_stock|"oos"|'oos'|soldout|discontinued/.test(a)).length;
+  // Some shops (ASOS, 27 Nov 2026) leave stock out of the standard data but
+  // carry their own per-size flag in the page: "isInStock": false. Used only
+  // when the standard data says nothing. Sold out only if every flag is false.
+  const flagsIn  = (html.match(/"(?:isInStock|inStock)"\s*:\s*true/g) || []).length;
+  const flagsOut = (html.match(/"(?:isInStock|inStock)"\s*:\s*false/g) || []).length;
+  let stock = 'unknown';
+  if (buyable > 0) stock = 'in';
+  else if (soldOut > 0) stock = 'out';
+  else if (flagsIn > 0) stock = 'in';
+  else if (flagsOut > 0) stock = 'out';
+  const isSoldOut = !isListing && stock === 'out';
+  return { title, ogTitle, isProduct, isListing, isSoldOut, stock };
 }
 
 function decodeEntities(s) {
@@ -434,6 +486,17 @@ export function looksLikeCategoryUrl(url) {
   }
 }
 
+/* Rough length of the words a person would see, ignoring scripts, styles and tags. */
+function visibleTextLength(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim().length;
+}
+
 async function readCapped(response, maxBytes) {
   if (!response.body || !response.body.getReader) return (await response.text()).slice(0, maxBytes);
   const reader = response.body.getReader();
@@ -441,7 +504,11 @@ async function readCapped(response, maxBytes) {
   let total = 0;
   try {
     while (total < maxBytes) {
-      const { done, value } = await reader.read();
+      let step;
+      // If the 8-second limit runs out part-way through a big page, use what
+      // has arrived rather than nothing.
+      try { step = await reader.read(); } catch (e) { if (chunks.length) break; throw e; }
+      const { done, value } = step;
       if (done) break;
       chunks.push(value);
       total += value.length;
@@ -473,6 +540,12 @@ async function checkProductPage(url, name) {
   const titleText = (facts.title + ' ' + facts.ogTitle).trim();
 
   if (BLOCK_PAGE_TITLES.test(titleText)) return { url, alive: true, reason: 'bot check — kept', blocked: true };
+  // A bot check in disguise: a normal "200 OK" page with no title, no product
+  // and next to no visible text — just scripts that only a real browser runs.
+  // (Nordstrom, 27 Nov 2026.) Nothing about the product can be read from it.
+  if (!titleText && !facts.isProduct && visibleTextLength(html) < 200) {
+    return { url, alive: true, reason: 'blank page (bot check) — kept', blocked: true };
+  }
 
   if (DEAD_PAGE_PHRASES.some(p => lower.slice(0, 6000).includes(p))) {
     return { url, alive: false, reason: 'not-found page' };
@@ -497,7 +570,7 @@ async function checkProductPage(url, name) {
   if (looksLikeCategoryUrl(r.url || url) && (facts.isListing || !facts.isProduct)) {
     return { url, alive: false, reason: 'listing page, not a product' };
   }
-  return { url, alive: true, reason: 'ok' };
+  return { url, alive: true, reason: 'ok', stock: facts.stock };
 }
 
 // Reads a slice of the page as lowercase text. If all we have is a HEAD
@@ -529,6 +602,7 @@ export default async function handler(req, res) {
     prompt, imageBase64, imageMediaType,
     image2Base64, image2MediaType, validateUrls, mode
   } = req.body;
+  const shop = cleanShop(req.body.shop);
 
   // ── URL validation mode ──────────────────────────────────────────────────
   // The frontend sends a list of URLs and we check which ones are alive.
@@ -548,13 +622,23 @@ export default async function handler(req, res) {
     // the title and stock checks can't help there.
     const rejected = results.filter(x => !x.alive);
     const blocked = results.filter(x => x.blocked);
+    // Products shown with "we couldn't confirm stock": the shop blocked the
+    // check, or its page doesn't say. If this is most products, the note will
+    // be everywhere and lose its point — worth watching.
+    const stockOf = (x) => (x.stock === 'in' ? 'in' : 'unknown');
+    const unconfirmed = results.filter(x => x.alive && names && stockOf(x) === 'unknown');
     const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return '?'; } };
     console.log('[LINKS] checked=' + results.length + ' ok=' + (results.length - rejected.length - blocked.length) +
       ' rejected=' + rejected.length + ' blockedKept=' + blocked.length +
+      ' stockUnconfirmed=' + unconfirmed.length +
       (blocked.length ? ' blockedBy=' + [...new Set(blocked.map(x => hostOf(x.url)))].join(',') : '') +
       (names ? '' : ' (no names sent — old check)') +
       (rejected.length ? ' | ' + rejected.map(x => x.url + ' (' + (x.reason || 'dead') + ')').join(' | ').slice(0, 1500) : ''));
-    return res.status(200).json({ results: results.map(({ url, alive }) => ({ url, alive })) });
+    // "stock" is only sent when product names were (the current frontend):
+    // 'in' = the page says it can be bought; 'unknown' = couldn't tell.
+    return res.status(200).json({ results: results.map(x => names
+      ? { url: x.url, alive: x.alive, stock: stockOf(x) }
+      : { url: x.url, alive: x.alive }) });
   }
 
   // ── Normal search / fit check / quiz mode ────────────────────────────────
@@ -613,20 +697,24 @@ export default async function handler(req, res) {
     // filtering" versions, which run searches from inside code and would
     // hide the result list that groundResults() checks links against.
     requestBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: MAX_WEB_SEARCHES }];
+    // One shop with a known website: only search that website. (allowed_domains
+    // includes its subdomains, e.g. shop.lululemon.com for lululemon.com.)
+    if (shop && shop.domain) requestBody.tools[0].allowed_domains = [shop.domain];
     requestBody.system = `You are a fashion search assistant. You MUST follow these rules strictly:
 
 SEARCHING — how to find real product pages:
 - You have up to ${MAX_WEB_SEARCHES} web searches. Plan them before you start. A broad query ("best linen shorts for women") returns articles and category pages, which are useless here. A query naming one retailer and one kind of item ("Nordstrom women's linen drawstring shorts", "COS wide-leg linen trousers women") returns that shop's actual product pages.
-- So make each search about one retailer, and use different retailers for different searches. That is also how you meet the VARIETY rule below.
+${shop ? `- ONE SHOP ONLY: the user has asked for products from ${shop.name}${shop.domain ? ' (' + shop.domain + ')' : ''} and nowhere else. This overrides every other instruction about which retailers to use, including any list of favourite or preferred retailers and the VARIETY rule. Make every search about ${shop.name} and the kind of item you're looking for ("${shop.name} women's black leather pencil skirt").
+- Every item must be sold by ${shop.name} on its own website. Never add items from any other shop, even if ${shop.name} has fewer suitable pieces than asked for: return fewer items instead.` : '- So make each search about one retailer, and use different retailers for different searches. That is also how you meet the VARIETY rule below.'}
 - Only choose products whose product-page link appears in your results. If a search brings back only articles or category pages, run a more specific search; do not work out what the product link "would be".
 - If you run out of searches before you have the number of items asked for, return fewer items. A shorter list of real products is always better: any made-up link is thrown away anyway.
 
 LINKS — this is critical:
 - Every "url" field must be a direct, specific product page URL (e.g. https://www.net-a-porter.com/en-gb/shop/product/123456). Never use search pages, category pages, or homepage URLs.
 - Before including a URL, verify it leads directly to that exact product by checking the page in your web search results.
-- Strongly prefer large, stable retailers with reliable URLs: Net-a-Porter, Mytheresa, Farfetch, Nordstrom, SSENSE, ASOS, Selfridges, Saks Fifth Avenue, Neiman Marcus, Shopbop, Revolve, COS, Arket, Zara, Uniqlo, Mr Porter, End Clothing, J.Crew. These retailers keep product pages live longer.
+${shop ? '' : '- Strongly prefer large, stable retailers with reliable URLs: Net-a-Porter,'} Mytheresa, Farfetch, Nordstrom, SSENSE, ASOS, Selfridges, Saks Fifth Avenue, Neiman Marcus, Shopbop, Revolve, COS, Arket, Zara, Uniqlo, ${shop ? '' : `Mr Porter, End Clothing, J.Crew. These retailers keep product pages live longer.
 - Do not include URLs from small boutiques, pop-up shops, or retailers with complex/dynamic URL structures.
-- VARIETY: use at least 4 different retailers, and never more than 2 items from the same retailer. This still applies when the user is petite, tall or pregnant — several of the stores above have petite, tall or maternity ranges, so spread across them rather than filling the list from one.
+- VARIETY: use at least 4 different retailers, and never more than 2 items from the same retailer. This still applies when the user is petite, tall or pregnant — several of the stores above have petite, tall or maternity ranges, so spread across them rather than filling the list from one.`}
 - Never recommend a retailer that has closed down. Do not use Matches / MatchesFashion — that business went into administration and its website closed.
 - If you are not confident a product URL is live and correct, do not include that product — find another one instead.
 - Every "url" is automatically compared against the pages your web searches actually returned. Any url that did not appear in your search results is discarded before the user sees it, so never construct, guess, shorten or edit a url — copy it exactly from a search result.
@@ -717,6 +805,12 @@ Respond with a raw JSON array only. No markdown, no preamble, no explanation.`;
       if (g.kept !== null) {
         console.log('[GROUND] kept=' + g.kept + ' dropped=' + g.dropped.length +
           (g.dropped.length ? ' invented=' + g.dropped.slice(0, 5).join(' ') : ''));
+      }
+      if (shop && shop.domain && g.kept !== null) {
+        const items = JSON.parse(g.text);
+        const fromShop = items.filter(i => i && onShop(i.url, shop.domain));
+        console.log('[SHOP] ' + shop.domain + ' kept=' + fromShop.length + ' otherShops=' + (items.length - fromShop.length));
+        return res.status(200).json({ result: JSON.stringify(fromShop) });
       }
       return res.status(200).json({ result: g.text });
     }
