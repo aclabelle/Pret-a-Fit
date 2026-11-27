@@ -4936,8 +4936,9 @@ async function runFitCheck() {
   btn.disabled = true;
   area.innerHTML = `<div class="status-msg"><div class="spinner"></div>Looking at it properly…</div>`;
 
+  let response = null;
   try {
-    const response = await fetch('/api/search', {
+    response = await fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -4947,8 +4948,12 @@ async function runFitCheck() {
         mode: 'fitcheck'   // tells api/search: no web search, bigger token budget
       })
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Fit check failed');
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.warn('Fit check failed:', data.error || response.status);
+      area.innerHTML = ourSideMessageHtml('fit check');
+      return;
+    }
     const r = parseQuizJSON(data.result);
     // Awaited so the Clerk record is updated before renderFitCheck() reads the
     // count back for its "2 free fit checks left" line — otherwise that line
@@ -4956,7 +4961,9 @@ async function runFitCheck() {
     await incrementFitCheckCount();
     renderFitCheck(r);
   } catch(err) {
-    area.innerHTML = `<div class="error-msg">We couldn't read that one — please try a clearer photo of the item. (${esc(err.message)})</div>`;
+    console.warn('Fit check could not be read:', err && err.message);
+    if (!response) { area.innerHTML = ourSideMessageHtml('fit check'); return; }
+    area.innerHTML = `<div class="error-msg">We couldn't read that one — please try a clearer photo of the item.  This check hasn't been counted against you.</div>`;
   } finally {
     btn.disabled = false;
   }
@@ -5928,7 +5935,24 @@ function retailerKey(item) {
   catch(e) { return String(item.retailer || '').toLowerCase(); }
 }
 
+/* When a search fails because of something on OUR side — the AI service is
+   down or busy, or the Anthropic account has run out of credit — people were
+   being told to widen their budget, as if their search was the problem. Now
+   they're told the truth. Nothing is counted in these cases: searches and fit
+   checks are only ever counted after results are on screen (see
+   incrementSearchCount / incrementFitCheckCount and where they're called). */
+let lastSearchServiceProblem = false;
+
+function ourSideMessageHtml(what) {
+  return `
+    <div class="status-msg" style="text-align:center;line-height:1.7;">
+      Something went wrong on our side, so we couldn't finish this ${what || 'search'}.<br>
+      It hasn't been counted against you.  Please try again in a few minutes.
+    </div>`;
+}
+
 async function verifyAndFill(items, targetCount, buildMoreFn, statusEl, alreadyShown) {
+  lastSearchServiceProblem = false;
   const MAX_ROUNDS = 3;   // max replacement attempts
   let good = [];
   // Good items held back by the per-retailer limit. Used only to top up at
@@ -6003,20 +6027,30 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl, alreadyS
 
     // Ask Claude for replacement products
     let extras = [];
+    let moreRes = null;
     try {
       const { prompt, imageBase64, imageMediaType } = buildMoreFn(needed + 4, exclude);
       const body = { prompt, mode: 'search' };
       if (imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
-      const moreRes = await fetch('/api/search', {
+      moreRes = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      const moreData = await moreRes.json();
+      // A timeout from Vercel comes back as a web page, not JSON.
+      const moreData = await moreRes.json().catch(() => ({}));
+      if (!moreRes.ok) {
+        // The service refused (out of credit, overloaded, down). No point
+        // asking again this search; remember it so the message is honest.
+        lastSearchServiceProblem = true;
+        console.warn('Replacement search failed:', moreData.error || moreRes.status);
+        break;
+      }
       // parseItems throws if Claude replies with something that isn't a list.
       // That must not throw away the good results we already have.
       extras = parseItems(moreData.result || '[]');
     } catch(e) {
+      if (!moreRes) lastSearchServiceProblem = true;   // couldn't reach us at all
       break;
     }
 
@@ -6120,10 +6154,11 @@ async function findOutfits() {
     // If nothing survived, don't charge the user their free search for an
     // empty screen — show a real message and let them try again.
     if (!items.length) {
-      area.innerHTML = `
+      area.innerHTML = lastSearchServiceProblem ? ourSideMessageHtml('search') : `
         <div class="status-msg" style="text-align:center;line-height:1.7;">
           We couldn't find pieces we were confident in for this search.<br>
           We only show products we've checked are real and on the retailer's site, and this time none passed.<br>
+          This search hasn't been counted against you.
           <span style="display:block;margin-top:0.75rem;font-size:12px;color:var(--dust);">
             Try widening your budget, changing the occasion, or removing an exclusion.
           </span>
@@ -6157,7 +6192,11 @@ async function findOutfits() {
         <button class="btn-load-more" onclick="loadMore()">Discover more</button>
       </div>`;
   } catch(err) {
-    area.innerHTML = `<div class="error-msg">Something went wrong — please try again. (${err.message})</div>`;
+    // The technical reason goes to the browser console (and Vercel's logs),
+    // not on screen: "Your credit balance is too low…" means nothing to a
+    // customer and shouldn't be shown to one.
+    console.warn('Search failed:', err && err.message);
+    area.innerHTML = ourSideMessageHtml('search');
   } finally {
     btn.disabled = false;
   }
@@ -6333,7 +6372,17 @@ async function loadMore() {
     if (btn) btn.textContent = 'Checking links…';
     const newItems = await verifyAndFill(rawNew, 5, (n, ex) => buildFn(n, [...exclude, ...ex]), null, allItems);
 
-    if (newItems.length && allowance.kind === 'subscriber') await incrementSearchCount();
+    if (!newItems.length) {
+      // Nothing new to add. Not counted — say so rather than leave the
+      // button looking like it did nothing.
+      showMoreNote(lastSearchServiceProblem
+        ? "Something went wrong on our side.  This hasn't been counted against you — please try again in a few minutes."
+        : "We couldn't find more pieces we were confident in.  This hasn't been counted against you.");
+      if (btn) { btn.disabled = false; btn.textContent = 'Discover more'; }
+      return;
+    }
+    if (allowance.kind === 'subscriber') await incrementSearchCount();
+    showMoreNote('');
 
     const offset = allItems.length;
     allItems = allItems.concat(newItems);
@@ -6341,8 +6390,24 @@ async function loadMore() {
     if (grid) grid.insertAdjacentHTML('beforeend', renderProducts(newItems, offset));
     if (btn) { btn.disabled = false; btn.textContent = 'Discover more'; }
   } catch(err) {
+    console.warn('Discover more failed:', err && err.message);
+    showMoreNote("Something went wrong on our side.  This hasn't been counted against you — please try again in a few minutes.");
     if (btn) { btn.disabled = false; btn.textContent = 'Discover more'; }
   }
+}
+
+function showMoreNote(text) {
+  const wrap = document.getElementById('loadMoreWrap');
+  if (!wrap) return;
+  let note = wrap.querySelector('.more-note');
+  if (!text) { if (note) note.remove(); return; }
+  if (!note) {
+    note = document.createElement('p');
+    note.className = 'image-disclaimer more-note';
+    note.style.marginTop = '1rem';
+    wrap.appendChild(note);
+  }
+  note.textContent = text;
 }
 
 
