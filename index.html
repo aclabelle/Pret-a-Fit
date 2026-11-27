@@ -3333,7 +3333,14 @@ async function initClerk() {
     const clerk = (typeof window.Clerk === 'function')
       ? new window.Clerk(window.__clerk_publishable_key)
       : window.Clerk;
-    await clerk.load({ appearance: {} });
+    // Clerk's last step after Google (and after signing out) is to "navigate"
+    // somewhere, which without these two lines means reloading the whole page:
+    // people saw the start screen, then the sign-in screen, then the start
+    // screen again. This site moves between its own screens, so Clerk is told
+    // to stay put and init()/enterApp() decide where to go. (Links to other
+    // websites, such as Google itself, are not affected.)
+    const stayOnPage = async () => {};
+    await clerk.load({ appearance: {}, routerPush: stayOnPage, routerReplace: stayOnPage });
     clerkInstance = clerk;
     return clerk;
   } catch(e) {
@@ -4288,8 +4295,67 @@ async function handleVerifyCode() {
    and a friend's discount code both survive the round trip. */
 const SSO_CALLBACK_PARAM = 'sso_callback';
 
+/* Going to Google means leaving this page, and everything held in memory goes
+   with it — including the quiz answers of someone who has just finished it.
+   They're parked in this tab's sessionStorage for the round trip, along with
+   where the person was heading. Only the profile answers are kept: photos from
+   the body and colour quizzes live in `session`, never in `profile`. */
+const GOOGLE_TRIP_KEY = 'pf_google_trip';
+
+function rememberGoogleTrip() {
+  try {
+    sessionStorage.setItem(GOOGLE_TRIP_KEY, JSON.stringify({
+      profile: profile.gender ? { ...profile } : null,
+      returnTo: authReturnTo || 'screen-app'
+    }));
+  } catch (e) {}
+}
+
+/* The quiz screens only mark a choice as selected when it's tapped, so after
+   the trip to Google someone dropped back on, say, the Style step would see
+   blank chips even though their answers are safe in `profile`. This redraws
+   the quiz from `profile` so they can carry on, or go back, as they were. */
+function repaintQuizFromProfile() {
+  try {
+    const mark = (selector, isOn) => document.querySelectorAll(selector)
+      .forEach(el => el.classList.toggle('selected', !!isOn(el.getAttribute('data-value'))));
+    if (profile.gender) {
+      mark(`[onclick="selectSingle(this,'gender')"]`, v => v === profile.gender);
+      const gNext = document.getElementById('genderNext');
+      if (gNext) gNext.disabled = false;
+      updateBodyTypes(); updateMuseQuick(); updateRetailerQuick();
+    }
+    if (profile.body) {
+      mark('#bodyGrid .body-card', v => v === profile.body);
+      const bNext = document.getElementById('bodyNext');
+      if (bNext) bNext.disabled = false;
+    }
+    mark(`[onclick="toggleMulti(this,'vibes')"]`, v => (profile.vibes || []).includes(v));
+    renderMuses();
+    renderRetailers();
+    const sys = document.getElementById('sizeSystem');
+    if (sys && profile.sizeSystem) sys.value = profile.sizeSystem;
+    updateSizeOptions();
+    const size = document.getElementById('sizeValue');
+    if (size && profile.size) size.value = profile.size;
+    const loc = document.getElementById('locationInput');
+    if (loc && profile.location) loc.value = profile.location;
+  } catch (e) {
+    console.warn('Could not redraw the quiz answers:', e);
+  }
+}
+
+function takeGoogleTrip() {
+  try {
+    const raw = sessionStorage.getItem(GOOGLE_TRIP_KEY);
+    sessionStorage.removeItem(GOOGLE_TRIP_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
 async function handleGoogleAuth() {
   if (!clerkInstance) { enterApp(); return; }
+  rememberGoogleTrip();
   try {
     const done = new URL(window.location.href);
     done.searchParams.delete(SSO_CALLBACK_PARAM);
@@ -4302,6 +4368,7 @@ async function handleGoogleAuth() {
       redirectUrlComplete: done.toString()
     });
   } catch(e) {
+    takeGoogleTrip();
     showAuthError('Google sign-in is not available right now.');
   }
 }
@@ -4429,6 +4496,7 @@ function clearPersonalState() {
   // subscribe journey shouldn't carry over to the next person.
   setPendingSubscribe(false);
   try { sessionStorage.removeItem(DISCOUNT_CODE_KEY); } catch (e) {}
+  try { sessionStorage.removeItem(GOOGLE_TRIP_KEY); } catch (e) {}
   planChoice = '';
   closePlanModal();
 
@@ -8104,19 +8172,32 @@ async function init() {
   document.getElementById('screen-comingsoon').classList.remove('active', 'visible');
   document.getElementById('screen-hero').classList.add('active');
 
-  // Show hero
-  setTimeout(() => document.getElementById('screen-hero').classList.add('visible'), 50);
+  // Back from Google? Then don't flash the start screen while the sign-in is
+  // finished off — show a quiet "Signing you in…" instead, and go straight to
+  // wherever the person was when they tapped "Continue with Google".
+  const backFromGoogle = new URLSearchParams(location.search).get(SSO_CALLBACK_PARAM) === '1';
+  let signingInNote = null;
+  if (backFromGoogle) {
+    signingInNote = document.createElement('div');
+    signingInNote.textContent = 'Signing you in…';
+    signingInNote.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--dust);z-index:50;pointer-events:none;';
+    document.body.appendChild(signingInNote);
+  } else {
+    setTimeout(() => document.getElementById('screen-hero').classList.add('visible'), 50);
+  }
 
   // Initialise Clerk in the background
   const clerk = await initClerk();
-  if (!clerk) return;
+  if (!clerk) {
+    if (signingInNote) { signingInNote.remove(); document.getElementById('screen-hero').classList.add('visible'); }
+    return;
+  }
 
   // Back from Google: finish the sign-in. Handles both someone who already
   // has an account and someone new (Clerk turns that into a sign-up — the
-  // "transfer"). Navigation is kept in this page: we only tidy the address.
-  let backFromGoogle = false;
-  if (new URLSearchParams(location.search).get(SSO_CALLBACK_PARAM) === '1') {
-    backFromGoogle = true;
+  // "transfer"). Clerk is set up (in initClerk) not to reload the page, so
+  // all that changes is the address, tidied here.
+  if (backFromGoogle) {
     const clean = new URL(location.href);
     clean.searchParams.delete(SSO_CALLBACK_PARAM);
     const tidy = () => { try { history.replaceState(null, '', clean.toString()); } catch (e) {} };
@@ -8129,14 +8210,32 @@ async function init() {
       console.warn('Google sign-in could not be completed:', e);
     }
     tidy();
+    const trip = takeGoogleTrip();
+    signingInNote.remove();
     if (!clerk.user) {
       // Something stopped it (an extra field Clerk wants, a cancelled
-      // consent screen). Say so rather than silently leaving them a guest.
-      setTimeout(() => {
-        goToSignIn('screen-app');
-        showAuthError("Google sign-in didn't finish.  Please try again, or use your email instead.");
-      }, 400);
+      // consent screen). Say so rather than silently leaving them a guest —
+      // and keep their quiz answers in this page so nothing is lost.
+      if (trip && trip.profile) { Object.assign(profile, trip.profile); repaintQuizFromProfile(); }
+      goToSignIn(trip ? trip.returnTo : 'screen-app');
+      showAuthError("Google sign-in didn't finish.  Please try again, or use your email instead.");
+      return;
     }
+    // Which answers to keep. Someone part-way through the quiz keeps what
+    // they've just chosen. Otherwise an account that already has a profile
+    // keeps it (the same rule as signing in with email), and a new account
+    // gets the answers they gave before signing up.
+    const returnTo = (trip && trip.returnTo) || 'screen-app';
+    const midQuiz = ONBOARDING_SCREENS.includes(returnTo) || returnTo === 'screen-auth';
+    const hasSaved = await loadProfileFromClerk();
+    if (trip && trip.profile && (midQuiz || !hasSaved)) {
+      Object.assign(profile, trip.profile);
+      await saveProfileToClerk();
+    }
+    repaintQuizFromProfile();
+    // A brand-new account with no answers at all needs the quiz, not a search.
+    authReturnTo = profile.gender ? returnTo : 'screen-gender';
+    enterApp();
   }
 
   // If user is already signed in, restore session immediately
@@ -8160,7 +8259,7 @@ async function init() {
   }
 
   // Handle Google OAuth redirect back to the page
-  if (backFromGoogle || clerk.client?.signIn?.status === 'complete' || clerk.client?.signUp?.status === 'complete') {
+  if (!backFromGoogle && (clerk.client?.signIn?.status === 'complete' || clerk.client?.signUp?.status === 'complete')) {
     if (clerk.user) {
       const loaded = await loadProfileFromClerk();
       if (!loaded) await saveProfileToClerk();
