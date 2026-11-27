@@ -1878,6 +1878,33 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
   padding: 1.5rem 1.25rem;
   margin-bottom: 1.5rem;
 }
+/* Re-doing an assessment from the Profile (body type, colour palette) */
+.profile-assess { margin-bottom: 1.25rem; }
+.profile-assess-label {
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--bark); margin-bottom: 0.6rem;
+}
+.profile-assess-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 560px) { .profile-assess-grid { grid-template-columns: repeat(3, 1fr); } }
+.profile-assess-btn {
+  text-align: left; background: var(--mist); border: 0.5px solid var(--dust);
+  padding: 10px 12px; cursor: pointer; font-family: system-ui, sans-serif;
+  transition: border-color 0.15s;
+}
+.profile-assess-btn:hover { border-color: var(--bark); }
+.profile-assess-btn strong { display: block; font-size: 12px; font-weight: 500; color: var(--ink); }
+.profile-assess-btn span { display: block; font-size: 11px; color: var(--charcoal); margin-top: 3px; }
+.profile-assess-btn .locked { color: var(--bark); letter-spacing: 0.08em; text-transform: uppercase; font-size: 9px; }
+.profile-assess-paywall {
+  margin-top: 10px; padding: 12px; border: 0.5px solid var(--dust);
+  font-size: 12px; line-height: 1.6; color: var(--charcoal);
+}
+.profile-assess-paywall button {
+  margin-top: 8px; background: var(--ink); color: var(--mist); border: none;
+  padding: 7px 14px; font-size: 11px; letter-spacing: 0.08em; cursor: pointer;
+}
+.profile-assess-or { margin-top: 1.25rem; }
+.from-profile .progress-dots { display: none; }
 .profile-edit-heading {
   font-family: Georgia, serif;
   font-size: 1.05rem;
@@ -3686,6 +3713,26 @@ const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-body-manual','
 const TOTAL_DOTS = ONBOARDING_SCREENS.length;
 
 function goTo(id) {
+  // Someone re-doing their body or colour assessment from the Profile. The
+  // quiz screens were built for sign-up, so their Back, "pick manually" and
+  // Continue buttons lead to the next sign-up step. Here, any of those means
+  // "I'm done with this" — so go back to the Profile, with the matching edit
+  // panel open, instead of carrying on through sign-up.
+  if (assessmentFromProfile) {
+    if (ASSESSMENT_EXITS.includes(id)) {
+      const field = assessmentFromProfile;
+      assessmentFromProfile = null;
+      stopAssessmentCameras();
+      openProfile();
+      setTimeout(() => editProfileField(field), 420);
+      return;
+    }
+    if (id !== 'screen-body-quiz' && id !== 'screen-colour-quiz') {
+      assessmentFromProfile = null;   // went somewhere else entirely (nav bar)
+      stopAssessmentCameras();
+    }
+  }
+  document.body.classList.toggle('from-profile', !!assessmentFromProfile);
   const current = document.querySelector('.screen.active');
   if (current) {
     current.classList.remove('visible');
@@ -6788,6 +6835,10 @@ function acceptQuizResult() {
   }
   profile.body = quizResultBody;
   highlightBodyCard(quizResultBody);
+  if (assessmentFromProfile) {
+    finishAssessmentToProfile('Body type updated to ' + formatBodyName(quizResultBody));
+    return;
+  }
   goTo('screen-colour');
 }
 
@@ -7219,7 +7270,86 @@ function acceptColourResult() {
   if (!colourResultTone) return;
   profile.colourTone = colourResultTone;
   profile.colourSeason = colourResultSeason;
+  if (assessmentFromProfile) {
+    const label = (colourPalettes[colourResultTone] && colourPalettes[colourResultTone].season) || colourResultTone;
+    finishAssessmentToProfile('Colour palette updated to ' + label);
+    return;
+  }
   goTo('screen-style');
+}
+
+/* ── Re-doing an assessment from the Profile ─────────────────────────────
+   Added 27 Nov 2026. Most people won't subscribe during sign-up: they'll
+   try the free version, make an account, and only later want the photo or
+   camera analysis — and bodies change, so people will want to re-do it
+   anyway. Before this, the Profile only offered the list of shapes/tones.
+   Now its Body type and Colour palette panels offer the same three ways as
+   sign-up (questions — free; photo and camera — subscribers), reusing the
+   sign-up quiz screens. assessmentFromProfile tells goTo() and the accept
+   functions to come back to the Profile instead of carrying on to the next
+   sign-up step. */
+var assessmentFromProfile = null;   // 'body' | 'colour' | null  (var: goTo() may run before this line)
+var ASSESSMENT_EXITS = ['screen-gender', 'screen-body', 'screen-body-manual',
+  'screen-colour', 'screen-colour-manual', 'screen-style'];
+
+function assessmentChoicesHtml(field) {
+  const paid = hasPaidAccess();
+  const q = field === 'body' ? 'Three questions' : 'Five questions';
+  const tag = (text) => paid ? `<span>${text}</span>` : '<span class="locked">Subscribers</span>';
+  return `
+    <div class="profile-assess">
+      <div class="profile-assess-label">${field === 'body' ? 'Find your shape' : 'Find your palette'}</div>
+      <div class="profile-assess-grid">
+        <button class="profile-assess-btn" onclick="startAssessmentFromProfile('${field}','questions')">
+          <strong>Answer a few questions</strong><span>${q} · free</span></button>
+        <button class="profile-assess-btn" onclick="startAssessmentFromProfile('${field}','photo')">
+          <strong>Upload a photo</strong>${tag('Most accurate')}</button>
+        <button class="profile-assess-btn" onclick="startAssessmentFromProfile('${field}','camera')">
+          <strong>Use my camera</strong>${tag('Hands-free')}</button>
+      </div>
+      <div class="profile-assess-paywall" id="profileAssessPaywall" style="display:none;">
+        Photo and camera analysis come with every Prêt-à-Fit plan, along with unlimited fit checks and your own shopping guide.  The questions are free for everyone.
+        <br><button onclick="handleSubscribe()">See plans</button>
+      </div>
+      <div class="profile-assess-label profile-assess-or">Or choose it yourself</div>
+    </div>`;
+}
+
+function startAssessmentFromProfile(field, method) {
+  if ((method === 'photo' || method === 'camera') && !hasPaidAccess()) {
+    const pw = document.getElementById('profileAssessPaywall');
+    if (pw) pw.style.display = 'block';
+    return;
+  }
+  closeProfileEdit();
+  assessmentFromProfile = field;
+  if (field === 'body') {
+    resetQuizMethod();            // clears any earlier result, photo or camera
+    goTo('screen-body-quiz');
+    setTimeout(() => selectQuizMethod(method), 320);
+  } else {
+    ['colourPhotoResult', 'colourCameraResult', 'colourQuestionsResult',
+     'colourPhotoAnalysing', 'colourCameraAnalysing', 'colourQuestionsAnalysing']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    colourResultTone = '';
+    colourResultSeason = '';
+    goTo('screen-colour-quiz');
+    setTimeout(() => openColourPath(method), 320);
+  }
+}
+
+async function finishAssessmentToProfile(message) {
+  assessmentFromProfile = null;
+  stopAssessmentCameras();
+  await saveProfileToClerk();
+  openProfile();
+  showToast(message, 3500);
+}
+
+/* Leaving a camera assessment part-way shouldn't leave the camera light on. */
+function stopAssessmentCameras() {
+  try { if (bodyCameraStream) { bodyCameraStream.getTracks().forEach(t => t.stop()); bodyCameraStream = null; } } catch (e) {}
+  try { if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; } } catch (e) {}
 }
 
 /* ── Wishlist ── */
@@ -7574,24 +7704,23 @@ function editProfileField(field) {
       <p style="font-size:12px;color:var(--charcoal);line-height:1.7;margin-top:1rem;">We can't switch these off completely: a periodic billing notice is required by consumer law in the UK, the EU and several US states, and we apply it everywhere rather than guessing where you are.  We'll always tell you about a price change or a payment problem either way.</p>`;
 
   } else if (field === 'body') {
-    heading.textContent = 'Change body type';
+    heading.textContent = profile.body ? 'Change body type' : 'Your body type';
     const types = bodyTypes[profile.gender] || bodyTypes.women;
-    body.innerHTML = `<div class="chip-grid">${types.map(t =>
+    body.innerHTML = assessmentChoicesHtml('body') + `<div class="chip-grid">${types.map(t =>
       `<button class="chip ${profile.body === t.value ? 'selected' : ''}" onclick="profileTempSet('body','${t.value}',this)">${t.name}</button>`
     ).join('')}</div>`;
 
   } else if (field === 'colour') {
-    heading.textContent = 'Change colour palette';
+    heading.textContent = (profile.colourTone || profile.colourSeason) ? 'Change colour palette' : 'Your colour palette';
     const opts = [
       { value: 'warm', label: 'Warm & golden' },
       { value: 'cool', label: 'Cool & clear' },
       { value: 'neutral', label: 'Neutral & versatile' },
       { value: 'deep', label: 'Deep & rich' }
     ];
-    body.innerHTML = `<div class="chip-grid">${opts.map(o =>
+    body.innerHTML = assessmentChoicesHtml('colour') + `<div class="chip-grid">${opts.map(o =>
       `<button class="chip ${profile.colourTone === o.value ? 'selected' : ''}" onclick="profileTempSet('colourTone','${o.value}',this)">${o.label}</button>`
-    ).join('')}</div>
-    <p style="font-size:12px;color:var(--charcoal);margin-top:0.75rem;">To re-do the full colour quiz, <button style="background:none;border:none;color:var(--bark);cursor:pointer;font-size:12px;text-decoration:underline;" onclick="closeProfileEdit();goTo('screen-colour')">go to the colour screen →</button></p>`;
+    ).join('')}</div>`;
 
   } else if (field === 'vibes') {
     heading.textContent = 'Change style vibes';
