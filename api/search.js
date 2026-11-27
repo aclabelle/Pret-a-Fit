@@ -39,9 +39,45 @@ const REQUIRE_KNOWN_ORIGIN = true;
    numbers on each log line stay correct either way, so the estimate being
    off does not spoil the measurement.
    ──────────────────────────────────────────────────────────────────────── */
-const PRICE_PER_MTOK_INPUT  = 3.00;   // USD per 1,000,000 input tokens
-const PRICE_PER_MTOK_OUTPUT = 15.00;  // USD per 1,000,000 output tokens
+/* Published per-million-token rates (input, output) in USD, checked 27 Nov
+   2026 at platform.claude.com. Any model not listed is estimated at the
+   Sonnet 4.6 rate, which is the highest of these. */
+const MODEL_PRICES = {
+  'claude-sonnet-5-5': [2, 10],
+  'claude-sonnet-5':   [2, 10],
+  'claude-sonnet-4-6': [3, 15]
+};
 const PRICE_PER_WEB_SEARCH  = 0.01;   // USD per search ($10 per 1,000)
+
+/* ── Which AI model, and how hard it thinks ───────────────────────────────
+   Switched from claude-sonnet-4-6 to claude-sonnet-5-5 on 27 Nov 2026: newer,
+   better at search-and-find work, and cheaper per token ($2/$10 vs $3/$15).
+
+   Both can be changed in Vercel → Settings → Environment Variables, with no
+   code change (redeploy afterwards):
+     SEARCH_MODEL   e.g. claude-sonnet-4-6 to go back to the old model
+     SEARCH_EFFORT  low | medium | high (default high) — how much the newer
+                    models think between searches. Lower = cheaper and faster.
+     SEARCH_MAX_WEB_SEARCHES  how many web searches one product search may run
+                    (default 6; each costs about 1 cent plus the tokens). */
+const MODEL = (process.env.SEARCH_MODEL || 'claude-sonnet-5-5').trim();
+const EFFORT = ['low', 'medium', 'high'].includes((process.env.SEARCH_EFFORT || '').trim())
+  ? process.env.SEARCH_EFFORT.trim() : 'high';
+const MAX_WEB_SEARCHES = Math.min(10, Math.max(1, parseInt(process.env.SEARCH_MAX_WEB_SEARCHES || '6', 10) || 6));
+
+/* Claude 5-generation models think before answering unless told otherwise,
+   and that thinking counts toward max_tokens — enough to cut a 500-token
+   quiz reply off half way. "between_tools" turns off the up-front thinking
+   and keeps only the short think between web searches (deciding what to look
+   for next), which is the part that helps here. Older models don't accept
+   these settings at all, so they're only sent to 5-generation models. */
+export function isFiveGeneration(model) {
+  return /^claude-(sonnet|opus|haiku|fable|mythos)-5(\b|-)/.test(model);
+}
+
+function pricesFor(model) {
+  return MODEL_PRICES[model] || MODEL_PRICES['claude-sonnet-4-6'];
+}
 
 function logCost(mode, usage) {
   if (!usage) { console.log('[COST] mode=' + mode + ' usage=unavailable'); return; }
@@ -53,12 +89,13 @@ function logCost(mode, usage) {
   const cacheWrite = usage.cache_creation_input_tokens || 0;
   const searches = (usage.server_tool_use && usage.server_tool_use.web_search_requests) || 0;
 
-  const dollars = (inTok  / 1e6) * PRICE_PER_MTOK_INPUT
-                + (outTok / 1e6) * PRICE_PER_MTOK_OUTPUT
+  const [pIn, pOut] = pricesFor(MODEL);
+  const dollars = (inTok  / 1e6) * pIn
+                + (outTok / 1e6) * pOut
                 + searches * PRICE_PER_WEB_SEARCH;
 
   console.log(
-    '[COST] mode=' + mode +
+    '[COST] mode=' + mode + ' model=' + MODEL +
     ' searches=' + searches +
     ' in=' + inTok +
     ' out=' + outTok +
@@ -529,6 +566,14 @@ export default async function handler(req, res) {
   // "mode", but we still fall back to reading the prompt so that any older
   // cached copy of the frontend keeps working.
   const looksLikeSearch = typeof prompt === 'string' && prompt.includes('Fashion search engine');
+  // The search prompts written in index.html end with "Use at most 3 web
+  // searches total." — three searches to find nine products is why the AI
+  // kept guessing links (27 Nov 2026: 9 of 9 invented). The search budget is
+  // now set here instead (MAX_WEB_SEARCHES, enforced by the API's max_uses),
+  // so that line is taken out of whatever the browser sends, old or new.
+  const cleanPrompt = typeof prompt === 'string'
+    ? prompt.replace(/\s*Use at most \d+ web searches? total\.?/gi, '')
+    : prompt;
   const resolvedMode = mode || (looksLikeSearch ? 'search' : 'quiz');
   const isOutfitSearch = resolvedMode === 'search';
   const isFitCheck = resolvedMode === 'fitcheck';
@@ -540,26 +585,41 @@ export default async function handler(req, res) {
     messageContent = [
       { type: 'image', source: { type: 'base64', media_type: imageMediaType || 'image/jpeg', data: imageBase64 } },
       { type: 'image', source: { type: 'base64', media_type: image2MediaType || 'image/jpeg', data: image2Base64 } },
-      { type: 'text', text: prompt }
+      { type: 'text', text: cleanPrompt }
     ];
   } else if (imageBase64) {
     messageContent = [
       { type: 'image', source: { type: 'base64', media_type: imageMediaType || 'image/jpeg', data: imageBase64 } },
-      { type: 'text', text: prompt }
+      { type: 'text', text: cleanPrompt }
     ];
   } else {
-    messageContent = prompt;
+    messageContent = cleanPrompt;
   }
 
   const requestBody = {
-    model: 'claude-sonnet-4-6',
+    model: MODEL,
     messages: [{ role: 'user', content: messageContent }]
   };
+  if (isFiveGeneration(MODEL)) {
+    requestBody.thinking = { type: 'between_tools' };
+    if (isOutfitSearch) requestBody.output_config = { effort: EFFORT };
+  }
 
   if (isOutfitSearch) {
-    requestBody.max_tokens = 4000;
-    requestBody.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
+    // 8000 rather than 4000: the thinking between searches counts toward
+    // this limit too, and a reply cut short is a wasted (paid) search.
+    requestBody.max_tokens = 8000;
+    // The basic search tool, called directly — not the newer "dynamic
+    // filtering" versions, which run searches from inside code and would
+    // hide the result list that groundResults() checks links against.
+    requestBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: MAX_WEB_SEARCHES }];
     requestBody.system = `You are a fashion search assistant. You MUST follow these rules strictly:
+
+SEARCHING — how to find real product pages:
+- You have up to ${MAX_WEB_SEARCHES} web searches. Plan them before you start. A broad query ("best linen shorts for women") returns articles and category pages, which are useless here. A query naming one retailer and one kind of item ("Nordstrom women's linen drawstring shorts", "COS wide-leg linen trousers women") returns that shop's actual product pages.
+- So make each search about one retailer, and use different retailers for different searches. That is also how you meet the VARIETY rule below.
+- Only choose products whose product-page link appears in your results. If a search brings back only articles or category pages, run a more specific search; do not work out what the product link "would be".
+- If you run out of searches before you have the number of items asked for, return fewer items. A shorter list of real products is always better: any made-up link is thrown away anyway.
 
 LINKS — this is critical:
 - Every "url" field must be a direct, specific product page URL (e.g. https://www.net-a-porter.com/en-gb/shop/product/123456). Never use search pages, category pages, or homepage URLs.
@@ -603,29 +663,41 @@ Respond with a raw JSON array only. No markdown, no preamble, no explanation.`;
     'x-api-key': process.env.ANTHROPIC_API_KEY,
     'anthropic-version': '2023-06-01'
   };
-  if (isOutfitSearch) {
-    headers['anthropic-beta'] = 'web-search-2025-03-05';
-  }
+  // Web search left beta long ago; its old beta header is no longer sent.
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(requestBody)
-    });
+    // With several searches the API may hand back a half-finished turn
+    // ("pause_turn"). The way to continue is to send it straight back; up to
+    // two times. Everything every round returned is kept, because the link
+    // check needs all the search results, not just the last round's.
+    let data;
+    const allContent = [];
+    for (let round = 0; round < 3; round++) {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody)
+      });
 
-    const data = await response.json();
+      data = await response.json();
 
-    if (!response.ok) {
-      const errMsg = data.error?.message || JSON.stringify(data);
-      console.error('Anthropic API error:', response.status, errMsg);
-      return res.status(response.status).json({ error: errMsg });
+      if (!response.ok) {
+        const errMsg = data.error?.message || JSON.stringify(data);
+        console.error('Anthropic API error:', response.status, errMsg);
+        return res.status(response.status).json({ error: errMsg });
+      }
+
+      // Log before anything else can return early — a reply that got truncated
+      // still cost money, and those are exactly the calls worth seeing.
+      logCost(resolvedMode, data.usage);
+      allContent.push(...(data.content || []));
+
+      if (data.stop_reason !== 'pause_turn') break;
+      requestBody.messages = [...requestBody.messages, { role: 'assistant', content: data.content }];
     }
 
-    // Log before anything else can return early — a reply that got truncated
-    // still cost money, and those are exactly the calls worth seeing.
-    logCost(resolvedMode, data.usage);
-
+    // Only the final round's text: that's where the answer is. Earlier text
+    // is the model talking to itself between searches.
     const result = (data.content || [])
       .filter(block => block.type === 'text')
       .map(block => block.text)
@@ -641,7 +713,7 @@ Respond with a raw JSON array only. No markdown, no preamble, no explanation.`;
     // Product searches: keep only products whose link a search actually
     // returned. See groundResults() above.
     if (isOutfitSearch) {
-      const g = groundResults(result, data.content);
+      const g = groundResults(result, allContent);
       if (g.kept !== null) {
         console.log('[GROUND] kept=' + g.kept + ' dropped=' + g.dropped.length +
           (g.dropped.length ? ' invented=' + g.dropped.slice(0, 5).join(' ') : ''));
