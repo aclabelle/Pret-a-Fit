@@ -4279,13 +4279,27 @@ async function handleVerifyCode() {
 }
 
 /* ── Auth: Google ── */
+/* Google sends the person back to this same page with ?sso_callback=1 added,
+   and init() then calls Clerk's handleRedirectCallback() to finish the
+   sign-in. That second half was missing until 27 Nov 2026: Clerk's test setup
+   was forgiving about it, the live one isn't — Google confirmed who you were,
+   but no session was ever created, so everyone came back as a guest.
+   The rest of the address (?preview=1, ?code=…) is kept, so the launch gate
+   and a friend's discount code both survive the round trip. */
+const SSO_CALLBACK_PARAM = 'sso_callback';
+
 async function handleGoogleAuth() {
   if (!clerkInstance) { enterApp(); return; }
   try {
+    const done = new URL(window.location.href);
+    done.searchParams.delete(SSO_CALLBACK_PARAM);
+    done.hash = '';
+    const callback = new URL(done.toString());
+    callback.searchParams.set(SSO_CALLBACK_PARAM, '1');
     await clerkInstance.client.signIn.authenticateWithRedirect({
       strategy: 'oauth_google',
-      redirectUrl: window.location.href,
-      redirectUrlComplete: window.location.href
+      redirectUrl: callback.toString(),
+      redirectUrlComplete: done.toString()
     });
   } catch(e) {
     showAuthError('Google sign-in is not available right now.');
@@ -8097,6 +8111,34 @@ async function init() {
   const clerk = await initClerk();
   if (!clerk) return;
 
+  // Back from Google: finish the sign-in. Handles both someone who already
+  // has an account and someone new (Clerk turns that into a sign-up — the
+  // "transfer"). Navigation is kept in this page: we only tidy the address.
+  let backFromGoogle = false;
+  if (new URLSearchParams(location.search).get(SSO_CALLBACK_PARAM) === '1') {
+    backFromGoogle = true;
+    const clean = new URL(location.href);
+    clean.searchParams.delete(SSO_CALLBACK_PARAM);
+    const tidy = () => { try { history.replaceState(null, '', clean.toString()); } catch (e) {} };
+    try {
+      await clerk.handleRedirectCallback(
+        { signInFallbackRedirectUrl: clean.toString(), signUpFallbackRedirectUrl: clean.toString(), transferable: true },
+        async () => tidy()
+      );
+    } catch (e) {
+      console.warn('Google sign-in could not be completed:', e);
+    }
+    tidy();
+    if (!clerk.user) {
+      // Something stopped it (an extra field Clerk wants, a cancelled
+      // consent screen). Say so rather than silently leaving them a guest.
+      setTimeout(() => {
+        goToSignIn('screen-app');
+        showAuthError("Google sign-in didn't finish.  Please try again, or use your email instead.");
+      }, 400);
+    }
+  }
+
   // If user is already signed in, restore session immediately
   if (clerk.user) {
     const hasProfile = await loadProfileFromClerk();
@@ -8118,7 +8160,7 @@ async function init() {
   }
 
   // Handle Google OAuth redirect back to the page
-  if (clerk.client?.signIn?.status === 'complete' || clerk.client?.signUp?.status === 'complete') {
+  if (backFromGoogle || clerk.client?.signIn?.status === 'complete' || clerk.client?.signUp?.status === 'complete') {
     if (clerk.user) {
       const loaded = await loadProfileFromClerk();
       if (!loaded) await saveProfileToClerk();
