@@ -806,6 +806,14 @@ Respond with a raw JSON array only. No markdown, no preamble, no explanation.`;
         console.log('[GROUND] kept=' + g.kept + ' dropped=' + g.dropped.length +
           (g.dropped.length ? ' invented=' + g.dropped.slice(0, 5).join(' ') : ''));
       }
+      // Added 28 Nov 2026: when a search comes back with nothing at all (or
+      // with something that isn't a product list), log what the AI said
+      // instead, so an empty paid search can be explained from the logs.
+      if (g.kept === null || (g.kept === 0 && g.dropped.length === 0)) {
+        const said = String(result).replace(/\[[\s\S]*\]/, '').replace(/\s+/g, ' ').trim().slice(0, 300);
+        console.log('[EMPTY] ' + (g.kept === null ? 'reply was not a product list' : 'no products returned') +
+          ' | ' + (said || '(no explanation given)'));
+      }
       if (shop && shop.domain && g.kept !== null) {
         const items = JSON.parse(g.text);
         const fromShop = items.filter(i => i && onShop(i.url, shop.domain));
