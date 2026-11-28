@@ -1365,6 +1365,11 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
   margin: 0 auto 8px;
   display: block;
 }
+.camera-note {
+  background: var(--linen); border-left: 3px solid var(--bark);
+  padding: 0.8rem 1rem; margin: 0 0 1rem; font-size: 13px; line-height: 1.65;
+  color: var(--charcoal); text-align: left;
+}
 .photo-privacy-note {
   font-size: 11px;
   color: var(--dust);
@@ -2675,6 +2680,9 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
         </div>
       </div>
 
+      <div id="bodyCameraNote" class="camera-note" role="status" style="display:none;"></div>
+      <div style="text-align:center;margin-bottom:0.75rem;"><button class="btn-back" id="bodyCameraSwitchBtn" style="display:none;" onclick="switchBodyCamera()">Switch camera</button></div>
+
       <div class="photo-privacy-note">Your photo is sent directly to our AI for analysis and immediately discarded — never stored, never seen by a person.</div>
 
       <div id="bodyCameraAnalysing" style="display:none;" class="quiz-analysing">
@@ -2692,6 +2700,7 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
         <div style="display:flex;gap:12px;align-items:center;">
           <button class="btn-next" id="bodyCameraStartBtn" onclick="startBodyCamera()">Start camera</button>
           <button class="btn-next" id="bodyCameraCaptureBtn" style="display:none;" onclick="captureBodyShot()">Take photo</button>
+          <button class="btn-back" id="bodyCameraRetakeBtn" style="display:none;" onclick="startBodyCamera()">Retake</button>
           <button class="btn-next" id="bodyCameraAnalyseBtn" style="display:none;" onclick="analyseBodyCamera()">Analyse my photo</button>
         </div>
       </div>
@@ -2916,10 +2925,14 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
         </div>
         <div class="screen-nav" style="margin-top:1rem;">
           <button class="btn-back" onclick="goBackToCameraStep1()">← Retake front</button>
+          <button class="btn-back" id="cameraRetakeBtn2" onclick="startCameraForStep2()" style="display:none;">Retake side</button>
           <button class="btn-next" id="cameraCaptureBtn2" onclick="captureShot(2)">Capture side</button>
           <button class="btn-next" id="cameraAnalyseBtn" onclick="analyseCameraPhotos()" style="display:none;">Analyse my palette</button>
         </div>
       </div>
+
+      <div id="colourCameraNote" class="camera-note" role="status" style="display:none;"></div>
+      <div style="text-align:center;margin:0.75rem 0;"><button class="btn-back" id="colourCameraSwitchBtn" style="display:none;" onclick="switchColourCamera()">Switch camera</button></div>
 
       <div class="photo-privacy-note">Both photos are sent directly to our AI for analysis and immediately discarded — never stored, never seen by a person.</div>
 
@@ -7313,26 +7326,157 @@ function handleBodyPhotoMethodClick(method) {
 /* Legacy kept for any back-button usage */
 function handlePhotoMethodClick() { handleBodyPhotoMethodClick('photo'); }
 
+/* ── Camera and photo safeguards (added 28 Nov 2026) ──
+   A tester's camera check came back "Rectangle" from a photo of a crossed-out
+   phone icon: the browser had picked a camera that wasn't sending a picture
+   (on a Mac, often an iPhone offered as a camera), the photo was taken anyway,
+   and the AI's "I can't see a person" was shown under a shape label.  So:
+     • "Take photo" only works once the camera is really sending a picture;
+     • a blank or near-black picture is caught here, before it's sent;
+     • when there's more than one camera, a "Switch camera" button appears;
+     • every photo prompt can answer {"noPerson":true,...}, and anything that
+       isn't a real result is shown as "we couldn't see you" with nothing saved. */
+var cameraDeviceIds = [];      // cameras the browser lists, once permission is given
+var chosenCameraId = '';       // the one in use, so a switch moves to the next
+
+function waitForCameraPicture(video, ms) {
+  return new Promise(function (resolve) {
+    if (video.videoWidth > 0 && video.readyState >= 2) return resolve(true);
+    var done = false;
+    function finish(ok) { if (done) return; done = true; clearTimeout(t); video.removeEventListener('loadeddata', onData); resolve(ok); }
+    function onData() { finish(video.videoWidth > 0); }
+    var t = setTimeout(function () { finish(video.videoWidth > 0); }, ms || 5000);
+    video.addEventListener('loadeddata', onData);
+  });
+}
+
+async function openCamera(video, switchBtnId) {
+  var wanted = chosenCameraId ? { deviceId: { exact: chosenCameraId } } : { facingMode: 'user' };
+  var stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: wanted, audio: false });
+  } catch (e) {
+    if (!chosenCameraId) throw e;
+    chosenCameraId = '';      // that camera has gone away: fall back to the default
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+  }
+  try {
+    var track = stream.getVideoTracks()[0];
+    var settings = track && track.getSettings ? track.getSettings() : {};
+    if (settings.deviceId) chosenCameraId = settings.deviceId;
+    var devices = await navigator.mediaDevices.enumerateDevices();
+    cameraDeviceIds = devices.filter(function (d) { return d.kind === 'videoinput' && d.deviceId; })
+                             .map(function (d) { return d.deviceId; });
+  } catch (e) {}
+  var btn = switchBtnId && document.getElementById(switchBtnId);
+  if (btn) btn.style.display = cameraDeviceIds.length > 1 ? 'inline-block' : 'none';
+  video.srcObject = stream;
+  video.style.display = 'block';
+  return stream;
+}
+
+function moveToNextCamera() {
+  if (cameraDeviceIds.length < 2) return false;
+  var i = cameraDeviceIds.indexOf(chosenCameraId);
+  chosenCameraId = cameraDeviceIds[(i + 1) % cameraDeviceIds.length];
+  return true;
+}
+
+// True when the picture is blank or so dark nothing could be read from it:
+// almost every pixel near-black, or almost no variation at all.
+function pictureLooksBlank(sourceEl) {
+  try {
+    var c = document.createElement('canvas'); c.width = 64; c.height = 48;
+    var g = c.getContext('2d'); g.drawImage(sourceEl, 0, 0, 64, 48);
+    var d = g.getImageData(0, 0, 64, 48).data, n = d.length / 4, dark = 0, sum = 0, sq = 0;
+    for (var i = 0; i < d.length; i += 4) {
+      var lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      if (lum < 28) dark++;
+      sum += lum; sq += lum * lum;
+    }
+    var mean = sum / n, spread = Math.sqrt(Math.max(0, sq / n - mean * mean));
+    return dark / n > 0.85 || spread < 6;
+  } catch (e) { return false; }
+}
+
+function cameraNote(id, text) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text || '';
+  el.style.display = text ? 'block' : 'none';
+}
+
+var BLANK_PICTURE_NOTE = "Your camera sent us a blank picture rather than you, so we haven't used it. " +
+  "This usually means another app is using the camera, or your device picked a different camera — on a Mac, often a nearby iPhone. " +
+  "Try “Switch camera” if you see it, close other apps that use the camera, or upload a photo instead.";
+
+// Reads the AI's answer.  Returns the cleaned result key, or null with a
+// reason when it couldn't see a person or answered with something we don't know.
+function readPhotoAnswer(result, field, allowed) {
+  if (!result || result.noPerson) {
+    return { ok: false, reason: (result && result.reason) || '' };
+  }
+  var key = String(result[field] || '').toLowerCase().trim().replace(/[-_]+/g, ' ');
+  if (allowed.indexOf(key) === -1) return { ok: false, reason: '' };
+  return { ok: true, key: key };
+}
+
+function couldNotSeeYouText(reason, what) {
+  return (reason ? reason.replace(/\s+$/, '') + ' ' : "We couldn't see you clearly enough in that photo to read your " + what + '. ') +
+    "Nothing has been saved — please try again with a clear, well-lit photo of you.";
+}
+
+var BODY_SHAPES_ALLOWED = ['hourglass', 'pear', 'apple', 'rectangle', 'inverted triangle', 'athletic', 'petite'];
+var PALETTES_ALLOWED = ['cool', 'warm', 'neutral', 'deep'];
+
+function uploadLooksBlank(b64, mediaType) {
+  return new Promise(function (resolve) {
+    var img = new Image();
+    img.onload = function () { resolve(pictureLooksBlank(img)); };
+    img.onerror = function () { resolve(false); };   // let the AI judge formats the browser can't draw
+    img.src = 'data:' + (mediaType || 'image/jpeg') + ';base64,' + b64;
+  });
+}
+
+var NO_PERSON_BODY = '\n\nBefore anything else, check the photo.  If it does not clearly show a real person with most of their body visible — for example it is blank, black, very dark or blurred, shows an icon, a screen or an object, or shows only a face — do not guess a shape.  Respond instead with ONLY this JSON: {"noPerson":true,"reason":"One short, kind sentence saying what you can see and what would help."}';
+var NO_PERSON_COLOUR = ' Before anything else, check the photo.  If it does not clearly show a real person\'s face in reasonable light — for example it is blank, black, very dark or blurred, or shows an icon, a screen or an object — do not guess a palette.  Respond instead with ONLY this JSON: {"noPerson":true,"reason":"One short, kind sentence saying what you can see and what would help."}';
+
 /* ── Body camera capture ── */
 let bodyCameraStream = null;
 let bodyCameraPhotoBase64 = null;
 
 async function startBodyCamera() {
+  cameraNote('bodyCameraNote', '');
+  bodyCameraPhotoBase64 = null;
+  ['bodyCameraCapture1Wrap', 'bodyCameraResult', 'quizContinueWrap'].forEach(function (id) { document.getElementById(id).style.display = 'none'; });
+  ['bodyCameraAnalyseBtn', 'bodyCameraRetakeBtn', 'bodyCameraCaptureBtn'].forEach(function (id) { document.getElementById(id).style.display = 'none'; });
   try {
-    if (bodyCameraStream) { bodyCameraStream.getTracks().forEach(t => t.stop()); }
-    bodyCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    if (bodyCameraStream) { bodyCameraStream.getTracks().forEach(t => t.stop()); bodyCameraStream = null; }
     var video = document.getElementById('bodyCameraPreview');
-    video.srcObject = bodyCameraStream;
-    video.style.display = 'block';
+    bodyCameraStream = await openCamera(video, 'bodyCameraSwitchBtn');
     document.getElementById('bodyCameraStartBtn').style.display = 'none';
     document.getElementById('bodyCameraCaptureBtn').style.display = 'inline-block';
   } catch(err) {
-    alert('Camera access was denied or is unavailable. Please use the "Upload a photo" option instead.');
+    document.getElementById('bodyCameraStartBtn').style.display = 'inline-block';
+    cameraNote('bodyCameraNote', "We couldn't open your camera — it may be switched off, in use by another app, or not allowed for this site. You can upload a photo instead.");
   }
 }
 
-function captureBodyShot() {
+function switchBodyCamera() {
+  if (moveToNextCamera()) startBodyCamera();
+}
+
+async function captureBodyShot() {
   var video = document.getElementById('bodyCameraPreview');
+  if (!(await waitForCameraPicture(video, 3000))) {
+    cameraNote('bodyCameraNote', "Your camera hasn't started sending a picture yet. Give it a moment and try again, or try \u201cSwitch camera\u201d if you see it.");
+    return;
+  }
+  if (pictureLooksBlank(video)) {
+    cameraNote('bodyCameraNote', BLANK_PICTURE_NOTE);
+    return;                       // keep the camera running so they can fix it and try again
+  }
+  cameraNote('bodyCameraNote', '');
   var canvas = document.getElementById('bodyCameraCanvas');
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
@@ -7343,13 +7487,16 @@ function captureBodyShot() {
   document.getElementById('bodyCameraCapture1Wrap').style.display = 'block';
   video.style.display = 'none';
   document.getElementById('bodyCameraCaptureBtn').style.display = 'none';
+  document.getElementById('bodyCameraSwitchBtn').style.display = 'none';
   document.getElementById('bodyCameraAnalyseBtn').style.display = 'inline-block';
+  document.getElementById('bodyCameraRetakeBtn').style.display = 'inline-block';
   if (bodyCameraStream) { bodyCameraStream.getTracks().forEach(t => t.stop()); bodyCameraStream = null; }
 }
 
 async function analyseBodyCamera() {
   if (!bodyCameraPhotoBase64) return;
   document.getElementById('bodyCameraAnalyseBtn').style.display = 'none';
+  document.getElementById('bodyCameraRetakeBtn').style.display = 'none';
   document.getElementById('bodyCameraAnalysing').style.display = 'flex';
   document.getElementById('bodyCameraResult').style.display = 'none';
   document.getElementById('quizContinueWrap').style.display = 'none';
@@ -7362,7 +7509,7 @@ async function analyseBodyCamera() {
 
   const prompt = `You are a warm, thoughtful personal stylist who deeply respects and celebrates every body. The user has shared a photo via their camera for body shape analysis.
 
-${genderCtxCam}
+${genderCtxCam}${NO_PERSON_BODY}
 
 Look at the proportions in this photo and identify the body shape from this list:
 - hourglass (balanced bust & hips, defined waist)
@@ -7384,17 +7531,30 @@ Respond ONLY with valid JSON:
       body: JSON.stringify({ prompt, imageBase64: bodyCameraPhotoBase64, imageMediaType: 'image/jpeg' })
     });
     const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'API error ' + response.status);
+    const answer = readPhotoAnswer(parseQuizJSON(data.result), 'bodyShape', BODY_SHAPES_ALLOWED);
+    if (!answer.ok) {
+      quizResultBody = '';
+      document.getElementById('bodyCameraResultType').textContent = "We couldn't see you";
+      document.getElementById('bodyCameraResultDesc').textContent = couldNotSeeYouText(answer.reason, 'shape');
+      document.getElementById('bodyCameraResult').style.display = 'block';
+      document.getElementById('bodyCameraRetakeBtn').style.display = 'inline-block';
+      return;
+    }
     const result = parseQuizJSON(data.result);
-    quizResultBody = result.bodyShape;
-    document.getElementById('bodyCameraResultType').textContent = formatBodyName(result.bodyShape);
+    quizResultBody = answer.key;
+    document.getElementById('bodyCameraResultType').textContent = formatBodyName(answer.key);
     document.getElementById('bodyCameraResultDesc').textContent = result.description;
     document.getElementById('bodyCameraResult').style.display = 'block';
     document.getElementById('quizContinueWrap').style.display = 'block';
+    document.getElementById('bodyCameraRetakeBtn').style.display = 'inline-block';
   } catch(err) {
+    quizResultBody = '';
     document.getElementById('bodyCameraResultType').textContent = 'Unable to analyse';
-    document.getElementById('bodyCameraResultDesc').textContent = 'Something went wrong — please try again, or switch to the questions method instead.';
+    document.getElementById('bodyCameraResultDesc').textContent = "Something went wrong on our side, so we couldn't read your photo. Please try again in a moment, or use the questions instead.";
     document.getElementById('bodyCameraResult').style.display = 'block';
     document.getElementById('bodyCameraAnalyseBtn').style.display = 'inline-block';
+    document.getElementById('bodyCameraRetakeBtn').style.display = 'inline-block';
   } finally {
     document.getElementById('bodyCameraAnalysing').style.display = 'none';
   }
@@ -7471,6 +7631,9 @@ function resetQuizMethod() {
   document.getElementById('bodyCameraStartBtn').style.display = 'inline-block';
   document.getElementById('bodyCameraCaptureBtn').style.display = 'none';
   document.getElementById('bodyCameraAnalyseBtn').style.display = 'none';
+  document.getElementById('bodyCameraRetakeBtn').style.display = 'none';
+  document.getElementById('bodyCameraSwitchBtn').style.display = 'none';
+  cameraNote('bodyCameraNote', '');
   quizPhotoBase64 = null;
   quizResultBody = '';
   document.getElementById('photoAnalyseBtn').disabled = true;
@@ -7498,6 +7661,14 @@ function handlePhotoSelected(input) {
 
 async function analysePhoto() {
   if (!quizPhotoBase64) return;
+  if (await uploadLooksBlank(quizPhotoBase64, quizPhotoMediaType)) {
+    document.getElementById('photoResultType').textContent = "We couldn't see you";
+    document.getElementById('photoResultDesc').textContent = "That photo looks blank or too dark to read, so we haven't used it. Please choose a clear, well-lit photo of you.";
+    document.getElementById('photoResult').style.display = 'block';
+    document.getElementById('quizContinueWrap').style.display = 'none';
+    quizResultBody = '';
+    return;
+  }
   document.getElementById('photoAnalyseBtn').disabled = true;
   document.getElementById('photoAnalysing').style.display = 'flex';
   document.getElementById('photoResult').style.display = 'none';
@@ -7511,7 +7682,7 @@ async function analysePhoto() {
 
   const prompt = `You are a warm, thoughtful personal stylist who deeply respects and celebrates every body. The user has shared a photo for body shape analysis.
 
-${genderCtxPhoto}
+${genderCtxPhoto}${NO_PERSON_BODY}
 
 Look at the proportions in this photo and identify the body shape from this list:
 - hourglass (balanced bust & hips, defined waist)
@@ -7537,15 +7708,26 @@ Respond ONLY with valid JSON:
       })
     });
     const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'API error ' + response.status);
+    const answer = readPhotoAnswer(parseQuizJSON(data.result), 'bodyShape', BODY_SHAPES_ALLOWED);
+    if (!answer.ok) {
+      quizResultBody = '';
+      document.getElementById('photoResultType').textContent = "We couldn't see you";
+      document.getElementById('photoResultDesc').textContent = couldNotSeeYouText(answer.reason, 'shape');
+      document.getElementById('photoResult').style.display = 'block';
+      document.getElementById('photoAnalyseBtn').disabled = false;
+      return;
+    }
     const result = parseQuizJSON(data.result);
-    quizResultBody = result.bodyShape;
-    document.getElementById('photoResultType').textContent = formatBodyName(result.bodyShape);
+    quizResultBody = answer.key;
+    document.getElementById('photoResultType').textContent = formatBodyName(answer.key);
     document.getElementById('photoResultDesc').textContent = result.description;
     document.getElementById('photoResult').style.display = 'block';
     document.getElementById('quizContinueWrap').style.display = 'block';
   } catch(err) {
+    quizResultBody = '';
     document.getElementById('photoResultType').textContent = 'Unable to analyse';
-    document.getElementById('photoResultDesc').textContent = 'Something went wrong — please try again, or switch to the questions method instead.';
+    document.getElementById('photoResultDesc').textContent = "Something went wrong on our side, so we couldn't read your photo. Please try again in a moment, or use the questions instead.";
     document.getElementById('photoResult').style.display = 'block';
     document.getElementById('photoAnalyseBtn').disabled = false;
   } finally {
@@ -7741,6 +7923,8 @@ function openColourPath(method) {
     document.getElementById('colourPhotoPath').style.display = 'block';
   } else if (method === 'camera') {
     document.getElementById('colourCameraPath').style.display = 'block';
+    cameraNote('colourCameraNote', '');
+    document.getElementById('colourCameraSwitchBtn').style.display = 'none';
   } else {
     document.getElementById('colourQuestionsPath').style.display = 'block';
   }
@@ -7810,21 +7994,35 @@ function showColourPhotoPaywall() {
 
 /* ── Camera capture ── */
 async function startCamera(step) {
+  cameraNote('colourCameraNote', '');
   try {
-    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); }
-    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
     var video = document.getElementById('cameraPreview' + step);
-    video.srcObject = cameraStream;
-    video.style.display = 'block';
+    cameraStream = await openCamera(video, 'colourCameraSwitchBtn');
     document.getElementById('cameraStartBtn').style.display = 'none';
     document.getElementById('cameraCaptureBtn1').style.display = 'inline-block';
   } catch(err) {
-    alert('Camera access was denied or is unavailable. Please use the "Upload a photo" option instead.');
+    cameraNote('colourCameraNote', "We couldn't open your camera — it may be switched off, in use by another app, or not allowed for this site. You can upload a photo instead.");
   }
 }
 
-function captureShot(step) {
+function switchColourCamera() {
+  if (!moveToNextCamera()) return;
+  if (document.getElementById('cameraStep2').style.display === 'block') startCameraForStep2();
+  else startCamera(1);
+}
+
+async function captureShot(step) {
   var video = document.getElementById('cameraPreview' + step);
+  if (!(await waitForCameraPicture(video, 3000))) {
+    cameraNote('colourCameraNote', "Your camera hasn't started sending a picture yet. Give it a moment and try again, or try \u201cSwitch camera\u201d if you see it.");
+    return;
+  }
+  if (pictureLooksBlank(video)) {
+    cameraNote('colourCameraNote', BLANK_PICTURE_NOTE);
+    return;
+  }
+  cameraNote('colourCameraNote', '');
   var canvas = document.getElementById('cameraCanvas' + step);
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
@@ -7844,6 +8042,8 @@ function captureShot(step) {
     document.getElementById('cameraCapture2Wrap').style.display = 'block';
     video.style.display = 'none';
     document.getElementById('cameraCaptureBtn2').style.display = 'none';
+    document.getElementById('colourCameraSwitchBtn').style.display = 'none';
+    document.getElementById('cameraRetakeBtn2').style.display = 'inline-block';
     document.getElementById('cameraAnalyseBtn').style.display = 'inline-block';
     // Stop camera stream — we have both shots
     if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
@@ -7857,14 +8057,17 @@ function goToCameraStep2() {
 }
 
 async function startCameraForStep2() {
+  cameraNote('colourCameraNote', '');
+  cameraPhoto2Base64 = null;
+  document.getElementById('cameraCapture2Wrap').style.display = 'none';
+  document.getElementById('cameraAnalyseBtn').style.display = 'none';
+  document.getElementById('cameraRetakeBtn2').style.display = 'none';
+  document.getElementById('cameraCaptureBtn2').style.display = 'inline-block';
   try {
-    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); }
-    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-    var video = document.getElementById('cameraPreview2');
-    video.srcObject = cameraStream;
-    video.style.display = 'block';
+    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+    cameraStream = await openCamera(document.getElementById('cameraPreview2'), 'colourCameraSwitchBtn');
   } catch(err) {
-    alert('Camera access was denied. Please upload photos manually instead.');
+    cameraNote('colourCameraNote', "We couldn't open your camera — it may be switched off, in use by another app, or not allowed for this site. You can upload a photo instead.");
   }
 }
 
@@ -7885,6 +8088,7 @@ async function analyseCameraPhotos() {
   document.getElementById('colourCameraAnalysing').style.display = 'flex';
 
   var prompt = 'You are a warm, expert colour analyst trained in seasonal colour theory. The user has shared two photos — one front-facing and one side profile — for palette analysis.' +
+    NO_PERSON_COLOUR.replace('the photo', 'both photos').replace('does not clearly', 'do not both clearly').replace('it is blank', 'either is blank') +
     ' Study their skin undertones, hair depth and tone, and eye colour carefully across both images.' +
     ' Determine which of these four palettes fits them best: cool, warm, neutral, deep.' +
     ' cool = blue or pink undertones, best in icy/jewel tones and silver.' +
@@ -7911,17 +8115,31 @@ async function analyseCameraPhotos() {
     var data = await response.json();
     if (!response.ok) throw new Error(data.error || 'API error ' + response.status);
     var result = parseQuizJSON(data.result);
-    var palette = colourPalettes[result.palette] || colourPalettes.neutral;
-    colourResultTone = result.palette;
+    var answer = readPhotoAnswer(result, 'palette', PALETTES_ALLOWED);
+    if (!answer.ok) {
+      colourResultTone = ''; colourResultSeason = '';
+      document.getElementById('colourCameraResultType').textContent = "We couldn't see you";
+      document.getElementById('colourCameraSwatchRow').innerHTML = '';
+      document.getElementById('colourCameraResultDesc').textContent = couldNotSeeYouText(answer.reason, 'colouring');
+      document.getElementById('colourCameraResult').style.display = 'block';
+      document.getElementById('colourQuizContinueWrap').style.display = 'none';
+      document.getElementById('cameraAnalyseBtn').style.display = 'inline-block';
+      return;
+    }
+    result.palette = answer.key;
+    var palette = colourPalettes[answer.key];
+    colourResultTone = answer.key;
     colourResultSeason = palette.season;
     document.getElementById('colourCameraResultType').textContent = palette.label + ' palette';
-    renderColourSwatches(result.palette, 'colourCameraSwatchRow');
+    renderColourSwatches(answer.key, 'colourCameraSwatchRow');
     document.getElementById('colourCameraResultDesc').textContent = result.description;
     document.getElementById('colourCameraResult').style.display = 'block';
     document.getElementById('colourQuizContinueWrap').style.display = 'block';
   } catch(err) {
+    colourResultTone = ''; colourResultSeason = '';
     document.getElementById('colourCameraResultType').textContent = 'Unable to analyse';
-    document.getElementById('colourCameraResultDesc').textContent = 'Something went wrong — please try again, or switch to the questions method instead.';
+    document.getElementById('colourCameraSwatchRow').innerHTML = '';
+    document.getElementById('colourCameraResultDesc').textContent = "Something went wrong on our side, so we couldn't read your photos. Please try again in a moment, or use the questions instead.";
     document.getElementById('colourCameraResult').style.display = 'block';
     document.getElementById('cameraAnalyseBtn').style.display = 'inline-block';
   } finally {
@@ -7962,12 +8180,22 @@ function renderColourSwatches(paletteKey, containerId) {
 
 async function analyseColourPhoto() {
   if (!colourPhotoBase64) return;
+  if (await uploadLooksBlank(colourPhotoBase64, colourPhotoMediaType)) {
+    document.getElementById('colourPhotoResultType').textContent = "We couldn't see you";
+    document.getElementById('colourSwatchRow').innerHTML = '';
+    document.getElementById('colourPhotoResultDesc').textContent = "That photo looks blank or too dark to read, so we haven't used it. Please choose a clear photo of your face in daylight.";
+    document.getElementById('colourPhotoResult').style.display = 'block';
+    document.getElementById('colourQuizContinueWrap').style.display = 'none';
+    colourResultTone = ''; colourResultSeason = '';
+    return;
+  }
   document.getElementById('colourPhotoAnalyseBtn').disabled = true;
   document.getElementById('colourPhotoAnalysing').style.display = 'flex';
   document.getElementById('colourPhotoResult').style.display = 'none';
   document.getElementById('colourQuizContinueWrap').style.display = 'none';
 
   var prompt = 'You are a warm, expert colour analyst trained in seasonal colour theory. The user has shared a photo for palette analysis.' +
+    NO_PERSON_COLOUR +
     ' Study their skin undertones, hair depth and tone, and eye colour carefully.' +
     ' Determine which of these four palettes fits them best: cool, warm, neutral, deep.' +
     ' cool = blue or pink undertones, best in icy/jewel tones and silver.' +
@@ -7991,17 +8219,31 @@ async function analyseColourPhoto() {
     var data = await response.json();
     if (!response.ok) throw new Error(data.error || "API error " + response.status);
     var result = parseQuizJSON(data.result);
-    var palette = colourPalettes[result.palette] || colourPalettes.neutral;
-    colourResultTone = result.palette;
+    var answer = readPhotoAnswer(result, 'palette', PALETTES_ALLOWED);
+    if (!answer.ok) {
+      colourResultTone = ''; colourResultSeason = '';
+      document.getElementById('colourPhotoResultType').textContent = "We couldn't see you";
+      document.getElementById('colourSwatchRow').innerHTML = '';
+      document.getElementById('colourPhotoResultDesc').textContent = couldNotSeeYouText(answer.reason, 'colouring');
+      document.getElementById('colourPhotoResult').style.display = 'block';
+      document.getElementById('colourQuizContinueWrap').style.display = 'none';
+      document.getElementById('colourPhotoAnalyseBtn').disabled = false;
+      return;
+    }
+    result.palette = answer.key;
+    var palette = colourPalettes[answer.key];
+    colourResultTone = answer.key;
     colourResultSeason = palette.season;
     document.getElementById('colourPhotoResultType').textContent = palette.label + ' palette';
-    renderColourSwatches(result.palette, 'colourSwatchRow');
+    renderColourSwatches(answer.key, 'colourSwatchRow');
     document.getElementById('colourPhotoResultDesc').textContent = result.description;
     document.getElementById('colourPhotoResult').style.display = 'block';
     document.getElementById('colourQuizContinueWrap').style.display = 'block';
   } catch(err) {
+    colourResultTone = ''; colourResultSeason = '';
     document.getElementById('colourPhotoResultType').textContent = 'Unable to analyse';
-    document.getElementById('colourPhotoResultDesc').textContent = 'Something went wrong — please try again, or switch to the questions method instead.';
+    document.getElementById('colourSwatchRow').innerHTML = '';
+    document.getElementById('colourPhotoResultDesc').textContent = "Something went wrong on our side, so we couldn't read your photo. Please try again in a moment, or use the questions instead.";
     document.getElementById('colourPhotoResult').style.display = 'block';
     document.getElementById('colourPhotoAnalyseBtn').disabled = false;
   } finally {
