@@ -45,8 +45,12 @@ const REQUIRE_KNOWN_ORIGIN = true;
 const MODEL_PRICES = {
   'claude-sonnet-5-5': [2, 10],
   'claude-sonnet-5':   [2, 10],
-  'claude-sonnet-4-6': [3, 15]
+  'claude-sonnet-4-6': [3, 15],
+  // Added 28 Nov 2026.  Haiku 5.5 is priced by prompt length: $0.10/$0.50
+  // up to 100,000 input tokens, $0.50/$2.50 for the whole request above.
+  'claude-haiku-5-5':  [0.1, 0.5]
 };
+const HAIKU_LONG_PROMPT = { over: 100000, prices: [0.5, 2.5] };
 const PRICE_PER_WEB_SEARCH  = 0.01;   // USD per search ($10 per 1,000)
 
 /* ── Which AI model, and how hard it thinks ───────────────────────────────
@@ -64,6 +68,27 @@ const MODEL = (process.env.SEARCH_MODEL || 'claude-sonnet-5-5').trim();
 const EFFORT = ['low', 'medium', 'high'].includes((process.env.SEARCH_EFFORT || '').trim())
   ? process.env.SEARCH_EFFORT.trim() : 'high';
 const MAX_WEB_SEARCHES = Math.min(10, Math.max(1, parseInt(process.env.SEARCH_MAX_WEB_SEARCHES || '6', 10) || 6));
+/* Top-up rounds (added 28 Nov 2026 to cut cost): when links fail and the app
+   asks for replacements, that request needs only a few pieces, so it gets a
+   smaller search budget.  Each web search also pulls ~9,000 tokens of results
+   into the prompt, so this saves on tokens as well as search fees.
+     SEARCH_REFILL_WEB_SEARCHES  (default 4) */
+const REFILL_WEB_SEARCHES = Math.min(MAX_WEB_SEARCHES, Math.max(1, parseInt(process.env.SEARCH_REFILL_WEB_SEARCHES || '4', 10) || 4));
+
+/* ── Second opinion on links a shop won't let us check (28 Nov 2026) ──────
+   ASOS, Nordstrom, Farfetch, Net-a-Porter and Saks block our own checker, so
+   their links were kept unchecked — and owner testing found sold-out pieces,
+   a men's coat in a women's search, and a sold Farfetch item whose address
+   now shows a listing page.  For each blocked link, a small, cheap model
+   opens the page with Anthropic's web fetch tool (which some of those shops
+   let in) and says whether it's that product, still for sale, and from the
+   right department.  If it can't get in either, the link is kept as before.
+     VERIFY_BLOCKED  set to "off" to switch this off
+     VERIFY_MODEL    default claude-haiku-5-5 (about a tenth of a cent a link) */
+const VERIFY_ON = (process.env.VERIFY_BLOCKED || '').trim().toLowerCase() !== 'off';
+const VERIFY_MODEL = (process.env.VERIFY_MODEL || 'claude-haiku-5-5').trim();
+const MAX_VERIFY_PER_CHECK = 8;
+const VERIFY_TIMEOUT_MS = 25000;
 
 /* Claude 5-generation models think before answering unless told otherwise,
    and that thinking counts toward max_tokens — enough to cut a 500-token
@@ -75,8 +100,17 @@ export function isFiveGeneration(model) {
   return /^claude-(sonnet|opus|haiku|fable|mythos)-5(\b|-)/.test(model);
 }
 
-function pricesFor(model) {
+function pricesFor(model, inputTokens) {
+  if (model === 'claude-haiku-5-5' && (inputTokens || 0) > HAIKU_LONG_PROMPT.over) return HAIKU_LONG_PROMPT.prices;
   return MODEL_PRICES[model] || MODEL_PRICES['claude-sonnet-4-6'];
+}
+
+export function costOf(model, usage) {
+  if (!usage) return 0;
+  const inTok = usage.input_tokens || 0, outTok = usage.output_tokens || 0;
+  const searches = (usage.server_tool_use && usage.server_tool_use.web_search_requests) || 0;
+  const [pIn, pOut] = pricesFor(model, inTok);
+  return (inTok / 1e6) * pIn + (outTok / 1e6) * pOut + searches * PRICE_PER_WEB_SEARCH;
 }
 
 function logCost(mode, usage) {
@@ -89,10 +123,7 @@ function logCost(mode, usage) {
   const cacheWrite = usage.cache_creation_input_tokens || 0;
   const searches = (usage.server_tool_use && usage.server_tool_use.web_search_requests) || 0;
 
-  const [pIn, pOut] = pricesFor(MODEL);
-  const dollars = (inTok  / 1e6) * pIn
-                + (outTok / 1e6) * pOut
-                + searches * PRICE_PER_WEB_SEARCH;
+  const dollars = costOf(MODEL, usage);
 
   console.log(
     '[COST] mode=' + mode + ' model=' + MODEL +
@@ -257,6 +288,88 @@ const PRIVATE_HOST_PATTERNS = [
 ];
 
 const MAX_URLS_PER_CHECK = 40;
+
+export function expectedDepartment(gender) {
+  const g = String(gender || '').toLowerCase();
+  return g === 'women' ? 'women' : g === 'men' ? 'men' : '';
+}
+
+export function secondOpinionPrompt(url, name, dept) {
+  return `Open this product link with web_fetch (once), then check it.
+
+Link: ${url}
+Product we expect: "${String(name).replace(/"/g, "'").slice(0, 200)}"
+${dept ? `Department we expect: ${dept}'s` : 'Department: any'}
+
+Reply with ONLY this JSON, nothing else:
+{"opened": true or false, "productPage": true or false, "sameProduct": true or false, "buyable": "yes" or "no" or "unknown", "department": "women" or "men" or "unisex" or "kids" or "unknown"}
+
+- opened: false if the page could not be fetched, or it is a bot check, "access denied", "browser not supported" or other page with no real product details on it.
+- productPage: true only for a page about one specific product — not a listing of many products, a search page, a category page or a home page.
+- sameProduct: true if the page is about the product we expect (small wording differences are fine; a different item is not).
+- buyable: "no" if the page says sold out, out of stock, no longer available, or every size is unavailable; "yes" if it shows the item can be bought now (a price with an add-to-bag button, or sizes to choose); "unknown" if it doesn't say.
+- department: from the page's breadcrumb, category, sizing or wording.`;
+}
+
+// What the second opinion means for the link.  Returns null to leave the
+// link as it was (kept, unchecked), or { alive, stock, reason }.
+export function judgeOpinion(op, dept) {
+  if (!op || op.opened !== true) return null;
+  if (op.productPage === false) return { alive: false, reason: 'second opinion: not a product page' };
+  if (op.sameProduct === false) return { alive: false, reason: 'second opinion: a different product' };
+  if (op.buyable === 'no') return { alive: false, reason: 'second opinion: sold out' };
+  const d = String(op.department || '').toLowerCase();
+  if (dept && (d === 'kids' || (dept === 'women' && d === 'men') || (dept === 'men' && d === 'women'))) {
+    return { alive: false, reason: "second opinion: " + d + "'s item" };
+  }
+  if (op.productPage === true && op.sameProduct === true) {
+    return { alive: true, stock: op.buyable === 'yes' ? 'in' : 'unknown', reason: 'second opinion: confirmed' + (op.buyable === 'yes' ? ' in stock' : '') };
+  }
+  return null;
+}
+
+function parseOpinion(text) {
+  const m = String(text || '').match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try { return JSON.parse(m[0]); } catch { return null; }
+}
+
+async function secondOpinion(url, name, gender) {
+  const dept = expectedDepartment(gender);
+  let host = '';
+  try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { return { verdict: null, cost: 0, note: 'bad url' }; }
+  const body = {
+    model: VERIFY_MODEL,
+    max_tokens: 800,
+    tools: [{ type: 'web_fetch_20250910', name: 'web_fetch', max_uses: 1, max_content_tokens: 8000, allowed_domains: [host] }],
+    messages: [{ role: 'user', content: secondOpinionPrompt(url, name, dept) }]
+  };
+  if (isFiveGeneration(VERIFY_MODEL)) body.thinking = { type: 'between_tools' };
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), VERIFY_TIMEOUT_MS);
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify(body),
+      signal: ctl.signal
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return { verdict: null, cost: 0, note: 'api ' + r.status + (data.error && data.error.message ? ': ' + String(data.error.message).slice(0, 120) : '') };
+    const cost = costOf(VERIFY_MODEL, data.usage);
+    const blocks = data.content || [];
+    const fetchErr = blocks.find(b => b.type === 'web_fetch_tool_result' && b.content && b.content.type === 'web_fetch_tool_result_error');
+    if (fetchErr) return { verdict: null, cost, note: 'fetch ' + (fetchErr.content.error_code || 'error') };
+    const op = parseOpinion(blocks.filter(b => b.type === 'text').map(b => b.text).join(''));
+    if (!op) return { verdict: null, cost, note: 'no answer' };
+    if (op.opened !== true) return { verdict: null, cost, note: "couldn't open" };
+    return { verdict: judgeOpinion(op, dept), cost, note: '' };
+  } catch (e) {
+    return { verdict: null, cost: 0, note: e && e.name === 'AbortError' ? 'timed out' : 'error' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function isCheckableUrl(url) {
   if (typeof url !== 'string' || url.length > 2000) return false;
@@ -616,6 +729,28 @@ export default async function handler(req, res) {
     // fall back to the original "does it load?" check.
     const results = await Promise.all(urls.map((u, i) =>
       names && typeof names[i] === 'string' && names[i] ? checkProductPage(u, names[i]) : checkUrl(u)));
+    // Second opinion on the ones the shop wouldn't show us (see VERIFY_ON).
+    let secondLine = '';
+    if (VERIFY_ON && names && process.env.ANTHROPIC_API_KEY) {
+      const toAsk = results.map((x, i) => ({ x, i })).filter(o => o.x.blocked).slice(0, MAX_VERIFY_PER_CHECK);
+      if (toAsk.length) {
+        const opinions = await Promise.all(toAsk.map(o => secondOpinion(o.x.url, names[o.i], req.body.gender)));
+        let confirmed = 0, removed = 0, unopened = 0, cost = 0;
+        const notes = [];
+        opinions.forEach((op, k) => {
+          const x = results[toAsk[k].i];
+          cost += op.cost || 0;
+          if (!op.verdict) { unopened++; if (op.note) notes.push(op.note); return; }
+          x.blocked = false;
+          x.alive = op.verdict.alive;
+          x.reason = op.verdict.reason;
+          if (op.verdict.alive) { x.stock = op.verdict.stock; confirmed++; } else removed++;
+        });
+        secondLine = ' secondOpinion: asked=' + toAsk.length + ' confirmed=' + confirmed + ' removed=' + removed +
+          ' couldNotOpen=' + unopened + (notes.length ? ' (' + [...new Set(notes)].join(', ') + ')' : '') +
+          ' model=' + VERIFY_MODEL + ' est=$' + cost.toFixed(4);
+      }
+    }
     // One line per check, every time — so a quiet log means "all fine", not
     // "nobody looked". "blockedKept" counts pages the retailer wouldn't show
     // us, which were kept unchecked; if that number is high for a retailer,
@@ -632,7 +767,7 @@ export default async function handler(req, res) {
       ' rejected=' + rejected.length + ' blockedKept=' + blocked.length +
       ' stockUnconfirmed=' + unconfirmed.length +
       (blocked.length ? ' blockedBy=' + [...new Set(blocked.map(x => hostOf(x.url)))].join(',') : '') +
-      (names ? '' : ' (no names sent — old check)') +
+      (names ? '' : ' (no names sent — old check)') + secondLine +
       (rejected.length ? ' | ' + rejected.map(x => x.url + ' (' + (x.reason || 'dead') + ')').join(' | ').slice(0, 1500) : '') +
       // Added 28 Nov 2026: the links kept unchecked, and why, so one that
       // turns out to be dead (Farfetch, in a Look test) can be traced.
@@ -662,6 +797,8 @@ export default async function handler(req, res) {
     ? prompt.replace(/\s*Use at most \d+ web searches? total\.?/gi, '')
     : prompt;
   const resolvedMode = mode || (looksLikeSearch ? 'search' : 'quiz');
+  const isRefill = req.body.round === 'refill';
+  const searchBudget = isRefill ? REFILL_WEB_SEARCHES : MAX_WEB_SEARCHES;
   const isOutfitSearch = resolvedMode === 'search';
   const isFitCheck = resolvedMode === 'fitcheck';
   const isGuide = resolvedMode === 'guide';
@@ -699,14 +836,14 @@ export default async function handler(req, res) {
     // The basic search tool, called directly — not the newer "dynamic
     // filtering" versions, which run searches from inside code and would
     // hide the result list that groundResults() checks links against.
-    requestBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: MAX_WEB_SEARCHES }];
+    requestBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: searchBudget }];
     // One shop with a known website: only search that website. (allowed_domains
     // includes its subdomains, e.g. shop.lululemon.com for lululemon.com.)
     if (shop && shop.domain) requestBody.tools[0].allowed_domains = [shop.domain];
     requestBody.system = `You are a fashion search assistant. You MUST follow these rules strictly:
 
 SEARCHING — how to find real product pages:
-- You have up to ${MAX_WEB_SEARCHES} web searches. Plan them before you start. A broad query ("best linen shorts for women") returns articles and category pages, which are useless here. A query naming one retailer and one kind of item ("Nordstrom women's linen drawstring shorts", "COS wide-leg linen trousers women") returns that shop's actual product pages.
+- You have up to ${searchBudget} web searches. Plan them before you start. A broad query ("best linen shorts for women") returns articles and category pages, which are useless here. A query naming one retailer and one kind of item ("Nordstrom women's linen drawstring shorts", "COS wide-leg linen trousers women") returns that shop's actual product pages.
 ${shop ? `- ONE SHOP ONLY: the user has asked for products from ${shop.name}${shop.domain ? ' (' + shop.domain + ')' : ''} and nowhere else. This overrides every other instruction about which retailers to use, including any list of favourite or preferred retailers and the VARIETY rule. Make every search about ${shop.name} and the kind of item you're looking for ("${shop.name} women's black leather pencil skirt").
 - Every item must be sold by ${shop.name} on its own website. Never add items from any other shop, even if ${shop.name} has fewer suitable pieces than asked for: return fewer items instead.` : '- So make each search about one retailer, and use different retailers for different searches. That is also how you meet the VARIETY rule below.'}
 - Only choose products whose product-page link appears in your results. If a search brings back only articles or category pages, run a more specific search; do not work out what the product link "would be".
@@ -782,7 +919,7 @@ Respond with a raw JSON array only. No markdown, no preamble, no explanation.`;
 
       // Log before anything else can return early — a reply that got truncated
       // still cost money, and those are exactly the calls worth seeing.
-      logCost(resolvedMode, data.usage);
+      logCost(isRefill ? 'refill' : resolvedMode, data.usage);
       allContent.push(...(data.content || []));
 
       if (data.stop_reason !== 'pause_turn') break;

@@ -6891,9 +6891,18 @@ function ourSideMessageHtml(what) {
     </div>`;
 }
 
+/* Cost controls (28 Nov 2026, owner's decision to cut cost per search).
+   A top-up round is a whole extra AI search (about 15–25¢), so:
+     • TOPUP_BELOW — only top up when fewer than this many good pieces were
+       found; 4 or 5 good pieces are shown as they are (Discover more is there
+       for more).  Set it to the target (6) to always fill the page.
+     • MAX_ROUNDS — at most 2 top-ups (was 3).
+   The server also gives top-up rounds fewer web searches. */
+const TOPUP_BELOW = 4;
+
 async function verifyAndFill(items, targetCount, buildMoreFn, statusEl, alreadyShown) {
   lastSearchServiceProblem = false;
-  const MAX_ROUNDS = 3;   // max replacement attempts
+  const MAX_ROUNDS = 2;   // max replacement attempts (was 3 until 28 Nov 2026)
   let good = [];
   // Good items held back by the per-retailer limit. Used only to top up at
   // the end if there genuinely isn't enough variety to fill the page.
@@ -6937,7 +6946,10 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl, alreadyS
           body: JSON.stringify({
             validateUrls: true,
             urls: currentBatch.map(i => i.url),
-            names: currentBatch.map(i => i.name || '')
+            names: currentBatch.map(i => i.name || ''),
+            // so the server's second opinion can spot a men's piece in a
+            // women's search, and the reverse (28 Nov 2026)
+            gender: profile.gender || ''
           })
         });
         checkData = await checkRes.json();
@@ -6967,8 +6979,9 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl, alreadyS
       });
     }
 
-    // If we have enough good results, stop
-    if (good.length >= targetCount) break;
+    // If we have enough good results, stop.  "Enough" is the full page, or
+    // TOPUP_BELOW pieces, whichever is fewer — see the cost note above.
+    if (good.length >= Math.min(targetCount, TOPUP_BELOW)) break;
 
     // If we've done all replacement rounds, stop
     if (round === MAX_ROUNDS) break;
@@ -6981,8 +6994,8 @@ async function verifyAndFill(items, targetCount, buildMoreFn, statusEl, alreadyS
     let extras = [];
     let moreRes = null;
     try {
-      const { prompt, imageBase64, imageMediaType } = buildMoreFn(needed + 4, exclude);
-      const body = addShopToBody({ prompt, mode: 'search' });
+      const { prompt, imageBase64, imageMediaType } = buildMoreFn(needed + 3, exclude);
+      const body = addShopToBody({ prompt, mode: 'search', round: 'refill' });
       if (imageBase64) { body.imageBase64 = imageBase64; body.imageMediaType = imageMediaType; }
       moreRes = await fetch('/api/search', {
         method: 'POST',
