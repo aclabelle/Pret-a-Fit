@@ -18,13 +18,16 @@ body {
   font-size:15px; line-height:1.6;
 }
 a { color:var(--bark); }
+/* Top bar and logo match the app's own (.app-topbar / .app-logo-small in
+   index.html): parchment background, dust rule, "fit" in bark.  Fixed
+   28 Nov 2026 — "fit" had been showing in ink on these pages. */
 .topbar {
   display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
   gap:0.75rem 1.25rem; padding:1.1rem 1.5rem;
-  border-bottom:0.5px solid var(--linen); background:var(--mist);
+  border-bottom:0.5px solid var(--dust); background:var(--parchment);
 }
-.logo { font-family:Georgia,serif; font-size:15px; letter-spacing:0.02em; color:var(--ink); text-decoration:none; }
-.logo em { font-style:italic; }
+.logo { font-family:Georgia,serif; font-size:16px; font-weight:400; letter-spacing:0.04em; color:var(--ink); text-decoration:none; white-space:nowrap; }
+.logo em { font-style:italic; color:var(--bark); }
 .nav { display:flex; flex-wrap:wrap; gap:1.1rem; }
 .nav a {
   font-size:10px; letter-spacing:0.16em; text-transform:uppercase;
@@ -32,6 +35,11 @@ a { color:var(--bark); }
 }
 .nav a:hover { color:var(--ink); }
 .nav a[aria-current="page"] { color:var(--ink); }
+/* "← Back" (added 28 Nov 2026): returns to where they were on the site — the
+   app screen they came from keeps its place — or to the home page if they
+   arrived from somewhere else. */
+.nav a.back-link { color:var(--ink); }
+.nav a.back-link:hover { color:var(--bark); }
 .wrap { max-width:760px; margin:0 auto; padding:3rem 1.5rem 4.5rem; }
 .wrap.wide { max-width:1000px; }
 .eyebrow { font-size:10px; letter-spacing:0.22em; text-transform:uppercase; color:var(--bark); margin-bottom:0.9rem; }
@@ -90,6 +98,7 @@ footer {
   <div class="topbar">
     <a class="logo" href="/">pr&ecirc;t-&agrave;-<em>fit</em></a>
     <nav class="nav">
+      <a href="/" class="back-link" onclick="try { if (document.referrer &amp;&amp; new window.URL(document.referrer).host === window.location.host &amp;&amp; window.history.length &gt; 1) { window.history.back(); return false; } } catch (e) {} return true;">&larr; Back</a>
       <a href="pricing.html">Pricing</a>
       <a href="terms.html">Terms</a>
       <a href="privacy.html">Privacy</a>
