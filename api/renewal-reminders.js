@@ -19,6 +19,13 @@
    charge that falls at least ~6 months after the last reminder (or after they
    subscribed).
 
+   GIFTS (28 Nov 2026, see api/gift.js).  A renewal a gift pays for in full
+   costs nothing, so there's no charge to warn about and no email is sent
+   (it is still recorded, so it isn't looked at again).  A renewal a gift pays
+   for in part mentions the gift.  And anyone on a prepaid gift with no
+   subscription gets one email a week before it ends — nothing is charged
+   then either, but they'd want to know.
+
    NEVER TWICE FOR THE SAME CHARGE.  After sending, the charge date is recorded
    on the account (publicMetadata.lastReminderFor), and anyone already reminded
    for that date is skipped.  If a daily run is ever missed, the next one still
@@ -38,6 +45,7 @@
 
 import { createClerkClient } from '@clerk/backend';
 import { Resend } from 'resend';
+import { giftEndingDecision, buildGiftEndingEmail } from './gift.js';
 
 const SITE = 'https://pret-a-fit.com';
 const SUPPORT = 'support@pret-a-fit.com';
@@ -90,7 +98,7 @@ export function ordinalDay(iso) {
   return d + s;
 }
 
-function esc(s) {
+export function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
@@ -125,13 +133,14 @@ export function reminderDecision(pub, pref, now, daysAhead) {
 async function chargeDetails(pub) {
   const tier = pub.pendingTier || pub.tier;    // a pending move down renews at Standard
   const plan = PLANS[tier] || PLANS.standard;
-  const out = { planName: plan.name, amount: plan.price, method: 'your saved payment method' };
+  const out = { planName: plan.name, amount: plan.price, method: 'your saved payment method', totalMinor: null };
 
   try {
     const sub = await paddleGet('/subscriptions/' + encodeURIComponent(pub.paddleSubscriptionId) + '?include=next_transaction');
     const t = sub?.data?.next_transaction?.details?.totals;
     if (t && t.grand_total != null) {
       out.amount = formatMoney(t.grand_total, t.currency_code || sub.data.currency_code);
+      out.totalMinor = Number(t.grand_total);
     }
   } catch (e) {
     console.warn('[REMINDERS] Could not get the exact amount for ' + pub.paddleSubscriptionId + ': ' + e.message);
@@ -153,7 +162,14 @@ async function chargeDetails(pub) {
 
 /* ── The two emails (approved copy, 22 Nov 2026) ──
    Subject lines carry no brand name: the sender address already does. */
-export function buildEmail(kind, { firstName, date, amount, planName, method }) {
+/* The gift paying for part of the renewal on this date, if any. */
+export function giftFor(pub, dateIso) {
+  const at = Date.parse(dateIso);
+  return (pub?.gifts || []).find(g => g.kind === 'discount' &&
+    Date.parse(g.start) <= at + 60 * 1000 && at < Date.parse(g.end)) || null;
+}
+
+export function buildEmail(kind, { firstName, date, amount, planName, method, giftFrom }) {
   const hello = firstName ? 'Hello ' + firstName + ',' : 'Hello,';
   const manageUrl = SITE + '/?open=plan';
   const day = ordinalDay(date);
@@ -173,14 +189,15 @@ export function buildEmail(kind, { firstName, date, amount, planName, method }) 
   const subject = 'Reminder: your monthly charge, ' + dm;
   const lines = [
     hello,
-    amount + ' on ' + dm + ', to ' + method + ".  That's your " + planName + ' plan renewing.',
+    amount + ' on ' + dm + ', to ' + method + ".  That's your " + planName + ' plan renewing' +
+      (giftFrom ? ', with the rest paid for by your gift from ' + giftFrom + '.' : '.'),
     "Nothing to do if that suits.  If it doesn't, cancel any time before then and you'll keep everything until the " + day + '.',
   ];
   return { subject, ...render(lines, 'Cancel or change plan', manageUrl,
     'Too many emails?  You can set these to twice a year instead, from your profile.') };
 }
 
-function render(lines, buttonText, buttonUrl, footnote) {
+export function render(lines, buttonText, buttonUrl, footnote) {
   const text = lines.join('\n\n') + '\n\n' + buttonText + ': ' + buttonUrl +
     (footnote ? '\n\n' + footnote : '') +
     '\n\n—\nPrêt-à-Fit · Questions? Just reply, or write to ' + SUPPORT;
@@ -228,10 +245,33 @@ export async function GET(request) {
   const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
   const resend = new Resend(process.env.RESEND_API_KEY);
   const now = Date.now();
-  const summary = { checked: 0, sent: 0, failed: 0, dryRun, daysAhead };
+  const summary = { checked: 0, sent: 0, failed: 0, giftEndings: 0, coveredByGift: 0, dryRun, daysAhead };
 
   for (const user of await allUsers(clerk)) {
     const pub = user.publicMetadata || {};
+
+    // A prepaid gift ending soon?
+    const gd = giftEndingDecision(pub, now, daysAhead);
+    if (gd.send) {
+      const to = user.primaryEmailAddress?.emailAddress || user.emailAddresses?.[0]?.emailAddress;
+      if (to) {
+        try {
+          const email = buildGiftEndingEmail({ firstName: (user.firstName || '').trim(), tier: gd.gift.tier, fromName: gd.gift.from, end: gd.gift.end });
+          if (dryRun) {
+            console.log('[REMINDERS] DRY RUN would send "' + email.subject + '" to ' + user.id);
+          } else {
+            const { error } = await resend.emails.send({ from, to, replyTo: SUPPORT, subject: email.subject, text: email.text, html: email.html });
+            if (error) throw new Error(error.message || JSON.stringify(error));
+            await clerk.users.updateUserMetadata(user.id, { publicMetadata: { lastGiftReminderFor: gd.gift.end } });
+          }
+          summary.giftEndings++;
+        } catch (e) {
+          summary.failed++;
+          console.error('[REMINDERS] Gift-ending email failed for ' + user.id + ': ' + (e?.message || e));
+        }
+      }
+    }
+
     if (!pub.paddleSubscriptionId) continue;
     summary.checked++;
 
@@ -246,12 +286,23 @@ export async function GET(request) {
 
     try {
       const d = await chargeDetails(pub);
+      const gift = giftFor(pub, pub.nextBilledAt);
+      if (gift && d.totalMinor === 0) {
+        // Paid for in full by a gift: nothing will be charged, so nothing to
+        // warn about.  Recorded so it isn't looked at again.
+        if (!dryRun) {
+          await clerk.users.updateUserMetadata(user.id, { publicMetadata: { lastReminderFor: pub.nextBilledAt } });
+        }
+        summary.coveredByGift++;
+        continue;
+      }
       const email = buildEmail(decision.kind, {
         firstName: (user.firstName || '').trim(),
         date: pub.nextBilledAt,
         amount: d.amount,
         planName: d.planName,
         method: d.method,
+        giftFrom: gift ? gift.from : '',
       });
 
       if (dryRun) {

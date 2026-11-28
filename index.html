@@ -820,6 +820,18 @@ select.text-input { cursor: pointer; }
 }
 .app-nav-link:hover { color: var(--bark); }
 a.app-nav-link { text-decoration: none; display: inline-block; }
+.nav-short { display: none; }
+.app-logo-small { white-space: nowrap; }
+/* Phones: the main menu was already a little wider than the screen before
+   gifts were added (27 Nov).  About and Contact are still reachable from the
+   FAQ page's menu, so they step out of the top bar here, and "Give a gift"
+   shortens to "Gifts". */
+@media (max-width: 540px) {
+  .app-nav { gap: 1rem; }
+  .nav-wide-only { display: none; }
+  .nav-long { display: none; }
+  .nav-short { display: inline; }
+}
 
 /* ── Editorial pages ── */
 .editorial-body {
@@ -1880,6 +1892,25 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
   margin-bottom: 1.5rem;
 }
 /* Re-doing an assessment from the Profile (body type, colour palette) */
+.gift-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.gift-opt {
+  text-align: left; background: var(--mist); border: 0.5px solid var(--dust); padding: 14px 14px;
+  cursor: pointer; font-family: system-ui, sans-serif; transition: border-color 0.15s;
+}
+.gift-opt strong { display: block; font-size: 13px; font-weight: 500; color: var(--ink); }
+.gift-opt span { display: block; font-size: 11px; color: var(--charcoal); margin-top: 4px; }
+.gift-opt:hover { border-color: var(--bark); }
+.gift-opt.selected { border-color: var(--ink); background: var(--linen); }
+.gift-radio { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--charcoal); margin: 6px 0; cursor: pointer; }
+.gift-total { font-family: Georgia, serif; font-size: 1.2rem; color: var(--ink); margin-bottom: 1rem; }
+.gift-message { font-family: Georgia, serif; font-style: italic; font-size: 15px; line-height: 1.6; color: var(--ink); border-left: 2px solid var(--bark); padding-left: 12px; margin: 0 0 1.25rem; }
+.pf-modal .gift-message { border-left: none; padding: 0; text-align: center; }
+.gift-sent { padding: 12px 0; border-bottom: 0.5px solid var(--linen); font-size: 13px; color: var(--charcoal); }
+.gift-sent strong { color: var(--ink); font-weight: 500; }
+.gift-sent-link { display: flex; gap: 8px; margin-top: 6px; }
+.gift-sent-link input { flex: 1; font-size: 11px; padding: 6px 8px; border: 0.5px solid var(--dust); background: var(--mist); color: var(--charcoal); min-width: 0; }
+.gift-sent-link button { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; background: var(--ink); color: var(--mist); border: none; padding: 0 12px; cursor: pointer; }
+.plan-gift-note { font-size: 12px; color: var(--bark); line-height: 1.6; }
 .shop-more-toggle {
   display: block; background: none; border: none; padding: 0; margin: 6px 0 0;
   font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
@@ -3213,9 +3244,10 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
     <div class="app-logo-small">prêt-à-<em>fit</em></div>
     <nav class="app-nav">
       <button class="app-nav-link" onclick="openWishlist()">Saved</button>
-      <button class="app-nav-link" onclick="goTo('screen-about')">About</button>
+      <button class="app-nav-link" onclick="openGiftScreen()"><span class="nav-long">Give a gift</span><span class="nav-short">Gifts</span></button>
+      <button class="app-nav-link nav-wide-only" onclick="goTo('screen-about')">About</button>
       <button class="app-nav-link" onclick="openFaq('screen-app')">FAQ</button>
-      <button class="app-nav-link" onclick="goTo('screen-contact')">Contact</button>
+      <button class="app-nav-link nav-wide-only" onclick="goTo('screen-contact')">Contact</button>
       <button class="app-nav-link" onclick="openProfile()">Edit profile</button>
       <div id="userAvatarWrap" style="display:none;">
         <button class="user-avatar" id="userAvatarBtn" onclick="handleUserMenu()" title="Account"></button>
@@ -3765,7 +3797,7 @@ function pregnancyNote() {
 }
 
 /* ── Screen navigation ── */
-const SCREENS = ['screen-comingsoon','screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-manual','screen-colour-quiz','screen-style','screen-muses','screen-retailers','screen-sizing','screen-auth','screen-app','screen-wishlist','screen-profile','screen-faq'];
+const SCREENS = ['screen-comingsoon','screen-hero','screen-gender','screen-body','screen-body-quiz','screen-colour','screen-colour-manual','screen-colour-quiz','screen-style','screen-muses','screen-retailers','screen-sizing','screen-auth','screen-app','screen-wishlist','screen-profile','screen-faq','screen-gift'];
 const ONBOARDING_SCREENS = ['screen-gender','screen-body','screen-body-manual','screen-colour','screen-colour-manual','screen-style','screen-muses','screen-retailers','screen-sizing'];
 const TOTAL_DOTS = ONBOARDING_SCREENS.length;
 
@@ -4517,6 +4549,11 @@ async function enterApp() {
   if (clerkInstance && clerkInstance.user && takePendingSubscribe()) {
     setTimeout(handleSubscribe, 450);
   }
+  // …or on the way to claiming a gift, or buying one.
+  if (clerkInstance && clerkInstance.user) {
+    if (pendingGiftToken() && takeFlag(GIFT_CLAIM_AFTER_SIGNIN)) setTimeout(() => showGiftClaim(true), 450);
+    else if (takeFlag(GIFT_BUY_AFTER_SIGNIN)) setTimeout(() => { openGiftScreen(); restoreGiftForm(); }, 450);
+  }
 }
 
 /* ── User avatar in nav ── */
@@ -4601,6 +4638,7 @@ function clearPersonalState() {
   setPendingSubscribe(false);
   try { sessionStorage.removeItem(DISCOUNT_CODE_KEY); } catch (e) {}
   try { sessionStorage.removeItem(GOOGLE_TRIP_KEY); } catch (e) {}
+  try { [GIFT_TOKEN_KEY, GIFT_CLAIM_AFTER_SIGNIN, GIFT_BUY_AFTER_SIGNIN, GIFT_FORM_KEY].forEach(k => sessionStorage.removeItem(k)); } catch (e) {}
   planChoice = '';
   closePlanModal();
 
@@ -5555,7 +5593,68 @@ function isStaff() {
 }
 
 function hasPaidAccess() {
-  return isSubscriber() || isStaff();
+  return isSubscriber() || isStaff() || !!activeGift('access');
+}
+
+/* ── Gifts (28 Nov 2026; the server side is api/gift.js) ─────────────────
+   publicMetadata.gifts lists the gifts this account has claimed, each
+     { id, kind, tier, months, from, start, end }
+   kind 'access'   — prepaid months for someone without a subscription: the
+                     app treats them as a subscriber at that tier from start
+                     to end.  Nothing renews.
+   kind 'discount' — the gift pays for a subscriber's renewals from start to
+                     end (a Paddle discount does the paying).  The app only
+                     needs it to show the gift, to hold plan changes, and to
+                     give Premium for those months when a Premium gift goes
+                     to a Standard subscriber.
+   Only our server writes publicMetadata, so nobody can give themselves one. */
+const TIER_RANK = { standard: 1, premium: 2 };
+
+function claimedGifts() {
+  const g = billingInfo().gifts;
+  return Array.isArray(g) ? g : [];
+}
+
+/* The gift in effect right now (of one kind, or either), the one ending last. */
+function activeGift(kind) {
+  const now = Date.now();
+  return claimedGifts()
+    .filter(g => (!kind || g.kind === kind) && Date.parse(g.start) <= now && now < Date.parse(g.end))
+    .sort((a, b) => Date.parse(b.end) - Date.parse(a.end))[0] || null;
+}
+
+/* A gift paying for this subscriber's renewals now or from their next one. */
+function runningDiscountGift() {
+  const now = Date.now();
+  return claimedGifts().find(g => g.kind === 'discount' && now < Date.parse(g.end)) || null;
+}
+
+/* Prepaid gifts that haven't started yet (they follow a paid month or an
+   earlier gift). */
+function upcomingGifts() {
+  const now = Date.now();
+  return claimedGifts().filter(g => Date.parse(g.start) > now && g.kind === 'access');
+}
+
+/* Same day N months later; the 31st becomes the last day of a shorter month.
+   Mirrors addMonths() in api/gift.js. */
+function addMonthsIso(iso, months) {
+  const d = new Date(iso);
+  const day = d.getUTCDate();
+  const out = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, 1,
+    d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds()));
+  const last = new Date(Date.UTC(out.getUTCFullYear(), out.getUTCMonth() + 1, 0)).getUTCDate();
+  out.setUTCDate(Math.min(day, last));
+  return out.toISOString();
+}
+
+/* A prepaid gift's searches reset monthly from the day it started. */
+function giftMonth(g) {
+  const now = Date.now();
+  let k = 0;
+  while (k < 60 && Date.parse(addMonthsIso(g.start, k + 1)) <= now) k++;
+  const next = addMonthsIso(g.start, k + 1);
+  return { key: 'gift:' + g.id + ':' + k, resetAt: Date.parse(next) < Date.parse(g.end) ? next : g.end };
 }
 
 /* ── Plans and Paddle settings ────────────────────────────────────────────
@@ -5626,6 +5725,16 @@ function billingInfo() {
 /* 'standard', 'premium', or null for anyone not paying. Ignores the preview
    bypass on purpose — see hasPaidAccess(). */
 function subscriptionTier() {
+  const base = paidTier();
+  const g = activeGift();
+  if (!base) return g && g.kind === 'access' ? (PLANS[g.tier] ? g.tier : 'standard') : null;
+  // A Premium gift lifts a Standard subscriber to Premium for its months.
+  if (g && PLANS[g.tier] && TIER_RANK[g.tier] > TIER_RANK[base]) return g.tier;
+  return base;
+}
+
+/* The tier they pay for themselves (no gifts), or null. */
+function paidTier() {
   if (!isSubscriber()) return null;
   const pub = billingInfo();
   // Moving down from Premium: they keep Premium until the end of the month
@@ -5659,6 +5768,10 @@ function pendingDowngrade() {
    api/usage.js item in the backlog. The cap still protects against normal
    use, which is what the pricing maths depends on. */
 function currentPeriodKey() {
+  if (!isSubscriber()) {
+    const g = activeGift('access');
+    if (g) return giftMonth(g).key;
+  }
   const start = billingInfo().periodStart;
   if (start) return String(start);
   const d = new Date();
@@ -5712,8 +5825,11 @@ function showPaywall(area) {
    automatically — they can wait for the reset or move up a plan, exactly as
    the pricing page promises. */
 function showAllowanceUsed(area, a) {
-  const reset = formatShortDate(billingInfo().nextBilledAt);
-  const canUpgrade = a.tier === 'standard';
+  const gift = !isSubscriber() && activeGift('access');
+  const reset = formatShortDate(gift ? giftMonth(gift).resetAt : billingInfo().nextBilledAt);
+  // Moving up is a change to a paid subscription — not something a gift has,
+  // and on hold while a gift is paying for renewals.
+  const canUpgrade = a.tier === 'standard' && isSubscriber() && !runningDiscountGift();
   area.innerHTML = `
     <div class="paywall-wrap">
       <div class="paywall-eyebrow">This month's searches are used</div>
@@ -5760,6 +5876,13 @@ function handleSubscribe() {
     switchAuthTab('signup');
     document.getElementById('authSub').textContent =
       'Create an account, or sign in, so your subscription is yours on any device.';
+    return;
+  }
+  // On a prepaid gift: nothing to buy until it ends (subscribing now would
+  // start charging for months the gift already covers).
+  const gift = !isSubscriber() && activeGift('access');
+  if (gift) {
+    showToast(`Your gift covers you until ${formatShortDate(gift.end)}.  You can subscribe from then, and we'll email you a week before.`, 8000);
     return;
   }
   const tier = subscriptionTier();
@@ -5935,6 +6058,12 @@ let subscribeCheckoutOpen = false;
 
 function onPaddleEvent(ev) {
   if (!ev || !ev.name) return;
+  if (ev.name === 'checkout.completed' && giftCheckoutOpen) {
+    giftCheckoutOpen = false;
+    giftPaid();
+    return;
+  }
+  if (ev.name === 'checkout.closed') giftCheckoutOpen = false;
   if (ev.name === 'checkout.completed') {
     if (subscribeCheckoutOpen) {
       subscribeCheckoutOpen = false;
@@ -6101,6 +6230,18 @@ function renderPlanRow() {
 
   const pub = billingInfo();
   const tier = subscriptionTier();
+  btn.style.display = '';
+  const giftNotes = planRowGiftNotes();
+
+  // On a prepaid gift (no subscription of their own).
+  const gift = !isSubscriber() && activeGift('access');
+  if (gift) {
+    const a = searchAllowance();
+    val.innerHTML = `${esc(PLANS[tier].name)} · a gift from ${esc(gift.from || 'a friend')} · ${a.left} of ${a.limit} searches left this month · until ${esc(formatShortDate(gift.end))}`
+      + giftNotes;
+    btn.style.display = 'none';      // no billing page: nothing renews
+    return;
+  }
 
   if (tier) {
     const a = searchAllowance();
@@ -6112,13 +6253,15 @@ function renderPlanRow() {
         ? 'moves to Standard on ' + formatShortDate(pub.premiumUntil)
         : (pub.nextBilledAt ? 'renews ' + formatShortDate(pub.nextBilledAt) : '');
     let link = '';
-    if (!ending) {
+    if (runningDiscountGift()) {
+      link = '';                     // plan changes wait for the gift to end — see planRowGiftNotes()
+    } else if (!ending) {
       if (tier === 'standard') link = `<button class="guide-inline-link" onclick="openPlanModal('upgrade')">Move up to Premium</button>`;
       else if (movingDown) link = `<button class="guide-inline-link" onclick="keepPremium()">Keep Premium instead</button>`;
       else link = `<button class="guide-inline-link" onclick="openPlanModal('downgrade')">Move down to Standard</button>`;
     }
     val.innerHTML = `${esc(PLANS[tier].name)} · ${a.left} of ${a.limit} searches left this month${when ? ' · ' + esc(when) : ''}`
-      + (link ? '<br>' + link : '');
+      + (link ? '<br>' + link : '') + giftNotes;
     btn.textContent = 'Manage';
     btn.onclick = openBillingPortal;
   } else if (pub.paddleSubscriptionId && pub.subscriptionStatus === 'past_due') {
@@ -6130,10 +6273,364 @@ function renderPlanRow() {
     btn.textContent = 'Manage';
     btn.onclick = openBillingPortal;
   } else {
-    val.textContent = 'Free · 1 search and 3 fit checks';
+    val.innerHTML = 'Free · 1 search and 3 fit checks' + giftNotes;
     btn.textContent = 'Subscribe';
     btn.onclick = handleSubscribe;
   }
+}
+
+/* ── Gifts: buying, the list of gifts given, and claiming ────────────────
+   The gift prices are one-off (non-renewing) prices in Paddle: Standard and
+   Premium, each for 3, 6 and 12 months, at straight multiples of the monthly
+   price ($42/$84/$168 and $87/$174/$348).  Offers such as Black Friday are
+   Paddle discount codes, entered at checkout — nothing here changes for them.
+   The six live price IDs are below (products "Standard Gift" and "Premium
+   Gift" in Paddle).  If any is ever missing, the gift page says gifts are
+   coming soon rather than offering a checkout that can't open.  The server
+   works out what was bought from the price's amount (api/gift.js), so it
+   needs no IDs. */
+var GIFT_PRICE_IDS = {
+  // Live, added 28 Nov 2026 (checked against Paddle: one-time, USD, right amounts).
+  production: {
+    standard: { 3: 'pri_01m8g75bvc54kjk6xzjp9k52gz', 6: 'pri_01m8g76907pnk8wpqxhshb4x3w', 12: 'pri_01m8g76ytcw02m7q844ev1n9n9' },   // $42 / $84 / $168
+    premium:  { 3: 'pri_01m8g79dehe5m5kmgjxkrbxpc3', 6: 'pri_01m8g7aw810d6w22gnff6cgdqr', 12: 'pri_01m8g7bn09nz6kfkpyjf8hvx8y' },   // $87 / $174 / $348
+  },
+  sandbox:    { standard: { 3: '', 6: '', 12: '' }, premium: { 3: '', 6: '', 12: '' } },
+};
+var GIFT_MONTHS = [3, 6, 12];
+var GIFT_MONTHLY = { standard: 14, premium: 29 };     // dollars, as on the pricing page
+var GIFT_TOKEN_KEY = 'pf_gift_token';                 // the ?gift=… link, kept for this tab
+var GIFT_CLAIM_AFTER_SIGNIN = 'pf_gift_claim_after_signin';
+var GIFT_BUY_AFTER_SIGNIN = 'pf_gift_buy_after_signin';
+var GIFT_FORM_KEY = 'pf_gift_form';
+var giftTier = '', giftMonths = 0, giftReturnScreen = 'screen-app', giftCheckoutOpen = false;
+var giftClaimShowing = false, giftClaimDone = null, giftSentCount = 0;
+
+/* A gift link: remember the token for this tab, and take it out of the
+   address bar so it isn't shared or bookmarked by accident. */
+(function rememberGiftToken() {
+  try {
+    const url = new URL(location.href);
+    const t = url.searchParams.get('gift');
+    if (t && /^[A-Za-z0-9_]{2,64}\.[A-Z2-7]{16}$/.test(t)) {
+      sessionStorage.setItem(GIFT_TOKEN_KEY, t);
+      url.searchParams.delete('gift');
+      history.replaceState(null, '', url.toString());
+    }
+  } catch (e) {}
+})();
+
+function pendingGiftToken() { try { return sessionStorage.getItem(GIFT_TOKEN_KEY) || ''; } catch (e) { return ''; } }
+function setFlag(k) { try { sessionStorage.setItem(k, '1'); } catch (e) {} }
+function takeFlag(k) {
+  try { const on = sessionStorage.getItem(k) === '1'; sessionStorage.removeItem(k); return on; } catch (e) { return false; }
+}
+
+async function giftApi(body, withSignIn) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (withSignIn && clerkInstance && clerkInstance.session) {
+    try { headers.Authorization = 'Bearer ' + await clerkInstance.session.getToken(); } catch (e) {}
+  }
+  const res = await fetch('/api/gift', { method: 'POST', headers, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+function giftPriceId(tier, months) {
+  return ((GIFT_PRICE_IDS[PADDLE_ENV] || {})[tier] || {})[months] || '';
+}
+function giftsAvailable() {
+  return GIFT_MONTHS.every(m => giftPriceId('standard', m) && giftPriceId('premium', m));
+}
+
+function openGiftScreen() {
+  const here = document.querySelector('.screen.active');
+  if (here && here.id !== 'screen-gift') {
+    giftReturnScreen = ['screen-hero', 'screen-auth', 'screen-comingsoon'].includes(here.id) ? 'screen-app' : here.id;
+  }
+  const ok = giftsAvailable();
+  document.getElementById('giftUnavailable').style.display = ok ? 'none' : '';
+  document.getElementById('giftForm').style.display = ok ? '' : 'none';
+  renderGiftChoices();
+  goTo('screen-gift');
+  loadSentGifts();
+}
+
+function pickGiftTier(t) { giftTier = t; renderGiftChoices(); }
+function pickGiftMonths(m) { giftMonths = m; renderGiftChoices(); }
+
+function renderGiftChoices() {
+  document.querySelectorAll('#giftTierOptions .gift-opt').forEach(b => b.classList.toggle('selected', b.dataset.tier === giftTier));
+  document.querySelectorAll('#giftMonthOptions .gift-opt').forEach(b => b.classList.toggle('selected', Number(b.dataset.months) === giftMonths));
+  document.querySelectorAll('.gift-price').forEach(el => {
+    const m = Number(el.dataset.m);
+    el.textContent = giftTier ? '$' + GIFT_MONTHLY[giftTier] * m : 'from $' + GIFT_MONTHLY.standard * m;
+  });
+  const total = document.getElementById('giftTotal');
+  if (total) total.textContent = giftTier && giftMonths
+    ? giftMonths + ' months of ' + PLANS[giftTier].name + ' · $' + GIFT_MONTHLY[giftTier] * giftMonths
+    : '';
+  updateGiftButton();
+}
+
+function giftDeliver() {
+  const r = document.querySelector('input[name="giftDeliver"]:checked');
+  return r ? r.value : 'me';
+}
+
+function updateGiftButton() {
+  const btn = document.getElementById('giftBuyBtn');
+  const err = document.getElementById('giftError');
+  if (!btn) return;
+  const name = document.getElementById('giftToName').value.trim();
+  const email = document.getElementById('giftToEmail').value.trim();
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const needEmail = giftDeliver() === 'them';
+  btn.disabled = !(giftTier && giftMonths && name && document.getElementById('giftConsent').checked && (!needEmail || emailOk));
+  err.textContent = needEmail && email && !emailOk ? 'That email address doesn\'t look quite right.'
+    : needEmail && !email ? 'Add their email so we can send it to them — or choose to have the link sent to you.' : '';
+}
+
+function saveGiftForm() {
+  try {
+    sessionStorage.setItem(GIFT_FORM_KEY, JSON.stringify({
+      tier: giftTier, months: giftMonths, deliver: giftDeliver(),
+      name: document.getElementById('giftToName').value, email: document.getElementById('giftToEmail').value,
+      message: document.getElementById('giftMessage').value,
+    }));
+  } catch (e) {}
+}
+
+function restoreGiftForm() {
+  try {
+    const f = JSON.parse(sessionStorage.getItem(GIFT_FORM_KEY) || 'null');
+    sessionStorage.removeItem(GIFT_FORM_KEY);
+    if (!f) return;
+    giftTier = f.tier || ''; giftMonths = Number(f.months) || 0;
+    document.getElementById('giftToName').value = f.name || '';
+    document.getElementById('giftToEmail').value = f.email || '';
+    document.getElementById('giftMessage').value = f.message || '';
+    const r = document.querySelector('input[name="giftDeliver"][value="' + (f.deliver === 'them' ? 'them' : 'me') + '"]');
+    if (r) r.checked = true;
+    renderGiftChoices();
+    showToast("You're signed in — tick the box and continue to payment.", 6000);
+  } catch (e) {}
+}
+
+function clearGiftForm() {
+  giftTier = ''; giftMonths = 0;
+  ['giftToName', 'giftToEmail', 'giftMessage'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const c = document.getElementById('giftConsent'); if (c) c.checked = false;
+  const r = document.querySelector('input[name="giftDeliver"][value="me"]'); if (r) r.checked = true;
+  renderGiftChoices();
+}
+
+async function buyGift() {
+  const err = document.getElementById('giftError');
+  if (!clerkInstance) { err.textContent = "Accounts aren't available right now.  Please refresh the page and try again."; return; }
+  if (!clerkInstance.user) {
+    // A gift belongs to the account that bought it — that's where its link
+    // lives, and how we stop it being claimed twice.  Sign in, then carry on.
+    saveGiftForm();
+    setFlag(GIFT_BUY_AFTER_SIGNIN);
+    goToSignIn('screen-gift');
+    switchAuthTab('signup');
+    document.getElementById('authSub').textContent = 'Create an account, or sign in, so your gift and its link are kept safe on your account.';
+    return;
+  }
+  const priceId = giftPriceId(giftTier, giftMonths);
+  if (!priceId) { err.textContent = 'Gifts will be available very soon.'; return; }
+  const btn = document.getElementById('giftBuyBtn');
+  btn.disabled = true; btn.textContent = 'Opening checkout…';
+  const ok = await ensurePaddle();
+  btn.textContent = 'Continue to payment';
+  updateGiftButton();
+  if (!ok) { err.textContent = "The checkout couldn't open just now.  Please check your connection and try again."; return; }
+
+  const u = clerkInstance.user;
+  const email = (u.primaryEmailAddress && u.primaryEmailAddress.emailAddress) || '';
+  const deliver = giftDeliver();
+  const checkout = {
+    settings: { displayMode: 'overlay', theme: 'light', locale: 'en', allowLogout: false },
+    items: [{ priceId, quantity: 1 }],
+    // The webhook reads these to record the gift and send it.  What was
+    // bought is checked against the price itself, not these.
+    customData: {
+      gift: 'true',
+      clerk_user_id: u.id,
+      gift_to_name: document.getElementById('giftToName').value.trim().slice(0, 40),
+      gift_to_email: deliver === 'them' ? document.getElementById('giftToEmail').value.trim().slice(0, 254) : '',
+      gift_deliver: deliver,
+      gift_message: document.getElementById('giftMessage').value.trim().slice(0, 200),
+      gift_refund_terms_ack_at: new Date().toISOString(),
+    }
+  };
+  if (email) checkout.customer = { email };
+  if (discountCode()) checkout.discountCode = discountCode();
+  giftCheckoutOpen = true;
+  window.Paddle.Checkout.open(checkout);
+}
+
+async function giftPaid() {
+  clearGiftForm();
+  showToast("Thank you — your gift is paid for.  Its link will appear under \"Gifts you've given\" in a moment, and we've emailed you a copy.", 10000);
+  const before = giftSentCount;
+  for (let i = 0; i < 15; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    if ((await loadSentGifts()) > before) return;
+  }
+}
+
+async function loadSentGifts() {
+  const section = document.getElementById('giftSentSection');
+  const list = document.getElementById('giftSentList');
+  if (!section || !list) return 0;
+  if (!clerkInstance || !clerkInstance.user) { section.style.display = 'none'; return 0; }
+  try {
+    const r = await giftApi({ action: 'sent' }, true);
+    const gifts = (r.ok && Array.isArray(r.data.gifts)) ? r.data.gifts : [];
+    giftSentCount = gifts.length;
+    section.style.display = gifts.length ? '' : 'none';
+    list.innerHTML = gifts.map((g, i) => {
+      const plan = PLANS[g.tier] ? PLANS[g.tier].name : 'Standard';
+      const status = g.refunded ? 'Refunded'
+        : g.claimed ? 'Claimed' + (g.claimedAt ? ' on ' + formatShortDate(g.claimedAt) : '')
+        : 'Not claimed yet';
+      const linkRow = (!g.claimed && !g.refunded) ? `
+        <div class="gift-sent-link">
+          <input type="text" readonly value="${esc(g.link)}" id="giftLink${i}" onclick="this.select()" aria-label="Gift link" />
+          <button onclick="copyGiftLink(${i})">Copy</button>
+        </div>` : '';
+      return `<div class="gift-sent"><strong>${g.months} months of ${esc(plan)}</strong>${g.toName ? ' for ' + esc(g.toName) : ''} · given ${esc(formatShortDate(g.createdAt))} · <em>${esc(status)}</em>${linkRow}</div>`;
+    }).join('');
+    return gifts.length;
+  } catch (e) {
+    return giftSentCount;
+  }
+}
+
+async function copyGiftLink(i) {
+  const input = document.getElementById('giftLink' + i);
+  if (!input) return;
+  try { await navigator.clipboard.writeText(input.value); showToast('Link copied — send it to them however you like.', 4000); }
+  catch (e) { input.select(); showToast('Select the link and copy it.', 4000); }
+}
+
+/* Claiming. autoClaim: they've just signed in after tapping "claim". */
+async function showGiftClaim(autoClaim) {
+  const token = pendingGiftToken();
+  if (!token) return;
+  if (giftClaimShowing) { if (autoClaim && !giftClaimDone) claimGift(); return; }
+  giftClaimShowing = true;
+  giftClaimDone = null;
+  const modal = document.getElementById('giftClaimModal');
+  const heading = document.getElementById('giftClaimHeading');
+  const sub = document.getElementById('giftClaimSub');
+  const msg = document.getElementById('giftClaimMessage');
+  const btn = document.getElementById('giftClaimBtn');
+  const err = document.getElementById('giftClaimError');
+  heading.textContent = 'Opening your gift…'; sub.textContent = ''; msg.style.display = 'none';
+  btn.style.display = 'none'; err.textContent = '';
+  modal.classList.add('open');
+
+  let r;
+  try { r = await giftApi({ action: 'lookup', token }, false); } catch (e) { r = { ok: false, data: {} }; }
+  if (!r.ok) {
+    heading.textContent = "We couldn't open that gift";
+    sub.textContent = (r.data && r.data.error) || 'Something went wrong on our side.  Please try the link again in a few minutes.';
+    if (r.status === 400 || r.status === 404) { try { sessionStorage.removeItem(GIFT_TOKEN_KEY); } catch (e) {} }
+    return;
+  }
+  const g = r.data;
+  if (g.claimed || g.refunded) {
+    try { sessionStorage.removeItem(GIFT_TOKEN_KEY); } catch (e) {}
+    heading.textContent = g.refunded ? 'This gift was refunded' : 'This gift has already been claimed';
+    sub.textContent = g.refunded ? 'So it can no longer be claimed.  If you think that\'s a mistake, write to support@pret-a-fit.com.'
+      : "If it was you, it's already on your account — you'll see it on your Profile, under Plan.";
+    return;
+  }
+  heading.textContent = `${g.fromName} has given you ${g.months} months of Prêt-à-Fit ${g.tierName}`;
+  sub.textContent = `${g.searches} searches a month, photo body and colour analysis, unlimited fit checks and your own shopping guide.  Nothing renews, and you won't be asked for a card.  If you already subscribe, it pays for your next ${g.months} renewals instead.`;
+  if (g.message) { msg.textContent = '“' + g.message + '” — ' + g.fromName; msg.style.display = ''; }
+  const signedIn = !!(clerkInstance && clerkInstance.user);
+  btn.textContent = signedIn ? 'Claim your gift' : 'Create an account to claim it';
+  btn.onclick = claimGift;
+  btn.disabled = false;
+  btn.style.display = '';
+  if (autoClaim && signedIn) claimGift();
+}
+
+async function claimGift() {
+  const token = pendingGiftToken();
+  const btn = document.getElementById('giftClaimBtn');
+  const err = document.getElementById('giftClaimError');
+  err.textContent = '';
+  if (!token) return;
+  if (!clerkInstance) { err.textContent = "Accounts aren't available right now.  Please refresh the page and try again."; return; }
+  if (!clerkInstance.user) {
+    setFlag(GIFT_CLAIM_AFTER_SIGNIN);
+    closeGiftClaim();
+    goToSignIn('screen-app');
+    switchAuthTab('signup');
+    document.getElementById('authSub').textContent = 'Create an account, or sign in, and your gift will be added to it straight away.';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Claiming…';
+  let r;
+  try { r = await giftApi({ action: 'redeem', token }, true); } catch (e) { r = { ok: false, data: {} }; }
+  if (!r.ok) {
+    btn.disabled = false; btn.textContent = 'Claim your gift';
+    err.textContent = (r.data && r.data.error) || 'Something went wrong on our side.  Nothing has been used up — please try again in a few minutes.';
+    return;
+  }
+  try { sessionStorage.removeItem(GIFT_TOKEN_KEY); } catch (e) {}
+  try { await clerkInstance.user.reload(); } catch (e) {}
+  const gift = (r.data && r.data.gift) || claimedGifts().slice(-1)[0] || {};
+  giftClaimDone = gift;
+  const plan = PLANS[gift.tier] ? PLANS[gift.tier].name : '';
+  const heading = document.getElementById('giftClaimHeading');
+  const sub = document.getElementById('giftClaimSub');
+  document.getElementById('giftClaimMessage').style.display = 'none';
+  heading.textContent = "It's yours";
+  if (r.data && r.data.already) {
+    sub.textContent = "You've already claimed this gift — it's on your account.";
+  } else if (gift.kind === 'discount') {
+    sub.textContent = `It pays for your renewals from ${formatShortDate(gift.start)} to ${formatShortDate(gift.end)}` +
+      (gift.tier === 'premium' && paidTier() === 'standard' ? ', with Premium for those months' : '') +
+      '.  There\'s nothing to do — it happens by itself.';
+  } else if (Date.parse(gift.start) > Date.now() + 60000) {
+    sub.textContent = `${plan} from ${formatShortDate(gift.start)} to ${formatShortDate(gift.end)} — it starts straight after what you already have.`;
+  } else {
+    sub.textContent = `${plan} until ${formatShortDate(gift.end)}.  Enjoy it.`;
+  }
+  btn.disabled = false;
+  btn.textContent = profile.gender ? 'Start exploring' : 'Set up your profile';
+  btn.onclick = () => { closeGiftClaim(); if (profile.gender) goTo('screen-app'); else startOnboarding(); };
+  renderPlanRow();
+  refreshAfterPlanChange();
+}
+
+function closeGiftClaim() {
+  const modal = document.getElementById('giftClaimModal');
+  if (modal) modal.classList.remove('open');
+  giftClaimShowing = false;
+}
+
+/* Lines under the plan about gifts: one paying for renewals, or prepaid ones
+   still to start. */
+function planRowGiftNotes() {
+  const notes = [];
+  const d = runningDiscountGift();
+  if (d) {
+    const covers = d.percent >= 100 ? 'pays for your renewals' : 'pays for part of your renewals';
+    notes.push(`Your gift from ${esc(d.from || 'a friend')} ${covers} from ${esc(formatShortDate(d.start))} to ${esc(formatShortDate(d.end))}`
+      + (d.tier === 'premium' && paidTier() === 'standard' ? ', with Premium for those months' : '')
+      + '.  Plan changes can wait until it ends.');
+  }
+  for (const g of upcomingGifts()) {
+    notes.push(`Then a gift from ${esc(g.from || 'a friend')}: ${esc(PLANS[g.tier] ? PLANS[g.tier].name : 'Standard')} from ${esc(formatShortDate(g.start))} to ${esc(formatShortDate(g.end))}.`);
+  }
+  return notes.map(n => `<br><span class="plan-gift-note">${n}</span>`).join('');
 }
 
 /* Shown to anyone with a subscription on record (even a lapsed one, so the
@@ -7930,10 +8427,14 @@ function openProfile() {
   if (email) {
     document.getElementById('profileAccountRow').style.display = 'grid';
     document.getElementById('profileGuestRow').style.display = 'none';
+    const giftRow = document.getElementById('profileGiftRow');
+    if (giftRow) giftRow.style.display = 'grid';
     document.getElementById('profileEmail').textContent = email;
   } else {
     document.getElementById('profileAccountRow').style.display = 'none';
     document.getElementById('profileGuestRow').style.display = 'grid';
+    const giftRowG = document.getElementById('profileGiftRow');
+    if (giftRowG) giftRowG.style.display = 'none';
   }
 
   // Gender
@@ -8662,7 +9163,9 @@ const COMING_SOON_MODE = true;
 
 async function init() {
   openPaddleLinkIfPresent();
-  const previewBypass = new URLSearchParams(location.search).get('preview') === '1';
+  // A gift link gets past the gate too: someone has paid for this person to
+  // use the site, so "coming soon" would be the wrong thing to show them.
+  const previewBypass = new URLSearchParams(location.search).get('preview') === '1' || !!pendingGiftToken();
   if (COMING_SOON_MODE && !previewBypass) {
     setTimeout(() => document.getElementById('screen-comingsoon').classList.add('visible'), 50);
     return; // nothing else runs — no Clerk, no search access, nothing beyond this screen
@@ -8782,6 +9285,17 @@ async function init() {
     if (clerk.user) setTimeout(openProfile, 400);
     else goToSignIn('screen-profile');
   }
+
+  // "See your gifts" in the gift confirmation email.
+  if (new URLSearchParams(location.search).get('open') === 'gifts') {
+    setTimeout(openGiftScreen, 400);
+  }
+
+  // Arrived with a gift link (?gift=…): show what it is and offer to claim it.
+  // (If enterApp() has just opened it after a Google sign-in, this does nothing.)
+  if (pendingGiftToken()) {
+    setTimeout(() => showGiftClaim(false), 600);
+  }
 }
 
 init();
@@ -8858,6 +9372,12 @@ async function joinWaitlist() {
         <div class="profile-row-label">Billing emails</div>
         <div class="profile-row-value" id="profileBilling">—</div>
         <button class="profile-row-action" onclick="editProfileField('billingEmails')">Edit</button>
+      </div>
+      <!-- Gifts: give one, and see the ones you've given (links to copy). -->
+      <div class="profile-row" id="profileGiftRow" style="display:none;">
+        <div class="profile-row-label">Gifts</div>
+        <div class="profile-row-value">Give someone months of Prêt-à-Fit</div>
+        <button class="profile-row-action" onclick="openGiftScreen()">Gifts</button>
       </div>
       <div class="profile-row" id="profileGuestRow" style="display:none;">
         <div class="profile-row-label">Account</div>
@@ -9199,7 +9719,91 @@ async function joinWaitlist() {
   </div>
 </div>
 
+<!-- Claiming a gift: shown when someone arrives with ?gift=… -->
+<div class="pf-modal-overlay" id="giftClaimModal" onclick="if(event.target===this)closeGiftClaim()">
+  <div class="pf-modal" role="dialog" aria-modal="true" aria-labelledby="giftClaimHeading" style="max-width:460px;">
+    <button class="pf-modal-close" onclick="closeGiftClaim()" aria-label="Close">&times;</button>
+    <div class="paywall-eyebrow">A gift for you</div>
+    <h2 class="paywall-heading" id="giftClaimHeading">Opening your gift…</h2>
+    <p class="paywall-sub" id="giftClaimSub"></p>
+    <p class="gift-message" id="giftClaimMessage" style="display:none;"></p>
+    <button class="pf-modal-btn" id="giftClaimBtn" onclick="claimGift()" style="display:none;">Claim your gift</button>
+    <div class="pf-modal-error" id="giftClaimError"></div>
+    <button class="pf-modal-dismiss" onclick="closeGiftClaim()">Not right now</button>
+  </div>
+</div>
+
 <div class="pf-toast" id="pfToast" role="status" aria-live="polite"></div>
+
+<!-- ══ SCREEN: GIFTS (28 Nov 2026) ══ -->
+<div class="screen" id="screen-gift">
+  <div class="app-topbar">
+    <div class="app-logo-small">prêt-à-<em>fit</em></div>
+    <nav class="app-nav">
+      <button class="app-nav-link" onclick="goTo(giftReturnScreen)">← Back</button>
+      <button class="app-nav-link" onclick="openFaq('screen-gift')">FAQ</button>
+    </nav>
+  </div>
+  <div class="app-body">
+    <div style="padding:1.5rem 0 0.5rem;">
+      <div class="screen-eyebrow">A gift</div>
+      <h1 class="editorial-heading" style="font-size:clamp(1.6rem,4vw,2.2rem);margin-bottom:0.75rem;">Give Prêt-à-Fit</h1>
+      <p class="editorial-p" style="max-width:560px;">Months of Prêt-à-Fit for someone you'd love to see dressed for themselves.  Nothing renews, and they're never asked for a card.  If they already subscribe, your gift pays for their next renewals instead.</p>
+    </div>
+
+    <div id="giftUnavailable" class="status-msg" style="display:none;text-align:left;">Gifts will be available very soon.</div>
+
+    <div id="giftForm">
+      <div class="app-section">
+        <div class="app-section-title">Plan</div>
+        <div class="gift-options" id="giftTierOptions">
+          <button type="button" class="gift-opt" data-tier="standard" onclick="pickGiftTier('standard')"><strong>Standard</strong><span>20 searches a month</span></button>
+          <button type="button" class="gift-opt" data-tier="premium" onclick="pickGiftTier('premium')"><strong>Premium</strong><span>50 searches a month</span></button>
+        </div>
+        <p class="field-hint" style="margin-top:0.75rem;">Both include photo body and colour analysis, unlimited fit checks and their own shopping guide.</p>
+      </div>
+
+      <div class="app-section">
+        <div class="app-section-title">How long</div>
+        <div class="gift-options" id="giftMonthOptions">
+          <button type="button" class="gift-opt" data-months="3" onclick="pickGiftMonths(3)"><strong>3 months</strong><span class="gift-price" data-m="3"></span></button>
+          <button type="button" class="gift-opt" data-months="6" onclick="pickGiftMonths(6)"><strong>6 months</strong><span class="gift-price" data-m="6"></span></button>
+          <button type="button" class="gift-opt" data-months="12" onclick="pickGiftMonths(12)"><strong>12 months</strong><span class="gift-price" data-m="12"></span></button>
+        </div>
+      </div>
+
+      <div class="app-section">
+        <div class="app-section-title">Who it's for</div>
+        <input class="text-input" type="text" id="giftToName" placeholder="Their first name" maxlength="40" autocomplete="off" style="margin-bottom:0.75rem;" oninput="updateGiftButton()" />
+        <input class="text-input" type="email" id="giftToEmail" placeholder="Their email (optional)" maxlength="254" autocomplete="off" style="margin-bottom:0.9rem;" oninput="updateGiftButton()" />
+        <label class="gift-radio"><input type="radio" name="giftDeliver" value="them" onchange="updateGiftButton()" /> <span>Email it to them as soon as it's paid for</span></label>
+        <label class="gift-radio"><input type="radio" name="giftDeliver" value="me" checked onchange="updateGiftButton()" /> <span>Send the link to me, so I can pass it on myself</span></label>
+        <p class="field-hint" style="margin-top:0.5rem;">We'll always email you a copy of the link too.  Their email is only used to send this gift.</p>
+      </div>
+
+      <div class="app-section">
+        <div class="app-section-title">A message <span style="text-transform:none;letter-spacing:0;color:var(--dust);">(optional)</span></div>
+        <textarea class="text-input" id="giftMessage" maxlength="200" rows="3" placeholder="Happy birthday — go and find something wonderful." style="resize:vertical;"></textarea>
+      </div>
+
+      <div class="app-section">
+        <div class="gift-total" id="giftTotal"></div>
+        <label class="plan-consent">
+          <input type="checkbox" id="giftConsent" onchange="updateGiftButton()" />
+          <span>I understand a gift can be refunded within 14 days only if it hasn't been claimed yet.  Once claimed, it can't be refunded.</span>
+        </label>
+        <p class="plan-legal">One payment, nothing renews.  Have an offer code?  You can add it at checkout.  By continuing you agree to our <a href="terms.html" target="_blank" rel="noopener">terms</a> and <a href="refunds.html" target="_blank" rel="noopener">refunds policy</a>.  Payment is handled by Paddle; we never see your card.</p>
+        <button class="search-btn" id="giftBuyBtn" onclick="buyGift()" disabled>Continue to payment</button>
+        <div class="pf-modal-error" id="giftError"></div>
+      </div>
+    </div>
+
+    <div class="app-section" id="giftSentSection" style="display:none;">
+      <div class="app-section-title">Gifts you've given</div>
+      <div id="giftSentList"></div>
+    </div>
+  </div>
+</div>
 
 <!-- ══ SCREEN: FAQ ══ -->
 <div class="screen" id="screen-faq">
@@ -9290,6 +9894,26 @@ async function joinWaitlist() {
       <div class="privacy-section">
         <div class="privacy-heading">Why can't you just buy it for me?</div>
         <p class="editorial-p">Because we would rather you kept hold of your own money. We could, in principle, hold your card details and complete checkouts for you. We have chosen not to — it would mean storing your payment information, and it would mean software placing real orders, in the wrong size or the wrong colour or on a sale item that cannot be returned, with nobody looking. The whole point of Prêt-à-Fit is to tell you whether something will genuinely work before you spend anything. Spending it for you sits oddly next to that. So we take you to the retailer with your size already selected where we can, and the last word stays yours.</p>
+      </div>
+      -->
+
+      <!-- ─────────────────────────────────────────────────────────────────
+           DRAFTED FOR THE LAUNCH FAQ (28 Nov 2026) — not live yet.
+           Pre-launch visitors have no accounts, so this has no audience
+           until the doors open. At launch, delete the comment markers
+           around it and place it straight after "How do you decide what
+           suits someone?" — it is the same idea from the other side.
+           Backed by the Terms: §6 "don't share one account between several
+           people" and §10 "Use Prêt-à-Fit as a person, for yourself". The
+           app does not block profile changes (people's bodies change, and
+           re-doing the assessments from the Profile is a feature); this is
+           a rule we explain, not one we police.
+           Updated with gifts (28 Nov): it points to the gift page.
+           ───────────────────────────────────────────────────────────── -->
+      <!--
+      <div class="privacy-section">
+        <div class="privacy-heading">Can I use my account to shop for someone else?</div>
+        <p class="editorial-p">Not by changing your profile to theirs, no — and the reason is the whole idea behind Prêt-à-Fit. Style is personal. Everything we suggest starts from one person: their shape, their colouring, their size, the way they like to dress. Swap your details for a friend's and back again, and the recommendations stop being right for either of you — your saved pieces and searches end up describing two different people. It is also why our <a href="terms.html" style="color:var(--bark);text-decoration:none;">terms</a> ask for one person per account. If you are shopping for someone else, <a href="#" onclick="openGiftScreen();return false;" style="color:var(--bark);text-decoration:none;">give the gift of a subscription</a> instead: three, six or twelve months of their own Prêt-à-Fit, with nothing that renews and no card for them to enter. They get recommendations made for them, and yours stay made for you. And your own profile can change whenever you do — if your shape, colouring or size moves on, you can re-do your assessments from your Profile at any time.</p>
       </div>
       -->
 

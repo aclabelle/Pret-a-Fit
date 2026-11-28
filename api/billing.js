@@ -111,6 +111,16 @@ export async function POST(request) {
   const user = await clerk.users.getUser(userId);
   const pub = user.publicMetadata || {};
 
+  // A gift is paying for some renewals (see api/gift.js).  Its discount is a
+  // percentage of THIS plan's price, so changing plan in the middle would
+  // make it cover the wrong amount.  Plan changes wait until it ends.
+  const giftRunning = (Array.isArray(pub.gifts) ? pub.gifts : [])
+    .find(g => g.kind === 'discount' && Date.parse(g.end) > Date.now());
+  if (giftRunning && (action === 'upgrade' || action === 'downgrade' || action === 'keep-premium')) {
+    const until = new Date(giftRunning.end).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' });
+    return json({ error: 'Your gift is paying for your renewals until ' + until + ', so plan changes can wait until then.' }, 409);
+  }
+
   try {
     if (action === 'portal') {
       if (!pub.paddleCustomerId) {

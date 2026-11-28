@@ -38,6 +38,7 @@
 
 import crypto from 'node:crypto';
 import { createClerkClient } from '@clerk/backend';
+import { recordGiftPurchase } from './gift.js';
 
 // Which Paddle price is which plan.  Sandbox and live prices have DIFFERENT
 // IDs — when you go live, add the live IDs here (and in api/billing.js and
@@ -223,8 +224,23 @@ export async function POST(request) {
   catch (e) { return json({ error: 'Invalid JSON' }, 400); }
 
   const type = event?.event_type || '';
+
+  // A gift bought for someone (see api/gift.js).  Needs "transaction.completed"
+  // ticked on the notification destination in Paddle.  Ordinary subscription
+  // payments also send transaction.completed; those carry no gift flag and
+  // are ignored here, as before.
+  if (type === 'transaction.completed' && event?.data?.custom_data?.gift === 'true') {
+    try {
+      const r = await recordGiftPurchase(createClerkClient({ secretKey: clerkKey }), event.data);
+      return json({ received: true, gift: r });
+    } catch (e) {
+      console.error('[GIFT] Recording gift ' + event?.data?.id + ' failed: ' + (e?.message || e));
+      return json({ error: 'Gift not recorded' }, 500);   // Paddle retries
+    }
+  }
+
   // Only subscription events change what someone has access to.  Everything
-  // else (transactions, customers, addresses) is acknowledged and ignored.
+  // else (other transactions, customers, addresses) is acknowledged and ignored.
   if (!type.startsWith('subscription.')) {
     return json({ received: true, ignored: type });
   }
