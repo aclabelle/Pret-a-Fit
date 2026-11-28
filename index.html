@@ -1890,6 +1890,8 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
   transition: background 0.15s, color 0.15s;
 }
 .profile-row-action:hover { background: var(--linen); color: var(--ink); }
+.due-actions { display: flex; gap: 6px; }
+@media (max-width: 540px) { .due-actions { flex-direction: column-reverse; } }
 .profile-edit-panel {
   border: 0.5px solid var(--ink);
   background: var(--mist);
@@ -3153,7 +3155,7 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
       <div class="field" style="grid-column:1/-1;">
         <label>Expecting? <span style="color:var(--dust);font-weight:400;">(optional)</span></label>
         <select class="text-input" id="dueMonthInput" onchange="setDueMonth(this.value)"></select>
-        <div class="field-hint">If you tell us when you're due, we'll suit every recommendation to the stage you're at. Leave it blank and we won't ask again — and you can clear it in one tap whenever you like.</div>
+        <div class="field-hint">If you tell us when you're due, we'll suit every recommendation to the stage you're at. Leave it blank and we won't bring it up. You can add, change or clear it from your Profile whenever you like.</div>
       </div>
       <div class="field" style="grid-column:1/-1;">
         <label>Shipping location</label>
@@ -3392,6 +3394,16 @@ a.app-nav-link { text-decoration: none; display: inline-block; }
       <p class="image-disclaimer one-shop-note" style="margin-top:0.9rem;">Good to know: smaller shops may only have a few pieces that fit your profile and budget, so you may see fewer than six.  That's the shop's range rather than something going wrong, and searching the same shop again usually won't find more.  Typing the shop's web address (like cos.com) keeps results strictly to that site.  It counts as one search, the same as any other.</p>
     </div>
 
+    <!-- Shown only when someone types maternity/pregnancy words into the
+         search and hasn't set a due month — see dueMonthNudgeCheck(). -->
+    <div class="camera-note" id="dueMonthNudge" style="display:none;margin-top:1rem;">
+      <div style="margin-bottom:0.6rem;">Shopping while expecting? Add the month you're due and we'll suit this search, and every one after it, to the stage you're at. You can change or clear it from your Profile at any time.</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <select class="text-input" id="nudgeDueMonthInput" style="margin:0;max-width:220px;" onchange="setDueFromNudge(this.value)"></select>
+        <button class="btn-skip" onclick="dismissDueNudge()">Not now</button>
+      </div>
+    </div>
+
     <button class="search-btn" id="searchBtn" onclick="findOutfits()">Find my outfits</button>
     <div class="results-area" id="resultsArea"></div>
 
@@ -3590,9 +3602,12 @@ function heightOnlyNote() {
    wants post-partum advice they can say so; we never infer it.
 
    IT IS NEVER ASKED FOR. There is no prompt, no onboarding step and no
-   reminder. It sits as an optional field among the others for anyone who
-   goes looking, and clearing it takes one tap with no confirmation dialogue
-   and no follow-up question.
+   reminder. It sits as an optional field among the others — at sign-up, and
+   as its own row on the Profile (visible to everyone since 28 Nov 2026, so
+   people who become pregnant later can find it) — and clearing it takes one
+   tap with no confirmation dialogue and no follow-up question.  The one
+   pointer to it appears only when someone searches for maternity or
+   pregnancy clothes themselves; see dueMonthNudgeCheck().
    ──────────────────────────────────────────────────────────────────────── */
 
 const MONTH_NAMES = ['January','February','March','April','May','June',
@@ -3645,10 +3660,10 @@ function pregnancyWeeks() {
 /* Fills a due-month <select>. The blank option is first and is the default,
    so the control reads as "nothing selected" rather than as a question
    waiting for an answer. */
-function renderDueMonthOptions(selectId) {
+function renderDueMonthOptions(selectId, blankLabel) {
   const sel = document.getElementById(selectId || 'dueMonthInput');
   if (!sel) return;
-  const opts = ['<option value="">Not applicable</option>']
+  const opts = ['<option value="">' + (blankLabel || 'Not applicable') + '</option>']
     .concat(getDueMonthOptions().map(o =>
       `<option value="${o.value}"${profile.dueMonth === o.value ? ' selected' : ''}>${o.label}</option>`));
   sel.innerHTML = opts.join('');
@@ -3664,8 +3679,8 @@ function setDueMonth(value) {
   if (row) renderProfileDueRow();
 }
 
-/* The Profile screen's row. Hidden outright when nothing is set, rather than
-   shown as an empty "—", so the subject never appears unprompted. Once the
+/* The Profile screen's row.  Shows "—" when nothing is set, like Height
+   (it used to be hidden; see the note on #profileDueRow).  Once the
    due month has passed the row says so plainly instead of guessing what
    happened, and the only action offered is to clear it. */
 function renderProfileDueRow() {
@@ -3673,14 +3688,50 @@ function renderProfileDueRow() {
   const val = document.getElementById('profileDue');
   if (!row || !val) return;
 
-  if (!profile.dueMonth) { row.style.display = 'none'; return; }
   row.style.display = '';
+  const clear = document.getElementById('profileDueClear');
+  if (clear) clear.style.display = profile.dueMonth ? '' : 'none';
+  if (!profile.dueMonth) { val.textContent = '—'; return; }
 
   const w = pregnancyWeeks();
   val.textContent = w === null
     ? `Due ${dueMonthLabel()} — no longer applied`
     : `Due ${dueMonthLabel()} · around ${w} weeks`;
 }
+
+/* A pointer to the due-month setting, shown only in response to the person's
+   own words: when they type maternity or pregnancy terms into a search and
+   haven't set a month.  It asks nothing on its own, offers "Not now", and once
+   dismissed stays away for the rest of the visit.  "Baby shower" is
+   deliberately not a trigger — most people at one are guests. */
+const PREGNANCY_WORDS = /\b(maternity|pregnan\w*|bump|breast-?feeding|post-?partum|nursing[- ](bra|bras|top|tops|dress|dresses|friendly))\b/i;
+let dueNudgeDismissed = false;
+
+function dueMonthNudgeCheck() {
+  const box = document.getElementById('dueMonthNudge');
+  if (!box) return;
+  if (dueNudgeDismissed || pregnancyWeeks() !== null) { box.style.display = 'none'; return; }
+  const words = Array.from(document.querySelectorAll('#screen-app input[type="text"], #screen-app textarea'))
+    .filter(el => el.id !== 'nudgeDueMonthInput')
+    .map(el => el.value).join(' ');
+  const show = PREGNANCY_WORDS.test(words);
+  if (show && box.style.display === 'none') renderDueMonthOptions('nudgeDueMonthInput', 'Choose the month');
+  box.style.display = show ? '' : 'none';
+}
+function setDueFromNudge(value) {
+  if (!value) return;
+  setDueMonth(value);
+  document.getElementById('dueMonthNudge').style.display = 'none';
+  renderWearWhen();
+  if (typeof showToast === 'function') showToast('Due month added — you can change it from your Profile');
+}
+function dismissDueNudge() {
+  dueNudgeDismissed = true;
+  document.getElementById('dueMonthNudge').style.display = 'none';
+}
+document.addEventListener('input', function (e) {
+  if (e.target && e.target.closest && e.target.closest('#screen-app')) dueMonthNudgeCheck();
+});
 
 function dueMonthLabel() {
   if (!profile.dueMonth) return '';
@@ -3847,7 +3898,7 @@ function goTo(id) {
 function showScreen(id) {
   const el = document.getElementById(id);
   // Height bands depend on the gender chosen earlier, so build them on entry
-  if (id === 'screen-app') renderWearWhen();
+  if (id === 'screen-app') { renderWearWhen(); dueMonthNudgeCheck(); }
   if (id === 'screen-sizing') {
     renderHeightOptions('heightRow');
     renderDueMonthOptions('dueMonthInput');
@@ -3978,11 +4029,25 @@ const museQuickSets = {
   'non-binary': ['Billy Porter','Janelle Monáe','Troye Sivan','Sam Smith','Indya Moore']
 };
 
-function updateMuseQuick() {
-  const set = museQuickSets[profile.gender] || museQuickSets.women;
-  document.getElementById('museQuickRow').innerHTML =
-    set.map(m => `<button class="quick-chip" onclick="quickMuse('${m}')">${m}</button>`).join('');
+/* Suggestion chips (sign-up screens and Profile alike).  Picked ones are
+   highlighted, and tapping a picked one takes it off again (28 Nov 2026). */
+function quickChipsHtml(list, set, onTap) {
+  return set.map((v, i) =>
+    `<button class="quick-chip${list.includes(v) ? ' selected' : ''}" aria-pressed="${list.includes(v)}" onclick="${onTap}(${i})">${v}</button>`
+  ).join('');
 }
+function toggleInList(list, v) {
+  const at = list.indexOf(v);
+  if (at === -1) list.push(v); else list.splice(at, 1);
+}
+function museSet() { return museQuickSets[profile.gender] || museQuickSets.women; }
+function retailerSet() { return retailerQuickSets[profile.gender] || retailerQuickSets.women; }
+
+function updateMuseQuick() {
+  const row = document.getElementById('museQuickRow');
+  if (row) row.innerHTML = quickChipsHtml(profile.muses, museSet(), 'quickMuseAt');
+}
+function quickMuseAt(i) { toggleInList(profile.muses, museSet()[i]); renderMuses(); }
 
 function addMuse() {
   const i = document.getElementById('museInput'), t = i.value.trim();
@@ -3995,6 +4060,7 @@ function renderMuses() {
   document.getElementById('museTags').innerHTML = profile.muses.map((m, i) =>
     `<div class="muse-tag">${m}<button onclick="removeMuse(${i})">×</button></div>`
   ).join('');
+  updateMuseQuick();
 }
 
 /* ── Favourite retailers ── */
@@ -4005,10 +4071,10 @@ const retailerQuickSets = {
 };
 
 function updateRetailerQuick() {
-  const set = retailerQuickSets[profile.gender] || retailerQuickSets.women;
-  document.getElementById('retailerQuickRow').innerHTML =
-    set.map(r => `<button class="quick-chip" onclick="quickRetailer('${r}')">${r}</button>`).join('');
+  const row = document.getElementById('retailerQuickRow');
+  if (row) row.innerHTML = quickChipsHtml(profile.retailers, retailerSet(), 'quickRetailerAt');
 }
+function quickRetailerAt(i) { toggleInList(profile.retailers, retailerSet()[i]); renderRetailers(); }
 
 /* Example cities for the shipping location field. These are prompts, not a
    limit — the field accepts any city or country. Chosen to span regions so
@@ -4047,6 +4113,7 @@ function renderRetailers() {
   document.getElementById('retailerTags').innerHTML = profile.retailers.map((r, i) =>
     `<div class="muse-tag">${r}<button onclick="removeRetailer(${i})">×</button></div>`
   ).join('');
+  updateRetailerQuick();
 }
 
 /* ── Sizing ── */
@@ -4128,6 +4195,7 @@ function selectTier0(type, el) {
 
   // Fit check hides the shopping-only controls; every other mode needs them back
   setShoppingControlsVisible(type !== 'fitcheck');
+  dueMonthNudgeCheck();
   const searchBtn = document.getElementById('searchBtn');
   if (searchBtn) searchBtn.textContent = type === 'fitcheck' ? 'Check this piece' : 'Find my outfits';
 
@@ -8724,6 +8792,12 @@ function openProfile() {
 }
 
 function editProfileField(field) {
+  // Opening another panel without saving: undo unsaved muse/retailer taps.
+  if (profileListBefore) {
+    if (profileEditField === 'muses') profile.muses = profileListBefore;
+    if (profileEditField === 'retailers') profile.retailers = profileListBefore;
+    profileListBefore = null;
+  }
   profileEditField = field;
   const panel = document.getElementById('profileEditPanel');
   const heading = document.getElementById('profileEditHeading');
@@ -8787,23 +8861,28 @@ function editProfileField(field) {
 
   } else if (field === 'muses') {
     heading.textContent = 'Change style muses';
+    profileListBefore = [...profile.muses];
     body.innerHTML = `
       <div id="profileMuseTags" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem;"></div>
       <div style="display:flex;gap:8px;">
         <input class="text-input" type="text" id="profileMuseInput" placeholder="e.g. Audrey Hepburn, The Row…" style="flex:1;" onkeydown="if(event.key==='Enter')addProfileMuse()" />
         <button class="btn-add" onclick="addProfileMuse()">Add</button>
-      </div>`;
+      </div>
+      <p style="font-size:12px;color:var(--charcoal);margin:0.75rem 0 0.6rem;">Type anyone you like, or tap a suggestion to add it — tap again to remove it.</p>
+      <div class="quick-row" id="profileMuseQuickRow"></div>`;
     renderProfileMuses();
 
   } else if (field === 'retailers') {
     heading.textContent = 'Change favourite retailers';
+    profileListBefore = [...profile.retailers];
     body.innerHTML = `
       <div id="profileRetailerTags" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem;"></div>
       <div style="display:flex;gap:8px;">
         <input class="text-input" type="text" id="profileRetailerInput" placeholder="e.g. Net-a-Porter, SSENSE…" style="flex:1;" onkeydown="if(event.key==='Enter')addProfileRetailer()" />
         <button class="btn-add" onclick="addProfileRetailer()">Add</button>
       </div>
-      <p style="font-size:12px;color:var(--charcoal);margin-top:0.75rem;">This is a starting point, not a limit — we'll still surface other well-matched brands too.</p>`;
+      <p style="font-size:12px;color:var(--charcoal);margin:0.75rem 0 0.6rem;">Type any shop or website, or tap a suggestion to add it — tap again to remove it.  This is a starting point, not a limit — we'll still surface other well-matched brands too.</p>
+      <div class="quick-row" id="profileRetailerQuickRow"></div>`;
     renderProfileRetailers();
 
   } else if (field === 'sizing') {
@@ -8839,11 +8918,15 @@ function editProfileField(field) {
           <div class="chip-grid" id="profileHeightRow"></div>
           <div class="quick-row" id="profileLocationQuickRow"></div>
         </div>
-        <div class="field" style="grid-column:1/-1;">
-          <label>Expecting? <span style="color:var(--dust);font-weight:400;">(optional)</span></label>
-          <select class="text-input" id="profileDueMonthInput" onchange="setDueMonth(this.value)"></select>
-          <div class="field-hint">Set a due month and we'll suit every recommendation to the stage you're at. Choose "Not applicable" to clear it at any time.</div>
-        </div>
+      </div>`;
+
+  } else if (field === 'due') {
+    heading.textContent = 'Expecting?';
+    body.innerHTML = `
+      <div class="field" style="margin:0;">
+        <label>Month you're due <span style="color:var(--dust);font-weight:400;">(optional)</span></label>
+        <select class="text-input" id="profileDueMonthInput"></select>
+        <div class="field-hint">We'll suit every recommendation to the stage you're at, and each search lets you say whether it's for now, later on, or after the birth. We keep only the month, and use it for nothing but your recommendations. Choose "Not applicable" to clear it at any time.</div>
       </div>`;
   }
 
@@ -8874,7 +8957,13 @@ function profileToggleVibe(vibe, el) {
   el.classList.toggle('selected');
 }
 
+let profileListBefore = null;   // muses/retailers as they were, so Cancel can undo
+function profileMuseQuickAt(i) { toggleInList(profile.muses, museSet()[i]); renderProfileMuses(); }
+function profileRetailerQuickAt(i) { toggleInList(profile.retailers, retailerSet()[i]); renderProfileRetailers(); }
+
 function renderProfileMuses() {
+  const quick = document.getElementById('profileMuseQuickRow');
+  if (quick) quick.innerHTML = quickChipsHtml(profile.muses, museSet(), 'profileMuseQuickAt');
   const container = document.getElementById('profileMuseTags');
   if (!container) return;
   container.innerHTML = [...profile.muses].map((m, i) =>
@@ -8899,6 +8988,8 @@ function removeProfileMuse(i) {
 }
 
 function renderProfileRetailers() {
+  const quick = document.getElementById('profileRetailerQuickRow');
+  if (quick) quick.innerHTML = quickChipsHtml(profile.retailers, retailerSet(), 'profileRetailerQuickAt');
   const container = document.getElementById('profileRetailerTags');
   if (!container) return;
   container.innerHTML = [...profile.retailers].map((r, i) =>
@@ -8964,10 +9055,17 @@ function saveProfileEdit() {
     profile.vibes = allVibes.filter(v => selectedLabels.includes(v.split(' & ')[0].split(' ')[0]));
 
   } else if (profileEditField === 'muses') {
-    // muses are already updated in-place via add/remove
+    // updated in place via add/remove; also keep anything typed but not yet added
+    const typed = document.getElementById('profileMuseInput');
+    if (typed && typed.value.trim()) addProfileMuse();
 
   } else if (profileEditField === 'retailers') {
-    // retailers are already updated in-place via add/remove
+    const typed = document.getElementById('profileRetailerInput');
+    if (typed && typed.value.trim()) addProfileRetailer();
+
+  } else if (profileEditField === 'due') {
+    const sel = document.getElementById('profileDueMonthInput');
+    if (sel) profile.dueMonth = sel.value || '';
 
   } else if (profileEditField === 'sizing') {
     profile.sizeSystem = document.getElementById('profileSizeSysEdit').value;
@@ -8977,9 +9075,20 @@ function saveProfileEdit() {
   }
 
   profileTempValues = {};
+  profileListBefore = null;
   saveProfileToClerk();
   closeProfileEdit();
   openProfile(); // re-render the display values
+}
+
+// Cancel: muses and retailers change as you tap, so put them back as they were.
+function cancelProfileEdit() {
+  if (profileListBefore) {
+    if (profileEditField === 'muses') profile.muses = profileListBefore;
+    if (profileEditField === 'retailers') profile.retailers = profileListBefore;
+  }
+  profileListBefore = null;
+  closeProfileEdit();
 }
 
 function closeProfileEdit() {
@@ -9696,13 +9805,18 @@ async function joinWaitlist() {
         <button class="profile-row-action" onclick="editProfileField('sizing')">Edit</button>
       </div>
 
-      <!-- Rendered by renderProfileDueRow(). Hidden entirely when no due month
-           is set, so the Profile screen never shows the subject to anyone who
-           hasn't volunteered it. -->
-      <div class="profile-row" id="profileDueRow" style="display:none;">
+      <!-- Rendered by renderProfileDueRow().  Changed 28 Nov 2026 (owner's
+           decision): this used to be hidden until a due month was set, which
+           left people who became pregnant later with no way to find it.  It
+           now sits here like Height — a neutral optional row that asks
+           nothing — with its own Edit, and Clear once something is set. -->
+      <div class="profile-row" id="profileDueRow">
         <div class="profile-row-label">Expecting</div>
         <div class="profile-row-value" id="profileDue">—</div>
-        <button class="profile-row-action" onclick="setDueMonth('')">Clear</button>
+        <span class="due-actions">
+          <button class="profile-row-action" id="profileDueClear" style="display:none;" onclick="setDueMonth('')">Clear</button>
+          <button class="profile-row-action" onclick="editProfileField('due')">Edit</button>
+        </span>
       </div>
     </div>
 
@@ -9718,7 +9832,7 @@ async function joinWaitlist() {
       <div class="profile-edit-heading" id="profileEditHeading"></div>
       <div id="profileEditBody"></div>
       <div class="profile-edit-actions">
-        <button class="btn-back" onclick="closeProfileEdit()">Cancel</button>
+        <button class="btn-back" onclick="cancelProfileEdit()">Cancel</button>
         <button class="btn-next" onclick="saveProfileEdit()">Save changes</button>
       </div>
     </div>
@@ -10156,6 +10270,15 @@ async function joinWaitlist() {
       <div class="privacy-section">
         <div class="privacy-heading">Can I use my account to shop for someone else?</div>
         <p class="editorial-p">Not by changing your profile to theirs, no — and the reason is the whole idea behind Prêt-à-Fit. Style is personal. Everything we suggest starts from one person: their shape, their colouring, their size, the way they like to dress. Swap your details for a friend's and back again, and the recommendations stop being right for either of you — your saved pieces and searches end up describing two different people. It is also why our <a href="terms.html" style="color:var(--bark);text-decoration:none;">terms</a> ask for one person per account. If you are shopping for someone else, <a href="#" onclick="openGiftScreen();return false;" style="color:var(--bark);text-decoration:none;">give the gift of a subscription</a> instead: three, six or twelve months of their own Prêt-à-Fit, with nothing that renews and no card for them to enter. They get recommendations made for them, and yours stay made for you. And your own profile can change whenever you do — if your shape, colouring or size moves on, you can re-do your assessments from your Profile at any time.</p>
+      </div>
+      -->
+
+      <!-- POST-LAUNCH FAQ (added 28 Nov 2026), parked with the one above.
+           At launch, delete the comment markers. -->
+      <!--
+      <div class="privacy-section">
+        <div class="privacy-heading">I'm expecting. Can Prêt-à-Fit help?</div>
+        <p class="editorial-p">Yes. Open your Profile and tap Edit next to "Expecting", then choose the month you're due. From then on every recommendation is suited to the stage you're at, and each search lets you say whether it's for now, later in the pregnancy, or for after the birth — a coat for January is a different coat at 20 weeks than at 36. We mix pieces from maternity ranges with ordinary clothes that work with a bump, and say which is which. We keep only the month, nothing else, and use it for nothing but your recommendations. Once that month has passed we simply stop applying it, and you can clear it in one tap whenever you like.</p>
       </div>
       -->
 
