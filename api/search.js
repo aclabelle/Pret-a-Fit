@@ -100,6 +100,20 @@ export function isFiveGeneration(model) {
   return /^claude-(sonnet|opus|haiku|fable|mythos)-5(\b|-)/.test(model);
 }
 
+/* The thinking setting to send, or null for none.  Haiku 5.5 refuses
+   "between_tools" (found live 28 Nov 2026: 400 "thinking.type.between_tools
+   is not supported for this model"), so Haiku gets none and a larger
+   max_tokens instead.  If any model refuses it in future, the calls below
+   also retry once without it (dropThinkingOn400). */
+export function thinkingFor(model) {
+  if (!isFiveGeneration(model) || /^claude-haiku-/.test(model)) return null;
+  return { type: 'between_tools' };
+}
+
+export function isThinkingRefusal(status, message) {
+  return status === 400 && /thinking/i.test(String(message || ''));
+}
+
 function pricesFor(model, inputTokens) {
   if (model === 'claude-haiku-5-5' && (inputTokens || 0) > HAIKU_LONG_PROMPT.over) return HAIKU_LONG_PROMPT.prices;
   return MODEL_PRICES[model] || MODEL_PRICES['claude-sonnet-4-6'];
@@ -340,21 +354,28 @@ async function secondOpinion(url, name, gender) {
   try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { return { verdict: null, cost: 0, note: 'bad url' }; }
   const body = {
     model: VERIFY_MODEL,
-    max_tokens: 800,
+    max_tokens: 2000,
     tools: [{ type: 'web_fetch_20250910', name: 'web_fetch', max_uses: 1, max_content_tokens: 8000, allowed_domains: [host] }],
     messages: [{ role: 'user', content: secondOpinionPrompt(url, name, dept) }]
   };
-  if (isFiveGeneration(VERIFY_MODEL)) body.thinking = { type: 'between_tools' };
+  const think = thinkingFor(VERIFY_MODEL);
+  if (think) body.thinking = think;
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), VERIFY_TIMEOUT_MS);
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const send = () => fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify(body),
       signal: ctl.signal
     });
-    const data = await r.json().catch(() => ({}));
+    let r = await send();
+    let data = await r.json().catch(() => ({}));
+    if (!r.ok && body.thinking && isThinkingRefusal(r.status, data.error && data.error.message)) {
+      delete body.thinking;
+      r = await send();
+      data = await r.json().catch(() => ({}));
+    }
     if (!r.ok) return { verdict: null, cost: 0, note: 'api ' + r.status + (data.error && data.error.message ? ': ' + String(data.error.message).slice(0, 120) : '') };
     const cost = costOf(VERIFY_MODEL, data.usage);
     const blocks = data.content || [];
@@ -825,7 +846,8 @@ export default async function handler(req, res) {
     messages: [{ role: 'user', content: messageContent }]
   };
   if (isFiveGeneration(MODEL)) {
-    requestBody.thinking = { type: 'between_tools' };
+    const think = thinkingFor(MODEL);
+    if (think) requestBody.thinking = think;
     if (isOutfitSearch) requestBody.output_config = { effort: EFFORT };
   }
 
@@ -903,13 +925,22 @@ Respond with a raw JSON array only. No markdown, no preamble, no explanation.`;
     let data;
     const allContent = [];
     for (let round = 0; round < 3; round++) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      let response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers,
         body: JSON.stringify(requestBody)
       });
 
       data = await response.json();
+
+      // A model that refuses the thinking setting: try once more without it
+      // rather than failing the person's search.
+      if (!response.ok && requestBody.thinking && isThinkingRefusal(response.status, data.error && data.error.message)) {
+        console.log('[MODEL] ' + MODEL + ' refused the thinking setting; retrying without it');
+        delete requestBody.thinking;
+        response = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers, body: JSON.stringify(requestBody) });
+        data = await response.json();
+      }
 
       if (!response.ok) {
         const errMsg = data.error?.message || JSON.stringify(data);
