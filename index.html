@@ -4178,6 +4178,7 @@ function selectTier0(type, el) {
   session.specificItem = '';
   session.shopLookPhoto = null;
   session.shopLookFocus = '';
+  session.shopLookDescription = '';
   session.shopLookUseAlternative = false;
   session.shopLookAlternative = '';
   session.pairingPhoto = null;
@@ -4233,6 +4234,18 @@ function selectTier0(type, el) {
           </div>
         </div>
         <input type="file" id="shopLookInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handleShopLookPhoto(this)" />
+        <!-- "We see" (added 28 Nov 2026): the AI's reading of the photo, shown
+             before the search so a misreading can be corrected for free.
+             Whatever is in this box is what the search looks for. -->
+        <div class="shop-look-focus-field" id="shopLookSeeWrap" style="display:none;">
+          <label>We see</label>
+          <div id="shopLookSeeLoading" class="field-hint" style="margin:0 0 6px;">Looking at your photo…</div>
+          <textarea class="text-input" id="shopLookSee" rows="2" maxlength="300"
+            placeholder="Describe the piece you'd like to find — e.g. a gold chain necklace with a large logo pendant"
+            style="margin:0;resize:vertical;"
+            oninput="session.shopLookDescription = this.value.trim()"></textarea>
+          <div style="font-size:11px;color:var(--dust);margin-top:5px;line-height:1.5;">Correct anything we've got wrong — brand, colour, material, details. We'll search for exactly what this says.</div>
+        </div>
         <div class="shop-look-focus-field" id="shopLookFocusWrap" style="display:none;">
           <label>What caught your eye?</label>
           <input class="text-input" type="text" id="shopLookFocus"
@@ -4861,6 +4874,7 @@ function renderProducts(items, offset=0) {
         <div class="product-retailer">${esc(item.retailer)}</div>
         <div class="product-name">${esc(item.name)}</div>
         <div class="product-price">${esc(item.price)}</div>
+        ${isLooseMatch(item) ? `<div class="product-stock-note">A loose match — similar in some ways, not the same piece</div>` : ''}
         ${item.stockUnconfirmed ? `<div class="product-stock-note">We couldn't confirm stock — check your size on ${esc(item.retailer || "the retailer")}'s site</div>` : ''}
       </a>
       <button class="product-details-toggle" onclick="toggleDetails('d${idx}',this)">+ Why this works for you</button>
@@ -4903,7 +4917,13 @@ function handleShopLookPhoto(input) {
     document.getElementById('shopLookPreview').src = dataUrl;
     // Show focus field
     document.getElementById('shopLookFocusWrap').style.display = 'block';
-    // Run quick AI analysis for nudge
+    // "We see": cleared for the new photo, then filled by the quick look below
+    session.shopLookDescription = '';
+    const see = document.getElementById('shopLookSee');
+    if (see) see.value = '';
+    document.getElementById('shopLookSeeWrap').style.display = 'block';
+    document.getElementById('shopLookSeeLoading').style.display = 'block';
+    // Run quick AI analysis: what's in the photo, and the flattering nudge
     analyseShopLookForNudge(dataUrl.split(',')[1], file.type || 'image/jpeg');
   };
   reader.readAsDataURL(file);
@@ -4940,8 +4960,10 @@ async function analyseShopLookForNudge(b64, mediaType) {
   const nudgeEl = document.getElementById('shopLookNudge');
   if (!nudgeEl) return;
   nudgeEl.style.display = 'none';
-  // Only bother if we have body and colour profile
-  if (!profile.body && !profile.colourTone) return;
+  // The description is always wanted; the flattering nudge only with a profile.
+  const wantNudge = !!(profile.body || profile.colourTone);
+  const photoAtStart = session.shopLookPhoto;
+  const loading = document.getElementById('shopLookSeeLoading');
 
   try {
     const bodyNote = profile.body ? `Body type: ${profile.body}.` : '';
@@ -4957,10 +4979,12 @@ User profile:
 - ${bodyNote}
 - ${colourNote}
 
-Look at the clothing in the image. In 1-2 sentences, honestly assess: does this style (silhouette, cut, colour palette) generally flatter a ${profile.body || 'typical'} body type with ${profile.colourTone || 'neutral'} colour tones?
+First, describe the main piece(s) someone would want to shop from this photo${session.shopLookFocus ? ` — they said they're interested in: "${session.shopLookFocus.replace(/"/g, "'")}"` : ''}, in one plain line of at most 30 words: the type of item, colour, material, and the distinctive details that would let a shop assistant find the same piece.  Name a brand only if a visible logo or an unmistakable signature design shows it; otherwise don't guess one.  If no clothing, shoes, bags or jewellery are visible, set description to "".
+
+Then, in 1-2 sentences, honestly assess: does this style (silhouette, cut, colour palette) generally flatter a ${profile.body || 'typical'} body type with ${profile.colourTone || 'neutral'} colour tones?
 
 Respond ONLY with a JSON object:
-{"flattering": true/false, "concern": "Brief honest reason if not flattering (max 20 words)", "alternative": "What to look for instead (max 15 words)"}
+{"description": "One line describing the piece", "flattering": true/false, "concern": "Brief honest reason if not flattering (max 20 words)", "alternative": "What to look for instead (max 15 words)"}
 
 If flattering is true, set concern and alternative to "".`,
         imageBase64: b64,
@@ -4968,11 +4992,21 @@ If flattering is true, set concern and alternative to "".`,
       })
     });
     const data = await res.json();
+    if (session.shopLookPhoto !== photoAtStart) return;   // they've chosen another photo since
+    if (loading) loading.style.display = 'none';
     if (!res.ok) return;
     let parsed;
     try { parsed = parseQuizJSON(data.result); } catch(e) { return; }
 
-    if (parsed && parsed.flattering === false && parsed.concern) {
+    // "We see" — fill it in unless they've already started typing their own
+    const see = document.getElementById('shopLookSee');
+    const described = parsed && typeof parsed.description === 'string' ? parsed.description.trim().slice(0, 300) : '';
+    if (see && !see.value.trim() && described) {
+      see.value = described;
+      session.shopLookDescription = described;
+    }
+
+    if (wantNudge && parsed && parsed.flattering === false && parsed.concern) {
       nudgeEl.innerHTML = `
         <div class="shop-look-nudge-title">A thought from your stylist</div>
         <div class="shop-look-nudge-text">This is a beautiful look — though ${parsed.concern.toLowerCase()}. ${parsed.alternative ? 'You might get an even more flattering result searching for ' + parsed.alternative.toLowerCase() + '.' : ''}</div>
@@ -4986,7 +5020,8 @@ If flattering is true, set concern and alternative to "".`,
       session.shopLookAlternative = parsed.alternative || '';
     }
   } catch(e) {
-    // Nudge is optional — fail silently
+    // Optional — if it fails, "We see" is simply left for them to fill in
+    if (session.shopLookPhoto === photoAtStart && loading) loading.style.display = 'none';
   }
 }
 
@@ -5268,6 +5303,10 @@ function buildPhotoSearchPrompt(count, exclude=[]) {
   const syms = {USD:'$',GBP:'£',EUR:'€',SGD:'S$',AUD:'A$',CAD:'C$',JPY:'¥',HKD:'HK$'};
   const sym = syms[currency] || currency;
   const focusHint = session.shopLookFocus ? `The user wants to focus on: "${session.shopLookFocus}".` : 'Identify the main clothing item(s) visible.';
+  const seeText = (document.getElementById('shopLookSee') || {}).value || session.shopLookDescription || '';
+  const describedNote = seeText.trim()
+    ? `\n\nThe user has confirmed what they want to find: "${seeText.trim().replace(/"/g, "'")}".  Treat this description as authoritative: where it differs from your own reading of the photo, follow the description.`
+    : '';
   const vibeNote = profile.vibes.length ? `Style vibes: ${profile.vibes.join(', ')}.` : '';
   const museNote = profile.muses.length ? `Style muses: ${profile.muses.join(', ')}.` : '';
   const retailerNote = profile.retailers.length ? `User's favourite retailers/websites: ${profile.retailers.join(', ')}. Feel free to include items from these where a good match exists, but do NOT limit results to only these — include other well-matched retailers too so the user discovers new brands.` : '';
@@ -5286,7 +5325,7 @@ function buildPhotoSearchPrompt(count, exclude=[]) {
     sym, currency,
     prompt: `Fashion search engine with image analysis. Return ONLY a JSON array of exactly ${count} items. First character must be [. No text before or after.
 
-The user has uploaded a photo of a fashion look they want to shop. ${focusHint}
+The user has uploaded a photo of a fashion look they want to shop. ${focusHint}${describedNote}
 
 ${alternativeNote}
 
@@ -5301,11 +5340,13 @@ ${notes}
 
 First, identify the key clothing items in the photo. Then search for similar real products currently available to purchase. In whyItWorks, explain both how this matches the look in the photo AND how it flatters their body type.
 
+Rate every item honestly with "match": use "close" only when it is the same kind of item AND shares the piece's key design features (shape, material, and its distinctive details) — something a person would call "the same look".  Use "loose" when it only shares some qualities, such as the colour, the brand or the general type.  Never call an item close to make the results look better: loose matches are fine as long as they are labelled loose.  For a loose match, say plainly in whyItWorks what it shares with the photo and what is different.
+
 URL rules — follow strictly: only use a product URL that appeared directly in your web search results. Never guess, construct, shorten, or modify a URL. The URL must point to a specific product page, not a homepage, category page, or search results page. If you cannot find a real, specific product-page URL for an item, do not include that item at all — search for a different one instead.
 
 Use at most 3 web searches total.
 
-[{"retailer":"Name","name":"Product name","price":"${sym}XX","url":"https://specific-product-page","imageUrl":"https://cdn-image.jpg","whyItWorks":"How this matches the photo look and flatters ${profile.body || 'the user'}","sizeNote":"Size note","stylingTip":"Tip"}]`,
+[{"retailer":"Name","name":"Product name","price":"${sym}XX","url":"https://specific-product-page","imageUrl":"https://cdn-image.jpg","match":"close or loose","whyItWorks":"How this matches the photo look and flatters ${profile.body || 'the user'}","sizeNote":"Size note","stylingTip":"Tip"}]`,
     imageBase64: session.shopLookPhoto,
     imageMediaType: session.shopLookMediaType || 'image/jpeg'
   };
@@ -5554,6 +5595,11 @@ function backToResults() {
   session.feedback = prev.feedback || [];
   shopSearch = prev.shop || null;
   try { area.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+}
+
+// Look searches rate each piece "close" or "loose" (added 28 Nov 2026).
+function isLooseMatch(item) {
+  return !!item && String(item.match || '').toLowerCase().trim() === 'loose';
 }
 
 function parseItems(raw) {
@@ -7065,7 +7111,9 @@ async function findOutfits() {
     statusEl.className = 'status-msg';
     area.innerHTML = '';
     area.appendChild(statusEl);
-    const items = await verifyAndFill(rawItems, 6, buildFn, statusEl);
+    let items = await verifyAndFill(rawItems, 6, buildFn, statusEl);
+    // Look searches: close matches first (the sort keeps the AI's order otherwise)
+    if (isPhotoSearch) items = items.slice().sort((a, b) => isLooseMatch(a) - isLooseMatch(b));
     allItems = items;
 
     // If nothing survived, don't charge the user their free search for an
@@ -7091,7 +7139,15 @@ async function findOutfits() {
       : '';
 
     const fromShop = shopSearch ? ' from ' + shopSearch.name : '';
-    const label = esc(isPhotoSearch
+    // Nothing close: say so, rather than calling loose matches "similar".
+    // The search still counts — it ran and returned real pieces.
+    const noneClose = isPhotoSearch && items.every(isLooseMatch);
+    const looseNote = noneClose
+      ? `<p class="image-disclaimer" style="color:var(--charcoal);font-style:normal;">These are the closest we found. They share some of its details, like the colour, material or brand, but none is the same piece.  If we've misread the photo, correct “We see” above and search again — or a clearer photo of just the piece usually helps.</p>`
+      : '';
+    const label = esc(noneClose
+      ? "We couldn't find this exact piece" + fromShop
+      : isPhotoSearch
       ? items.length + ' similar items found' + fromShop
       : isPairingSearch
         ? items.length + ' pieces that pair with it' + fromShop
@@ -7107,6 +7163,7 @@ async function findOutfits() {
       <p class="image-disclaimer">Results are generated by AI and can occasionally be inaccurate — please forgive any broken links or mismatched details. We're continually working to refine the accuracy of these results.</p>
       ${leftNote}
       ${shopNote}
+      ${looseNote}
       <div class="product-grid" id="productGrid">${renderProducts(items)}</div>
       <div id="loadMoreWrap" style="text-align:center;margin-top:2.5rem;">
         <button class="btn-load-more" onclick="loadMore()">Discover more</button>
