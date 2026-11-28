@@ -633,7 +633,10 @@ export default async function handler(req, res) {
       ' stockUnconfirmed=' + unconfirmed.length +
       (blocked.length ? ' blockedBy=' + [...new Set(blocked.map(x => hostOf(x.url)))].join(',') : '') +
       (names ? '' : ' (no names sent — old check)') +
-      (rejected.length ? ' | ' + rejected.map(x => x.url + ' (' + (x.reason || 'dead') + ')').join(' | ').slice(0, 1500) : ''));
+      (rejected.length ? ' | ' + rejected.map(x => x.url + ' (' + (x.reason || 'dead') + ')').join(' | ').slice(0, 1500) : '') +
+      // Added 28 Nov 2026: the links kept unchecked, and why, so one that
+      // turns out to be dead (Farfetch, in a Look test) can be traced.
+      (blocked.length ? ' || kept unchecked: ' + blocked.map(x => x.url + ' (' + (x.reason || 'blocked') + ')').join(' | ').slice(0, 1500) : ''));
     // "stock" is only sent when product names were (the current frontend):
     // 'in' = the page says it can be bought; 'unknown' = couldn't tell.
     return res.status(200).json({ results: results.map(x => names
